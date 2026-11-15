@@ -1,0 +1,62 @@
+[
+  {
+    "label": "green_roof",
+    "url": "https://services.arcgis.com/fLeGjb7u4uXqeF9q/ArcGIS/rest/services/GSI_SMP_TYPES/FeatureServer/0/query?where=LOWER%28gsi_system_type%29+LIKE+%27%25green+roof%25%27&outFields=%2A&outSR=2272&f=geojson&orderByFields=objectid+ASC&resultRecordCount=2",
+    "retrieved_at": "2026-11-15T06:45:58.533607+00:00",
+    "sha256": "a0b97d16986dd815c2b8e18c3f735387f7e5a56bab24acfc2a2b1193719e75b8",
+    "filename": "a0b97d16986dd815c2b8e18c3f735387f7e5a56bab24acfc2a2b1193719e75b8.json",
+    "size_bytes": 3500,
+    "acquisition_date": null,
+    "publication_date": null,
+    "effective_date": null,
+    "claim": "Bounded public source excerpt; candidate/observation only, not site validation or credit approval."
+  },
+  {
+    "label": "permeable_pavement",
+    "url": "https://services.arcgis.com/fLeGjb7u4uXqeF9q/ArcGIS/rest/services/GSI_SMP_TYPES/FeatureServer/0/query?where=LOWER%28gsi_system_type%29+LIKE+%27%25paving%25%27+OR+LOWER%28gsi_system_type%29+LIKE+%27%25porous%25%27&outFields=%2A&outSR=2272&f=geojson&orderByFields=objectid+ASC&resultRecordCount=2",
+    "retrieved_at": "2026-11-15T06:45:58.745665+00:00",
+    "sha256": "249d43915829071b21ab100592cc26e214820e60c458337c4c981215dbc2f5a9",
+    "filename": "249d43915829071b21ab100592cc26e214820e60c458337c4c981215dbc2f5a9.json",
+    "size_bytes": 28220,
+    "acquisition_date": null,
+    "publication_date": null,
+    "effective_date": null,
+    "claim": "Bounded public source excerpt; candidate/observation only, not site validation or credit approval."
+  },
+  {
+    "label": "direct_discharge",
+    "url": "https://services.arcgis.com/fLeGjb7u4uXqeF9q/ArcGIS/rest/services/GSI_SMP_TYPES/FeatureServer/0/query?where=LOWER%28gsi_system_type%29+LIKE+%27%25direct+discharge%25%27&outFields=%2A&outSR=2272&f=geojson&orderByFields=objectid+ASC&resultRecordCount=2",
+    "retrieved_at": "2026-11-15T06:45:59.039949+00:00",
+    "sha256": "74f96b2fdc889ccaf85d328608b7a04d7df60e22531f43c8ce9949b5613caad1",
+    "filename": "74f96b2fdc889ccaf85d328608b7a04d7df60e22531f43c8ce9949b5613caad1.json",
+    "size_bytes": 98,
+    "acquisition_date": null,
+    "publication_date": null,
+    "effective_date": null,
+    "claim": "Bounded public source excerpt; candidate/observation only, not site validation or credit approval."
+  },
+  {
+    "label": "npdes_search",
+    "url": "https://echodata.epa.gov/echo/cwa_rest_services.get_facilities?output=JSON&p_pid=PA0054241&responseset=20",
+    "retrieved_at": "2026-11-15T06:45:59.292932+00:00",
+    "sha256": "db82aa33c2d9cd2535fcfb996cefec8859f8348a0fecccd3a15974e8ae9b7361",
+    "filename": "db82aa33c2d9cd2535fcfb996cefec8859f8348a0fecccd3a15974e8ae9b7361.json",
+    "size_bytes": 321,
+    "acquisition_date": null,
+    "publication_date": null,
+    "effective_date": null,
+    "claim": "Bounded public source excerpt; candidate/observation only, not site validation or credit approval."
+  },
+  {
+    "label": "npdes_rows",
+    "url": "https://echodata.epa.gov/echo/cwa_rest_services.get_qid?output=JSON&qid=283&pageno=1&responseset=20",
+    "retrieved_at": "2026-11-15T06:45:59.564727+00:00",
+    "sha256": "47053d1026fb0598fe3b6084d793b09664d7f312ac5ee7b92428b1dfc9d56a6c",
+    "filename": "47053d1026fb0598fe3b6084d793b09664d7f312ac5ee7b92428b1dfc9d56a6c.json",
+    "size_bytes": 695,
+    "acquisition_date": null,
+    "publication_date": null,
+    "effective_date": null,
+    "claim": "Bounded public source excerpt; candidate/observation only, not site validation or credit approval."
+  }
+]

@@ -1,0 +1,148 @@
+"""Loopback-only UI/API. No external writes, hosting or browser dependencies."""
+import argparse
+import base64
+from hashlib import sha256
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import json
+from pathlib import Path
+import re
+from urllib.parse import urlparse
+import uuid
+from shapely.geometry import shape, mapping
+from .cases import CaseStore, ROOT, analyze, new_case
+from .geometry import reproject
+
+
+def acquired_case(data):
+    c=new_case(data.get('address') or 'PWD parcel '+str(data['parcel_id']))
+    c['id']='pwd-'+str(data['parcel_id'])
+    for key in ('parcel','crs','baseline','sources','features','warnings','pending','boundary_source','imagery'):
+        if key in data:c[key]=data[key]
+    for i,f in enumerate(c['features']['features']):
+        f['id']=str(f.get('id','source-'+str(i)))
+    c['assumptions']=['Public building footprints are preliminary roof observations with unknown vintage.',
+                      'No ground surface, drainage connection, or approved managed area is inferred from billing totals.']
+    return c
+
+
+class Handler(BaseHTTPRequestHandler):
+    store=CaseStore()
+
+    def send(self,data,status=200,mime='application/json'):
+        body=(data if isinstance(data,bytes) else json.dumps(data,allow_nan=False).encode() if mime=='application/json' else data.encode())
+        self.send_response(status);self.send_header('Content-Type',mime)
+        self.send_header('Content-Length',str(len(body)));self.send_header('X-Content-Type-Options','nosniff')
+        if mime=='application/octet-stream':self.send_header('Content-Disposition','attachment')
+        self.send_header('Cache-Control','no-store');self.end_headers();self.wfile.write(body)
+
+    def do_GET(self):
+        path=urlparse(self.path).path
+        try:
+            if self.headers.get('Host','').split(':')[0] not in ('localhost','127.0.0.1'):
+                return self.send({'error':'Loopback Host required'},403)
+            if path=='/api/config':return self.send({'mode':'philadelphia','title':'Philadelphia drainage workbench','jurisdictions':['philadelphia-pwd']})
+            if path=='/api/cases':return self.send(self.store.list())
+            if path=='/api/renewals':return self.send(self.store.renewals())
+            if path.startswith('/api/cases/'):return self.send(self.store.load(path.split('/')[-1]))
+            if path.startswith('/api/attachment/'):
+                from drainage_core.evidence import AttachmentStore
+                _,_,_,case_id,digest=path.split('/')
+                case=self.store.load(case_id)
+                if not any(a['sha256']==digest for a in case.get('assessment',{}).get('attachments',[])):
+                    raise ValueError('Attachment is not referenced by the saved case')
+                return self.send(AttachmentStore(self.store.directory(case_id)/'attachments').read(digest),mime='application/octet-stream')
+            if path.startswith('/api/blob/'):
+                digest=path.split('/')[-1]
+                if not re.fullmatch('[a-f0-9]{64}',digest):raise ValueError('Invalid source hash')
+                data=(ROOT/'data/public/blobs'/digest).read_bytes()
+                if sha256(data).hexdigest()!=digest:raise ValueError('Source hash mismatch')
+                return self.send(data,mime='image/png')
+            if path.startswith('/exports/'):
+                _,_,id,name=path.split('/')
+                if name=='evidence-bundle.json':return self.send(self.store.portable_bundle(id))
+                allowed={'report.html':'text/html; charset=utf-8','case.json':'application/json',
+                         'analysis.json':'application/json','measurements.geojson':'application/geo+json','gis-analysis.json':'application/json'}
+                if name not in allowed:raise ValueError('Unknown export')
+                return self.send((self.store.directory(id)/name).read_bytes(),mime=allowed[name])
+            name='index.html' if path=='/' else path.lstrip('/')
+            if name not in ('index.html','app.js','style.css'):return self.send({'error':'Not found'},404)
+            mime={'index.html':'text/html; charset=utf-8','app.js':'text/javascript','style.css':'text/css'}[name]
+            return self.send((ROOT/'drainage_core/web'/name).read_bytes(),mime=mime)
+        except (ValueError,FileNotFoundError,KeyError) as exc:self.send({'error':str(exc)},404)
+
+    def do_POST(self):
+        try:
+            # Reject foreign browser origins, including file/null origins.
+            origin=self.headers.get('Origin')
+            if origin and origin not in (f'http://127.0.0.1:{self.server.server_port}',f'http://localhost:{self.server.server_port}'):
+                return self.send({'error':'Foreign origin rejected'},403)
+            host=self.headers.get('Host','').split(':')[0]
+            if host not in ('localhost','127.0.0.1'):return self.send({'error':'Loopback Host required'},403)
+            length=int(self.headers.get('Content-Length','0'))
+            path=urlparse(self.path).path
+            limit=128 if path=='/api/assessment/import' else 32
+            if not 0<length<=limit*1024*1024:raise ValueError(f'Request must be between 1 byte and {limit} MB')
+            payload=json.loads(self.rfile.read(length))
+            if path=='/api/analyze':return self.send(analyze(payload['case']))
+            if path=='/api/save':return self.send(self.store.save(payload['case']))
+            if path=='/api/assessment/run':return self.send(self.store.run_assessment(payload['case']))
+            if path=='/api/assessment/review':
+                from .assessment_workflow import review_record
+                updated=review_record(payload['case'],payload['record'],payload.get('reason'))
+                return self.send({'case':updated,'analysis':analyze(updated)})
+            if path=='/api/assessment/history':
+                from .assessment_workflow import ensure_assessment
+                from .renewals import STATUSES,credit_renewals
+                from copy import deepcopy
+                from drainage_core.evidence import now,validate_references
+                if not str(payload.get('reason','')).strip():raise ValueError('History evidence/review reason required')
+                updated=deepcopy(payload['case']);a=ensure_assessment(updated)
+                event=deepcopy(payload['event']);event.setdefault('id',uuid.uuid4().hex)
+                event['status']=event.get('status',event.get('event','unknown'))
+                if event['status'] not in STATUSES:raise ValueError('Unsupported history status')
+                event['recorded_at']=now();event['reason']=payload['reason']
+                a['credit_history'].append(event)
+                credit_renewals(a['credit_history']);validate_references(a)
+                return self.send({'case':updated,'analysis':analyze(updated)})
+            if path=='/api/assessment/attachment':
+                updated,attachment=self.store.attach(payload['case'],payload['filename'],base64.b64decode(payload['content'],validate=True))
+                return self.send({'case':updated,'attachment':attachment})
+            if path=='/api/assessment/import':return self.send(self.store.import_bundle(payload['bundle']))
+            if path=='/api/acquire':
+                from .acquisition import Cache, acquire_property, acquire_imagery
+                cache=Cache(ROOT/'data/public')
+                data=acquire_property(payload['parcel_id'],cache,refresh=payload.get('refresh',False))
+                try:
+                    image=acquire_imagery(data['parcel'],cache,refresh=payload.get('refresh',False))
+                    data['imagery']=image;data['sources'].extend(image['sources']);data['warnings'].extend(image['warnings'])
+                except Exception as exc:data['warnings'].append('Imagery unavailable: '+str(exc))
+                return self.send(acquired_case(data))
+            if path=='/api/import-raster':
+                from .raster import import_dem,classify_raster
+                content=base64.b64decode(payload['content'],validate=True)
+                digest=sha256(content).hexdigest();folder=ROOT/'data/imports';folder.mkdir(exist_ok=True)
+                file=folder/(digest+'.tif')
+                if not file.exists():file.write_bytes(content)
+                if payload['kind']=='dem':
+                    data=import_dem(file,vertical_unit=payload['vertical_unit'],acquisition_date=payload.get('acquisition_date'))
+                else:
+                    data=classify_raster(file,payload['class_map'],acquisition_date=payload.get('acquisition_date'))
+                    for i,f in enumerate(data['features']['features']):
+                        f['id']='raster-'+digest[:10]+'-'+str(i)
+                        if data['crs']!=payload['target_crs']:
+                            f['geometry']=mapping(reproject(shape(f['geometry']),data['crs'],payload['target_crs']))
+                return self.send(data)
+            return self.send({'error':'Not found'},404)
+        except Exception as exc:
+            self.send({'error':str(exc)},400)
+
+
+def main():
+    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--port',type=int,default=8765)
+    args=parser.parse_args();server=ThreadingHTTPServer(('127.0.0.1',args.port),Handler)
+    print(f'Open http://127.0.0.1:{args.port} — local drainage analysis',flush=True)
+    try:server.serve_forever()
+    except KeyboardInterrupt:pass
+    finally:server.server_close()
+
+if __name__=='__main__':main()

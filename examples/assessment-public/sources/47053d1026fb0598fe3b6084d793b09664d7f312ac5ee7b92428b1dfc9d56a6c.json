@@ -1,0 +1,36 @@
+{
+"Results":{
+"Message":"Working",
+"QueryRows":"1",
+"QueryID":"283",
+"PageNo":"1",
+"Facilities":[
+{
+"CWPName":"121 POINT BREEZE TERMINAL LLC",
+"SourceID":"PA0054241",
+"CWPStreet":"6310 W PASSYUNK AVE",
+"CWPCity":"PHILADELPHIA",
+"CWPState":"PA",
+"CWPStateDistrict":"01",
+"CWPZip":"191533511",
+"MasterExternalPermitNmbr":null,
+"EPASystem":"ICP",
+"Statute":"CWA",
+"CWPCounty":"Philadelphia",
+"CWPNAICSCodes":null,
+"FacLong":"-75.21593",
+"CWPFacilityTypeIndicator":"NON-POTW",
+"NPDESIDs":"PA0054241",
+"SDWAIDs":null,
+"TRIIDs":null,
+"RmpIDs":null,
+"FacPopDen":null,
+"PercentBelowLowincome3mile":"41.44",
+"FacPercentMinority":"71.228",
+"FacIndianCntryFlg":"N",
+"Sector":null,
+"Subsector":null
+}
+]
+}
+}

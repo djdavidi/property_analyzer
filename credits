@@ -1,0 +1,9 @@
+#!/bin/sh
+set -eu
+POLICY_ROOT=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+PYTHONPATH="${POLICY_ROOT}${PYTHONPATH:+:$PYTHONPATH}"
+export PYTHONPATH
+if [ -x "$POLICY_ROOT/.venv/bin/python" ]; then
+  exec "$POLICY_ROOT/.venv/bin/python" -m stormwater.policy_cli "$@"
+fi
+exec python3 -m stormwater.policy_cli "$@"

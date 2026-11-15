@@ -1,0 +1,45 @@
+/* Behavior checks with a minimal DOM. These do not replace pointer/visual browser QA. */
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const source=fs.readFileSync('drainage_core/web/app.js','utf8');
+class Element{
+ constructor(id=''){this.id=id;this.value='';this.innerHTML='';this.textContent='';this.dataset={};this.children=[];this.options=[];this.files=[];this.checked=false;this.tagName='INPUT';this.type='text';}
+ addEventListener(){}setAttribute(){}append(child){this.children.push(child);}replaceChildren(){this.children=[];}querySelector(){return null;}querySelectorAll(){return this.fields||[];}scrollIntoView(){}remove(){}showModal(){}close(){}
+}
+const clone=x=>JSON.parse(JSON.stringify(x));
+const site={schema_version:1,id:'ui-fixture',name:'Site <script>bad</script>',crs:'EPSG:2272',parcel:{type:'Polygon',coordinates:[[[0,0],[20,0],[20,20],[0,20],[0,0]]]},features:{type:'FeatureCollection',features:[]},sources:[],corrections:[],assessment:{records:[],attachments:[],credit_history:[],snapshots:[]}};
+const analysis={measurement:{ga_sqft:400,ia_sqft:null,unknown_sqft:400,canopy_ground_ia_sqft:0},billing:{status:'blocked'},drainage:{status:'unavailable'},validation:{ia:{status:'incomplete'},drainage:{status:'incomplete'}},warnings:[],assessment:{categories:[{category:'green_roof',status:'missing_evidence',records:[{id:'<img onerror=bad>',status:'missing_evidence',missing:['<script>bad</script>'],managed_area_sqft:null,footprint_area_sqft:null}]}],economics:{documented:{status:'blocked',gross_monthly_reduction:null,gross_annual_reduction:null,reasons:['Missing billing evidence']}},renewals:[],historical_flags:[]}};
+analysis.assessment.public_credit_observations=[{credits_flag:null,expired_flag:1,appeals_flag:0,retrieved_at:'2026-11-15T12:00:00Z',source_url:'https://example.test/<script>flag</script>',effective_date:null,expiry_date:null,interpretation:'Public flags do not establish an award, lapse, renewal deadline or refund entitlement.',missing_evidence:['Award and date records']}];
+async function harness(mode){
+ const nodes=new Map(),calls=[];const node=id=>{if(!nodes.has(id))nodes.set(id,new Element(id));return nodes.get(id);};node('assessment-category').value='green_roof';
+ const context=vm.createContext({document:{body:{dataset:{}},getElementById:node,querySelectorAll:()=>[],createElementNS:()=>new Element()},window:{addEventListener(){}},location:{search:''},URLSearchParams,structuredClone:clone,console,crypto:{randomUUID:()=> 'manual-event'},confirm:()=>true,fetch:async(path,options)=>{const payload=options?.body?JSON.parse(options.body):undefined;calls.push({path,payload});let data;if(path==='/api/config')data={mode,title:'Test'};else if(path==='/api/cases')data=[];else if(path==='/api/renewals')data={as_of:'2026-11-15',lead_days:90,properties:[]};else if(path.startsWith('/api/cases/'))data=clone(site);else if(path==='/api/analyze')data=clone(analysis);else if(path==='/api/assessment/run')data={case:clone(site),analysis:clone(analysis)};else if(path==='/api/assessment/review')data={case:{...clone(site),assessment:{...clone(site.assessment),records:[payload.record]}},analysis:clone(analysis)};else if(path==='/api/assessment/history')data={case:{...clone(site),assessment:{...clone(site.assessment),credit_history:[payload.event]}},analysis:clone(analysis)};else throw Error('Unexpected endpoint '+path);return {ok:true,json:async()=>data};}});
+ vm.runInContext(source,context);await new Promise(resolve=>setImmediate(resolve));return {context,calls,node,run:code=>vm.runInContext(code,context)};
+}
+(async()=>{
+ const p=await harness('philadelphia');p.calls.length=0;
+ await p.run("load('ui-fixture')");
+ assert(p.calls.some(c=>c.path==='/api/analyze'),'Open locally recalculates saved evidence');
+ assert(!p.calls.some(c=>c.path==='/api/assessment/run'),'Open must not gather public records or replace snapshot');
+ assert.match(p.node('assessment-results').innerHTML,/Unknown/,'Unknown values remain explicit');
+ assert(!p.node('assessment-results').innerHTML.includes('<script>bad</script>'),'Facts and record identifiers must be escaped');
+ assert.match(p.node('assessment-results').innerHTML,/&lt;script&gt;/);
+ assert.match(p.node('assessment-results').innerHTML,/Public credit flags/);assert.match(p.node('assessment-results').innerHTML,/Expired flag: <strong>1<\/strong>/);assert.match(p.node('assessment-results').innerHTML,/Effective date: Unknown/);assert.match(p.node('assessment-results').innerHTML,/do not establish an award/);
+ p.calls.length=0;await p.node('run').onclick();
+ assert.equal(p.calls.filter(c=>c.path==='/api/assessment/run').length,1,'Run assessment uses one public acquisition action');
+ assert.match(p.node('status').textContent,/snapshot saved/);
+ p.node('assessment-decision').value='rejected';p.node('assessment-basis').value='manual';p.node('assessment-reason').value='Reviewed source plan; proposed only';p.node('assessment-extra').value=JSON.stringify({source:{url:'https://example.test/plan'},evidence_refs:[{source_url:'https://example.test/plan',page:2}]});p.node('assessment-url').value='https://example.test/decision';p.node('assessment-page').value='3';
+ await p.node('assessment-save-record').onclick();
+ const reviewed=p.calls.find(c=>c.path==='/api/assessment/review').payload;
+ assert.equal(reviewed.record.decision,'rejected');assert.equal(reviewed.record.evidence_refs.length,2,'Review retains previous document references');assert.equal(reviewed.record.evidence_refs[1].page,3);assert.equal(reviewed.reason,'Reviewed source plan; proposed only');
+ // The editor must reload the just-recorded lineage before another correction.
+ p.node('assessment-reason').value='Added another supporting record';p.node('assessment-url').value='https://example.test/next-record';p.node('assessment-page').value='4';await p.node('assessment-save-record').onclick();
+ const secondReview=p.calls.filter(c=>c.path==='/api/assessment/review').at(-1).payload.record;assert.equal(secondReview.evidence_refs.length,3,'Repeated reviews must retain references introduced by the preceding review');
+ p.node('assessment-category').value='industrial_npdes';p.node('assessment-category').onchange();assert.match(p.node('assessment-facts').innerHTML,/data-fact="account_current"/,'Industrial manual records must expose the account-current prerequisite');
+ p.node('history-credit-id').value='unexplained-expired';p.node('history-event').value='expired';p.node('history-notes').value='Public record flag only';
+ await p.node('history-add').onclick();
+ const history=p.calls.find(c=>c.path==='/api/assessment/history').payload.event;
+ assert.equal(history.status,'expired');assert(!('expires_on' in history));assert(!('effective_from' in history));assert(!('credited_area_sqft' in history),'Unknown history must not become zero area');
+ const g=await harness('gis');g.calls.length=0;await g.run("current="+JSON.stringify(site));await g.node('run').onclick();
+ assert(g.calls.some(c=>c.path==='/api/analyze'));assert(!g.calls.some(c=>c.path.includes('assessment')||c.path==='/api/renewals'),'GIS operation remains independent of policy endpoints');
+ console.log('UI behavior checks passed: local open, explicit assessment, unknowns, escaping, review lineage, history dates, GIS isolation.');
+})().catch(error=>{console.error(error);process.exitCode=1;});

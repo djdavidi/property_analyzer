@@ -1,0 +1,23 @@
+# Local environments and interpreter/build state
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+build/
+dist/
+*.egg-info/
+.DS_Store
+
+# Credentials and private local configuration
+.env
+.env.*
+!.env.example
+*.pem
+
+# Local cases, uploaded documents, raw source caches and generated artifacts
+# Small intentional versioned fixtures belong in examples/ or tests/fixtures/.
+data/
+attachments/
+uploads/
+output/
+outputs/

@@ -1,0 +1,486 @@
+{
+  "schema_version": 1,
+  "id": "existing-site-synthetic",
+  "name": "Existing-site assessment \u2014 entirely invented systems and records",
+  "crs": "EPSG:26918",
+  "parcel": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [
+          30.48,
+          0.0
+        ],
+        [
+          30.48,
+          30.48
+        ],
+        [
+          0.0,
+          30.48
+        ],
+        [
+          0.0,
+          0.0
+        ],
+        [
+          30.48,
+          0.0
+        ]
+      ]
+    ]
+  },
+  "features": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "type": "Feature",
+        "id": "roof",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                6.096,
+                0.0
+              ],
+              [
+                6.096,
+                30.48
+              ],
+              [
+                0.0,
+                30.48
+              ],
+              [
+                0.0,
+                0.0
+              ],
+              [
+                6.096,
+                0.0
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "layer": "surface",
+          "class": "roof"
+        }
+      },
+      {
+        "type": "Feature",
+        "id": "paving",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                24.384,
+                0.0
+              ],
+              [
+                24.384,
+                30.48
+              ],
+              [
+                6.096,
+                30.48
+              ],
+              [
+                6.096,
+                0.0
+              ],
+              [
+                24.384,
+                0.0
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "layer": "surface",
+          "class": "pavement"
+        }
+      },
+      {
+        "type": "Feature",
+        "id": "lawn",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                30.48,
+                0.0
+              ],
+              [
+                30.48,
+                30.48
+              ],
+              [
+                24.384,
+                30.48
+              ],
+              [
+                24.384,
+                0.0
+              ],
+              [
+                30.48,
+                0.0
+              ]
+            ]
+          ]
+        },
+        "properties": {
+          "layer": "surface",
+          "class": "pervious"
+        }
+      }
+    ]
+  },
+  "sources": [],
+  "corrections": [],
+  "references": [],
+  "terrain": null,
+  "assumptions": [
+    "All new category prerequisites are conditional modeled inputs, not document-verified facts.",
+    "Illustrative historical credit quantities are not presumed current received benefits; baseline is separate.",
+    "No terrain or independent measurement references supplied. No empirical IA/drainage validation."
+  ],
+  "manual_review_minutes": null,
+  "created_at": "2026-11-15T00:00:00Z",
+  "benefits": [],
+  "baseline": {
+    "ga_sqft": 10000,
+    "ia_sqft": 8000,
+    "actual_bill_verified": false,
+    "bill_date": "2026-11-15",
+    "source": "Invented billing baseline, not an invoice",
+    "published_monthly_total": 130
+  },
+  "synthetic_case": true,
+  "assessment": {
+    "schema_version": 1,
+    "records": [
+      {
+        "id": "green_roof-modeled",
+        "category": "green_roof",
+        "decision": "confirmed",
+        "basis": "modeled",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                3.048,
+                0.0
+              ],
+              [
+                3.048,
+                30.48
+              ],
+              [
+                0.0,
+                30.48
+              ],
+              [
+                0.0,
+                0.0
+              ],
+              [
+                3.048,
+                0.0
+              ]
+            ]
+          ]
+        },
+        "footprint_geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                1.524,
+                0.0
+              ],
+              [
+                1.524,
+                30.48
+              ],
+              [
+                0.0,
+                30.48
+              ],
+              [
+                0.0,
+                0.0
+              ],
+              [
+                1.524,
+                0.0
+              ]
+            ]
+          ]
+        },
+        "facts": {
+          "existing_installation": true,
+          "account_current": true,
+          "physical_area_confirmed": true,
+          "parcel_allocation_confirmed": true,
+          "routing_confirmed": true,
+          "approved_record_drawings": true,
+          "current_condition_confirmed": true,
+          "maintenance_documented": true,
+          "professional_reviewed": true,
+          "treatment_depth_inches": 1.5
+        },
+        "evidence_refs": [
+          {
+            "source_url": "https://example.test/entirely-invented-evidence",
+            "page": 1
+          }
+        ]
+      },
+      {
+        "id": "permeable_pavement-modeled",
+        "category": "permeable_pavement",
+        "decision": "confirmed",
+        "basis": "modeled",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                9.144,
+                0.0
+              ],
+              [
+                9.144,
+                30.48
+              ],
+              [
+                6.096,
+                30.48
+              ],
+              [
+                6.096,
+                0.0
+              ],
+              [
+                9.144,
+                0.0
+              ]
+            ]
+          ]
+        },
+        "footprint_geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                7.62,
+                0.0
+              ],
+              [
+                7.62,
+                30.48
+              ],
+              [
+                6.096,
+                30.48
+              ],
+              [
+                6.096,
+                0.0
+              ],
+              [
+                7.62,
+                0.0
+              ]
+            ]
+          ]
+        },
+        "facts": {
+          "existing_installation": true,
+          "account_current": true,
+          "physical_area_confirmed": true,
+          "parcel_allocation_confirmed": true,
+          "routing_confirmed": true,
+          "approved_record_drawings": true,
+          "current_condition_confirmed": true,
+          "maintenance_documented": true,
+          "professional_reviewed": true,
+          "treatment_depth_inches": 1.5,
+          "material_confirmed": true,
+          "construction_documented": true,
+          "storage_documented": true,
+          "infiltration_or_underdrain_documented": true
+        },
+        "evidence_refs": [
+          {
+            "source_url": "https://example.test/entirely-invented-evidence",
+            "page": 1
+          }
+        ]
+      },
+      {
+        "id": "direct_discharge-modeled",
+        "category": "direct_discharge",
+        "decision": "confirmed",
+        "basis": "modeled",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                15.24,
+                0.0
+              ],
+              [
+                15.24,
+                30.48
+              ],
+              [
+                12.192,
+                30.48
+              ],
+              [
+                12.192,
+                0.0
+              ],
+              [
+                15.24,
+                0.0
+              ]
+            ]
+          ]
+        },
+        "footprint_geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                13.716000000000001,
+                0.0
+              ],
+              [
+                13.716000000000001,
+                30.48
+              ],
+              [
+                12.192,
+                30.48
+              ],
+              [
+                12.192,
+                0.0
+              ],
+              [
+                13.716000000000001,
+                0.0
+              ]
+            ]
+          ]
+        },
+        "facts": {
+          "existing_installation": true,
+          "account_current": true,
+          "physical_area_confirmed": true,
+          "parcel_allocation_confirmed": true,
+          "routing_confirmed": true,
+          "approved_record_drawings": true,
+          "current_condition_confirmed": true,
+          "maintenance_documented": true,
+          "professional_reviewed": true,
+          "treatment_depth_inches": 1.5,
+          "catchment_confirmed": true,
+          "route_confirmed": true,
+          "outfall_confirmed": true,
+          "destination_confirmed": true,
+          "no_city_infrastructure": true,
+          "ownership_confirmed": true,
+          "no_erosion_or_detriment": true,
+          "site_plan_documented": true,
+          "photographs_current": true,
+          "private_connections_resolved": true,
+          "waterway_name": "Invented waterway",
+          "outfall_id": "invented-outfall",
+          "upstream_smp_present": false
+        },
+        "evidence_refs": [
+          {
+            "source_url": "https://example.test/entirely-invented-evidence",
+            "page": 1
+          }
+        ]
+      },
+      {
+        "id": "industrial-modeled",
+        "category": "industrial_npdes",
+        "decision": "confirmed",
+        "basis": "modeled",
+        "facts": {
+          "account_current": true,
+          "site_match": true,
+          "operator_match": true,
+          "industrial_stormwater": true,
+          "active": true,
+          "compliance_previous_12_months": true,
+          "permit_documented": true,
+          "discharge_monitoring_reports_previous_12_months": true,
+          "permit_id": "SYNTHETIC-NOT-A-PERMIT",
+          "effective_from": "2023-03-24",
+          "expires_on": "2028-03-23",
+          "compliance_from": "2025-11-15",
+          "compliance_through": "2026-11-15"
+        },
+        "evidence_refs": [
+          {
+            "source_url": "https://example.test/not-a-real-permit",
+            "page": 2
+          }
+        ]
+      }
+    ],
+    "observations": [],
+    "credit_history": [
+      {
+        "id": "unexplained-flag",
+        "credit_id": "unexplained-flag",
+        "category": "unknown",
+        "status": "expired",
+        "notes": "Invented unexplained flag. No award, lapse date or refund is inferred."
+      },
+      {
+        "id": "old-illustrative-award",
+        "credit_id": "prior-roof",
+        "category": "green_roof",
+        "status": "awarded",
+        "effective_from": "2020-01-01",
+        "expires_on": "2024-01-01",
+        "credited_area_sqft": 500,
+        "source_url": "https://example.test/invented-historical-letter"
+      },
+      {
+        "id": "illustrative-renewal",
+        "credit_id": "prior-roof",
+        "supersedes": "old-illustrative-award",
+        "category": "green_roof",
+        "status": "renewed",
+        "effective_from": "2024-01-01",
+        "expires_on": "2026-12-31",
+        "credited_area_sqft": 500,
+        "source_url": "https://example.test/invented-renewal"
+      }
+    ],
+    "snapshots": [],
+    "attachments": [],
+    "reviews": [],
+    "source_status": [],
+    "identifiers": {}
+  },
+  "warnings": [
+    "SYNTHETIC: all geometry, facts, permits, invoices and history are invented. No approval, installed real system, award or real savings is established."
+  ]
+}

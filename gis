@@ -1,0 +1,9 @@
+#!/bin/sh
+set -eu
+GIS_ROOT=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+PYTHONPATH="${GIS_ROOT}${PYTHONPATH:+:$PYTHONPATH}"
+export PYTHONPATH
+if [ -x "$GIS_ROOT/.venv/bin/python" ]; then
+  exec "$GIS_ROOT/.venv/bin/python" -m drainage_core "$@"
+fi
+exec python3 -m drainage_core "$@"

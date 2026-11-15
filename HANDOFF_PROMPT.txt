@@ -1,0 +1,17 @@
+Implement the property analyzer release specified in docs/PRD.md.
+
+Read AGENTS.md, README.md, SETUP.md, docs/STATE.md and docs/TASK.md first. Inspect the existing implementation and baseline tests, then present a concise implementation sequence and proceed. The interview decisions are settled; ask only about consequential unresolved scope or access.
+
+Keep drainage_core independently runnable and free of jurisdiction logic. Apply Philadelphia rules through its separate adapter to frozen GIS evidence.
+
+Implement all five additions for EXISTING sites only: green roofs, permeable pavement, direct surface-water discharge, industrial NPDES, and prior-credit/renewal assessment.
+
+Use one best-effort Run assessment action. Gather available free public records, flag candidate features/matches for manual confirmation or correction, and preserve earlier snapshots. Support manually entered facts with attached supporting documents and page references; do not add automatic document fact extraction.
+
+Report gross monthly/annual ongoing bill reductions only. Separately flag possible historical billing/refund issues for review; never assume a refund is owed. Show upcoming/overdue renewal warnings in each case and across all saved properties, with history/dates in reports.
+
+Exclude proposed improvements, installation costs, ROI/net-benefit modeling, paid services, outreach, application drafting/submission and hosting/deployment. Do not use personal Chrome. Do not commit/push unless asked.
+
+Verify current primary-source rules and effective periods. Preserve baseline benefits, allocations, rounding/minima, unknown evidence and the shared area ledger; do not double count. Choose public worked examples and synthetic fixtures because no private test property/documents were supplied.
+
+Add meaningful unit, provider, persistence, report and end-to-end checks. Keep IA and drainage empirical validation separate; report source failures, unknowns and incomplete validation honestly. Deliver runnable software, setup instructions, actual test results and remaining limitations.

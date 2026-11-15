@@ -1,0 +1,1 @@
+Built local_drainage_workbench-0.2.0 wheel. Installed to an isolated temporary target with no dependency installation. From outside the checkout, ran the Sydney demo under an import hook rejecting all stormwater imports. Confirmed 700 m2 IA and bundled map/editor assets. Passed.

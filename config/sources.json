@@ -1,0 +1,114 @@
+{
+  "version": "2026-11-15",
+  "policy": "Free public data only; acquisition dates are not retrieval dates. Explicit refresh required.",
+  "sources": [
+    {
+      "id": "pwd_parcel",
+      "url_template": "https://stormwater.phila.gov/PwdWebApi/api/v1/parcel/{parcel_id}",
+      "role": "boundary and recorded areas",
+      "native_crs": "EPSG:4326",
+      "acquisition_date": null,
+      "independent_ia_reference": false,
+      "independent_boundary_reference": false,
+      "status": "live retrieval successful"
+    },
+    {
+      "id": "pwd_billing",
+      "url_template": "https://stormwater.phila.gov/PwdWebApi/api/v1/parcel/{parcel_id}/details",
+      "role": "public account calculations, current credit and pending fields",
+      "acquisition_date": null,
+      "actual_invoice": false,
+      "status": "live retrieval successful"
+    },
+    {
+      "id": "buildings",
+      "url": "https://services.arcgis.com/fLeGjb7u4uXqeF9q/ArcGIS/rest/services/LI_BUILDING_FOOTPRINTS/FeatureServer/0",
+      "catalog": "https://opendataphilly.org/datasets/building-footprints/",
+      "role": "roof starting geometry; review required",
+      "native_crs": "EPSG:3857",
+      "request_crs": "EPSG:2272",
+      "acquisition_date": null,
+      "independent_ia_reference": false,
+      "status": "bounded live retrieval successful"
+    },
+    {
+      "id": "pwd_systems",
+      "url": "https://services.arcgis.com/fLeGjb7u4uXqeF9q/ArcGIS/rest/services/GSI_SMP_TYPES/FeatureServer/0",
+      "role": "mapped system footprint only; not an inlet or contributing boundary",
+      "acquisition_date": null,
+      "independent_drainage_reference": false,
+      "status": "bounded live retrieval successful"
+    },
+    {
+      "id": "imagery_2025",
+      "url": "https://services.pasda.psu.edu/arcgis/rest/services/pasda/PhiladelphiaImagery2025/MapServer",
+      "catalog": "https://imagery.pasda.psu.edu/arcgis/rest/services/pasda/PhiladelphiaImagery2025/MapServer",
+      "role": "aerial review background",
+      "service_vintage": "2025",
+      "acquisition_date": null,
+      "status": "service catalog verified; initial export blocked by TLS certificate chain"
+    },
+    {
+      "id": "elevation_2025",
+      "url": "https://www.pasda.psu.edu/download/phillyLiDAR/2025/DEM/",
+      "role": "native terrain tiles",
+      "acquisition_date": null,
+      "horizontal_unit": null,
+      "vertical_unit": null,
+      "resolution": null,
+      "status": "public directory verified; tile metadata must determine units and acquisition date before routing"
+    },
+    {
+      "id": "landcover_2018",
+      "url": "https://opendataphilly.org/datasets/philadelphia-land-cover-raster/",
+      "role": "optional classification starting layer; tree canopy hides underlying material",
+      "service_vintage": "2018",
+      "acquisition_date": null,
+      "independent_ia_reference": false,
+      "status": "catalog verified; not used to validate the same classification source"
+    },
+    {
+      "id": "canopy_2018",
+      "url": "https://opendataphilly.org/datasets/ppr-tree-canopy/",
+      "role": "historical canopy review; ground IA overlap must be measured separately",
+      "service_vintage": "2018",
+      "acquisition_date": null,
+      "status": "catalog verified; property vectors not yet acquired"
+    },
+    {
+      "id": "soils",
+      "url": "https://sdmdataaccess.nrcs.usda.gov/",
+      "role": "mapped soil units and hydrologic groups; not a substitute for field infiltration evidence",
+      "acquisition_date": null,
+      "status": "source identified; parcel soil evidence not acquired"
+    },
+    {
+      "id": "independent_ia",
+      "role": "held-out reference labels with separate provenance",
+      "status": "missing"
+    },
+    {
+      "id": "independent_drainage",
+      "role": "accepted drainage schedule/boundaries, surveyed inlets/pipes and stable site vintage",
+      "status": "missing"
+    },
+    {
+      "id": "whitaker_usgs_1m",
+      "role": "selected verified-unit Whitaker terrain",
+      "url": "https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/1m/Projects/PA_17County_D24/TIFF/USGS_1M_18_x49y444_PA_17County_D24.tif",
+      "metadata_url": "https://thor-f5.er.usgs.gov/ngtoc/metadata/waf/elevation/1_meter/geotiff/PA_17County_D24/USGS_1M_18_x49y444_PA_17County_D24.xml",
+      "crs": "EPSG:26918",
+      "horizontal_unit": "m",
+      "vertical_unit": "m",
+      "vertical_datum": "NAVD88",
+      "resolution": 1,
+      "acquisition_period": [
+        "2024-04-14",
+        "2025-04-02"
+      ],
+      "acquisition_date": null,
+      "independent_drainage_reference": false,
+      "status": "bounded native window acquired; units verified; current conditions/connectivity and empirical validation incomplete"
+    }
+  ]
+}

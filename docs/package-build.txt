@@ -1,0 +1,12 @@
+Processing /Users/david/Documents/ChatGPT/Supernova/drainage-v1
+  Preparing metadata (pyproject.toml): started
+  Preparing metadata (pyproject.toml): finished with status 'done'
+Building wheels for collected packages: local-drainage-workbench
+  Building wheel for local-drainage-workbench (pyproject.toml): started
+  Building wheel for local-drainage-workbench (pyproject.toml): finished with status 'done'
+  Created wheel for local-drainage-workbench: filename=local_drainage_workbench-0.2.0-py3-none-any.whl size=89962 sha256=3d1ad2485b17a08a5157fa30c6ed185e844858376b9d260489deefd218e29725
+  Stored in directory: /Users/david/Library/Caches/pip/wheels/68/e6/ae/604464c5c51446b68cfe99b4bb61a985e81782caaf8cb34890
+Successfully built local-drainage-workbench
+
+[notice] A new release of pip is available: 25.0.1 -> 26.3
+[notice] To update, run: /Users/david/Documents/ChatGPT/Supernova/drainage-v1/.venv/bin/python -m pip install --upgrade pip
