@@ -397,7 +397,9 @@ def owner_summary(case, analysis):
         )
         if unrecorded:
             systems_text += (
-                f" {len(unrecorded)} of these {'have' if len(unrecorded) != 1 else 'has'} no "
+                " It has no recorded credit."
+                if len(systems) == 1
+                else f" {len(unrecorded)} of these {'have' if len(unrecorded) != 1 else 'has'} no "
                 "recorded credit."
             )
         elif recorded is False:

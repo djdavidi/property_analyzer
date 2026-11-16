@@ -840,7 +840,7 @@ class OwnerSummaryTests(unittest.TestCase):
         a["assessment"]["economics"]["baseline"]["billing_notes"] = ["Minimum applies per account."]
         s = owner_summary(summary_case(), a)
         self.assertEqual(s["systems"]["count"], 1)  # 062571 and 62571 are one system
-        self.assertIn("1 of these has no recorded credit", s["systems"]["text"])
+        self.assertIn("It has no recorded credit.", s["systems"]["text"])
         self.assertIn("Minimum applies per account.", s["current_bill"]["text"])
         html = existing_systems_section(a["assessment"]["existing_system_management"])
         self.assertIn("lead: request PCSMP", html)
