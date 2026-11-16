@@ -679,6 +679,10 @@ def _legacy_benefits(case, gis):
         facts = r.setdefault("evidence", {})
         if r.get("geometry"):
             r["area_sqft"] = case_area_sqft(shape(r["geometry"]), case)
+            if r.get("area_cap_sqft") is not None:
+                # A labelled cap (fix 6: canopy-hidden IA limited by the recorded IA)
+                # credits less than the reserved geometry, never more.
+                r["area_sqft"] = min(r["area_sqft"], float(r["area_cap_sqft"]))
             target = (
                 "pervious"
                 if r["category"] in ("open_space", "open-space")
@@ -1516,6 +1520,19 @@ def _research_receiver_vetoes(case, run, gsi_features):
     return out
 
 
+def _contributes_on_parcel(catchment, include_unknown):
+    """Fix 5: does this research catchment add on-parcel area to the priced region?
+    Older artifacts without the on-parcel fields are kept (conservative)."""
+    keys = ["on_parcel_known_ia_sqft"]
+    if include_unknown:
+        keys.append("on_parcel_unknown_surface_sqft")
+    values = [catchment.get(k) for k in keys]
+    if all(v is None for v in values):
+        on = catchment.get("on_parcel_area_sqft")
+        return on is None or on > 0.000001
+    return any((v or 0) > 0.000001 for v in values)
+
+
 def research_economics(case, gis, records, as_of, tariff):
     """Counterfactual management value of frozen modeled catchments, never a fact.
 
@@ -1598,7 +1615,6 @@ def research_economics(case, gis, records, as_of, tariff):
         )
         # D2: one per-catchment rule (app and pilot). Partial catchments are priced
         # in-window and labelled; untestable extent or a failed invariant blocks.
-        route = combine_routes(catchment_route(c, run.get("invariants")) for c in kept)
         known = shape(run["known_ia_union_geometry"])
         unknown = shape(
             run.get("unknown_ground_union_geometry")
@@ -1611,6 +1627,13 @@ def research_economics(case, gis, records, as_of, tariff):
         if not unknown.is_empty:
             hypotheses.append(("unknown_ground_assumed_impervious", known.union(unknown), True))
         for surface_basis, raw_region, assume_unknown in hypotheses:
+            # Fix 5: the route state of the priced figure comes from the catchments
+            # that contribute on-parcel area to it; an off-parcel system's catchment
+            # touching the window edge no longer marks on-parcel figures partial.
+            contributing = [c for c in kept if _contributes_on_parcel(c, assume_unknown)]
+            route = combine_routes(
+                catchment_route(c, run.get("invariants")) for c in (contributing or kept)
+            )
             region = raw_region.difference(occupied)
             bed_area = case_area_sqft(region.intersection(beds), case) if not beds.is_empty else 0.0
             region = region.difference(beds)
@@ -1677,6 +1700,11 @@ def research_economics(case, gis, records, as_of, tariff):
                     "route_state": route["route_state"],
                     "route_state_reason": route["route_state_reason"],
                     "partial_label": route["partial_label"],
+                    "route_scope": (
+                        f"{len(contributing)} of {len(kept)} kept catchments contribute on-parcel area"
+                        if contributing
+                        else "No catchment reports on-parcel contribution; all kept catchments tested"
+                    ),
                     "surface_assumption": surface_basis,
                     "modeled_unallocated_area_sqft": case_area_sqft(region, case),
                     "system_bed_ia_excluded_sqft": bed_area,

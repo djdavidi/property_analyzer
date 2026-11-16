@@ -266,5 +266,156 @@ class ExistingSystemLeadTests(unittest.TestCase):
         self.assertAlmostEqual(found[0]["facts"]["on_parcel_footprint_sqft"], 1000)
 
 
+class IaMeasurementRangeTests(unittest.TestCase):
+    def test_both_cover_ends_use_the_measured_ga_and_are_calculated(self):
+        # Live shape: recorded GA (9,000) below measured IA + unknown ground (10,000), which
+        # blocked the impervious end with "Open-space allocations exceed..." on all 11 parcels.
+        # Recorded bill: GA 18 x $1.003 = $18.054 -> $18.05; IA 16 x $7.048 = $112.768 ->
+        # $112.77; $130.82 + $2.81 = $133.63.
+        # High end (measured GA 10,000, IA 10,000): $20.06 + $140.96 + $2.81 = $163.83 ->
+        # change -$30.20/month, -$362.40/year.
+        # Low end (IA 0): GA $20.06 < $20.89 minimum -> $20.89 + $2.81 = $23.70 -> change
+        # $109.93/month, $1,319.16/year.
+        c = fixture()
+        c["baseline"].update(ga_sqft=9000, ia_sqft=8000)
+        s = assess(c)["modeled_integration"]["surface_scenario"]
+        rng = s["ia_measurement_range"]
+        self.assertEqual(rng["ga_source"], "measured parcel polygon")
+        self.assertAlmostEqual(rng["measured_ga_sqft"], 10000)
+        self.assertEqual(rng["high_end"]["status"], "calculated")
+        self.assertEqual(rng["low_end"]["status"], "calculated")
+        self.assertAlmostEqual(rng["high_end"]["ia_sqft"], 10000)
+        self.assertEqual(rng["high_end"]["monthly_total"], 163.83)
+        self.assertEqual(rng["high_end"]["annual_change"], -362.40)
+        self.assertEqual(rng["low_end"]["monthly_total"], 23.70)
+        self.assertEqual(rng["low_end"]["annual_change"], 1319.16)
+        self.assertTrue(rng["recorded_ia_within_range"])
+        self.assertIn("not an appeal", rng["presentation"])
+        for row in s["area_alternatives"]:
+            self.assertLessEqual(row["ia_sqft"], row["ga_sqft"])
+
+    def test_unavailable_end_says_why(self):
+        # Recorded aggregate credits (no itemized ledger) cannot be re-applied to a new
+        # cover; the end is shown unavailable with the ledger's reason, not dropped.
+        c = fixture()
+        c["baseline"].update(
+            ga_sqft=9000,
+            ia_sqft=8000,
+            existing_ga_credit_sqft=0,
+            existing_ia_credit_sqft=4000,
+            existing_iar_sqft=0,
+        )
+        rng = assess(c)["modeled_integration"]["surface_scenario"]["ia_measurement_range"]
+        for side in ("low_end", "high_end"):
+            self.assertEqual(rng[side]["status"], "blocked")
+            self.assertIn("spatial reconciliation", rng[side]["unavailable_reason"])
+
+
+class CanopyCapTests(unittest.TestCase):
+    def test_hidden_ground_canopy_is_capped_by_recorded_ia(self):
+        # Live shape (8000 Cherokee): identified IA + canopy-hidden ground exceeded the
+        # recorded IA. Invented: 5,000 sq ft observed roof (identified IA), 5,000 sq ft of
+        # canopy over unresolved ground, recorded IA 7,000. Cap = 7,000 - 5,000 = 2,000 sq ft
+        # of hidden ground -> canopy IAR 50% = 1,000.
+        # Baseline: GA 20 x $1.003 = $20.06; IA 14 x $7.048 = $98.672 -> $98.67;
+        # $118.73 + $2.81 = $121.54. Capped: IA 6,000 -> 12 x $7.048 = $84.576 -> $84.58;
+        # $104.64 + $2.81 = $107.45 -> $14.09/month, $169.08/year (uncapped would have used
+        # 5,000 sq ft: IAR 2,500 -> IA 4,500 -> $86.30, $35.24/month).
+        from test_modeled_assessment_unit import candidate
+
+        c = fixture()
+        c["baseline"]["ia_sqft"] = 7000
+        c["features"]["features"] = [
+            candidate("canopy", box(0, 0, 30.48, 15.24)),
+            {
+                "id": "roof",
+                "geometry": mapping(box(0, 15.24, 30.48, 30.48)),
+                "properties": {"layer": "surface", "class": "roof"},
+            },
+        ]
+        rows = assess(c)["modeled_integration"]["canopy_scenarios"]
+        hidden = next(r for r in rows if r["name"] == "hidden_ground_assumed_impervious")
+        cap = hidden["recorded_ia_cap"]
+        self.assertTrue(cap["applied"])
+        self.assertAlmostEqual(cap["identified_ia_sqft"], 5000)
+        self.assertAlmostEqual(cap["uncapped_area_sqft"], 5000)
+        self.assertAlmostEqual(cap["credited_area_sqft"], 2000)
+        self.assertAlmostEqual(hidden["area_sqft"], 2000)
+        self.assertEqual(hidden["status"], "calculated")
+        self.assertEqual(hidden["bill"]["monthly_total"], 107.45)
+        self.assertEqual(hidden["gross_annual_reduction"], 169.08)
+        self.assertIn(cap["label"], hidden["assumptions"])
+
+    def test_no_room_left_blocks_with_a_reason(self):
+        from test_modeled_assessment_unit import candidate
+
+        c = fixture()
+        c["baseline"]["ia_sqft"] = 5000  # equals the identified roof IA
+        c["features"]["features"] = [
+            candidate("canopy", box(0, 0, 30.48, 15.24)),
+            {
+                "id": "roof",
+                "geometry": mapping(box(0, 15.24, 30.48, 30.48)),
+                "properties": {"layer": "surface", "class": "roof"},
+            },
+        ]
+        rows = assess(c)["modeled_integration"]["canopy_scenarios"]
+        hidden = next(r for r in rows if r["name"] == "hidden_ground_assumed_impervious")
+        self.assertEqual(hidden["status"], "blocked")
+        self.assertIn("Recorded IA leaves no room", hidden["reasons"][0])
+
+
+class ResearchRouteScopeTests(unittest.TestCase):
+    def test_off_parcel_catchment_edge_contact_does_not_mark_on_parcel_figure_partial(self):
+        from datetime import date
+
+        from drainage_core.geometry import measure
+        from stormwater.assessment_policy import research_economics
+
+        c = fixture()
+        c["baseline"].update(existing_ga_credit_sqft=0, existing_ia_credit_sqft=0)
+        on_parcel = box(0, 0, 15.24, 30.48)
+        known = mapping(on_parcel)
+        complete = {"touches_window_edge": False, "touches_nodata": False, "extent_complete": True}
+        edge = {"touches_window_edge": True, "touches_nodata": False, "extent_complete": True}
+        primary = {
+            "catchments": [
+                {
+                    "gsi_id": "ON",
+                    "geometry": known,
+                    "known_ia_geometry": known,
+                    "on_parcel_area_sqft": 5000,
+                    "on_parcel_known_ia_sqft": 5000,
+                    "on_parcel_unknown_surface_sqft": 0,
+                    **complete,
+                },
+                {
+                    "gsi_id": "OFF",
+                    "geometry": mapping(box(40, 0, 60, 30.48)),
+                    "known_ia_geometry": {"type": "GeometryCollection", "geometries": []},
+                    "on_parcel_area_sqft": 0,
+                    "on_parcel_known_ia_sqft": 0,
+                    "on_parcel_unknown_surface_sqft": 0,
+                    **edge,
+                },
+            ],
+            "invariants": {"terminal_accumulation_equals_routed_cells": True},
+            "known_ia_union_geometry": known,
+            "unknown_ground_union_geometry": {"type": "GeometryCollection", "geometries": []},
+        }
+        m = measure(c)
+        m["geometries"]["physical_ia"] = known
+        gis = {"measurement": m, "research_drainage": {"primary": primary, "sensitivity": []}}
+        out = research_economics(c, gis, [], date(2026, 11, 15), None)
+        row = out["scenarios"][0]
+        self.assertEqual(row["route_state"], "complete_in_window")
+        self.assertIsNone(row["partial_label"])
+        self.assertIn("1 of 2", row["route_scope"])
+        # The same artifact with the edge contact on the contributing catchment is partial.
+        primary["catchments"][0].update(edge)
+        row = research_economics(c, gis, [], date(2026, 11, 15), None)["scenarios"][0]
+        self.assertEqual(row["route_state"], "partial_upstream_unknown")
+
+
 if __name__ == "__main__":
     unittest.main()

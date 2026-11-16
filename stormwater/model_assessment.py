@@ -317,13 +317,18 @@ def _counterfactual(case, gis, screened, recipes, as_of, tariff):
     }
 
 
-def _canopy_value(case, gis, screened, region, as_of, tariff):
-    """Canopy alternative priced by the one assessment ledger (D7), not a second engine."""
+def _canopy_value(case, gis, screened, region, as_of, tariff, credited_area=None):
+    """Canopy alternative priced by the one assessment ledger (D7), not a second engine.
+
+    ``credited_area`` (fix 6) caps the credited canopy area below the region's area;
+    the whole region still reserves its geometry for overlap checks."""
     from .assessment_policy import _economics
     from shapely.geometry import mapping as to_geojson
 
     working = deepcopy(case)
     area = case_area_sqft(region, case)
+    if credited_area is not None:
+        area = min(area, credited_area)
     evidence = {
         k: True
         for k in (
@@ -344,6 +349,7 @@ def _canopy_value(case, gis, screened, region, as_of, tariff):
                     "id": "ai-canopy-alternative",
                     "category": "canopy",
                     "area_sqft": area,
+                    **({"area_cap_sqft": area} if credited_area is not None else {}),
                     "basis": "modeled",
                     "existing_overlap_reconciled": True,
                     "evidence": evidence,
@@ -914,41 +920,90 @@ def integrate(case, gis, screened, as_of, tariff):
             surface["area_alternatives"] = []
             baseline = case["baseline"]
             m = integrated["measurement"]
+            # Fix 2: one GA source per row -- the measured parcel polygon, on which the
+            # IA and the unknown ground were measured -- and IA clipped to that GA. The
+            # two cover ends are a measurement range against the recorded IA, not an
+            # appeal; recorded GA is never paired with measured IA.
+            mga = float(_area_decimal(m["ga_sqft"]))
+            recorded_ia = baseline.get("ia_sqft")
             options = [
-                ("gross_area_only", m["ga_sqft"], baseline["ia_sqft"], []),
+                (
+                    "gross_area_only",
+                    min(float(_area_decimal(recorded_ia)), mga) if recorded_ia is not None else None,
+                    "Measured GA with the recorded IA (clipped to the measured GA)",
+                ),
                 (
                     "ia_unknown_assumed_pervious",
-                    baseline["ga_sqft"],
-                    m["ia_sqft"],
-                    ["Unclassified/canopy-hidden ground assumed pervious"],
+                    min(float(_area_decimal(m["ia_sqft"])), mga),
+                    "Low end: unclassified/canopy-hidden ground assumed pervious",
                 ),
                 (
                     "ia_unknown_assumed_impervious",
-                    baseline["ga_sqft"],
-                    m["ia_sqft"] + m["unknown_sqft"],
-                    ["All unclassified/canopy-hidden ground assumed impervious"],
+                    min(float(_area_decimal(m["ia_sqft"] + m["unknown_sqft"])), mga),
+                    "High end: all unclassified/canopy-hidden ground assumed impervious",
                 ),
             ]
-            for name, ga, ia, assumptions in options:
-                trial = {
-                    **m,
-                    "ga_sqft": float(_area_decimal(ga)),
-                    "ia_sqft": float(_area_decimal(ia)),
-                    "complete": True,
-                }
-                scenario = appeal(trial)
+            for name, ia, assumption in options:
+                if ia is None:
+                    scenario = _blocked(["Recorded IA unavailable"])
+                else:
+                    try:
+                        scenario = appeal({**m, "ga_sqft": mga, "ia_sqft": ia, "complete": True})
+                    except ValueError as exc:
+                        scenario = _blocked([str(exc)])
                 surface["area_alternatives"].append(
                     {
-                        "name": name,
-                        "ga_sqft": trial["ga_sqft"],
-                        "ia_sqft": trial["ia_sqft"],
-                        "assumptions": assumptions
-                        + [
-                            "Counterfactual completed cover assumption, not a complete measured survey or a supported appeal"
-                        ],
                         **scenario,
+                        "name": name,
+                        "ga_sqft": mga,
+                        "ia_sqft": ia,
+                        "cover_assumption": assumption,
+                        "ga_source": "measured parcel polygon (the surface the IA was measured on)",
+                        "ia_vs_recorded_sqft": (
+                            ia - float(recorded_ia)
+                            if ia is not None and recorded_ia is not None
+                            else None
+                        ),
+                        "assumptions": [
+                            assumption,
+                            "Counterfactual completed cover assumption, not a complete measured survey or a supported appeal",
+                        ]
+                        + list(scenario.get("assumptions") or []),
                     }
                 )
+
+            def end(row):
+                calculated = row.get("status") == "calculated"
+                return {
+                    "assumption": row["cover_assumption"],
+                    "ia_sqft": row["ia_sqft"],
+                    "ia_vs_recorded_sqft": row["ia_vs_recorded_sqft"],
+                    "status": row.get("status"),
+                    "monthly_total": row.get("monthly_total") if calculated else None,
+                    "monthly_change": row.get("monthly_savings") if calculated else None,
+                    "annual_change": row.get("annual_savings") if calculated else None,
+                    "unavailable_reason": None
+                    if calculated
+                    else "; ".join(row.get("reasons") or ["Not calculated"]),
+                }
+
+            low, high = surface["area_alternatives"][1], surface["area_alternatives"][2]
+            surface["ia_measurement_range"] = {
+                "presentation": "Measured-cover range compared with the recorded IA; not an appeal",
+                "ga_source": "measured parcel polygon",
+                "measured_ga_sqft": mga,
+                "recorded_ga_sqft": baseline.get("ga_sqft"),
+                "recorded_ia_sqft": recorded_ia,
+                "low_end": end(low),
+                "high_end": end(high),
+                "recorded_ia_within_range": (
+                    recorded_ia is not None and low["ia_sqft"] <= float(recorded_ia) <= high["ia_sqft"]
+                ),
+                "claim": (
+                    "Both cover ends from the same measured parcel; positive changes are lower bills "
+                    "only if PWD accepted that cover. Imagery classes and legal/billed areas are unverified."
+                ),
+            }
         except ValueError as exc:
             surface = {"status": "blocked", "reason": str(exc)}
     # Image context is not a permeability or green-roof detector.
@@ -978,29 +1033,60 @@ def integrate(case, gis, screened, as_of, tariff):
             assumptions = [
                 "Canopy classification and overlap are modeled; eligibility/actual account bill remain unverified"
             ]
+            cap = None
             if name.startswith("hidden"):
                 assumptions.append(
                     "All unresolved ground below predicted canopy assumed impervious"
                 )
+                # Fix 6: canopy-hidden ground counts as IA only up to the recorded IA not
+                # already identified (max(0, recorded IA - identified IA)); the implied
+                # IA can no longer exceed the recorded IA.
+                known_area = float(
+                    _area_decimal(case_area_sqft(known_overlap.difference(occupied), case))
+                )
+                recorded = case["baseline"].get("ia_sqft")
+                if recorded is not None:
+                    identified = float(_area_decimal(m["ia_sqft"]))
+                    room = max(0.0, float(_area_decimal(recorded)) - identified)
+                    credited = known_area + min(max(0.0, area - known_area), room)
+                    cap = {
+                        "label": "Canopy-hidden ground counted as IA only up to recorded IA minus identified IA",
+                        "recorded_ia_sqft": float(_area_decimal(recorded)),
+                        "identified_ia_sqft": identified,
+                        "hidden_ground_cap_sqft": room,
+                        "uncapped_area_sqft": area,
+                        "credited_area_sqft": credited,
+                        "applied": credited < area - 0.000001,
+                    }
+                    if cap["applied"]:
+                        assumptions.append(cap["label"])
+            credited_area = cap["credited_area_sqft"] if cap else area
             if not finance_allowed:
                 s = _blocked(["Assessment date outside verified rule/tariff period"])
             elif vetoes:
                 s = _blocked(vetoes)
-            elif area < 0.000001:
+            elif credited_area < 0.000001:
                 s = _blocked(
                     ["No supported modeled ground-IA overlap; canopy-hidden ground remains unknown"]
+                    if area < 0.000001
+                    else [
+                        "Recorded IA leaves no room for canopy-hidden ground IA beyond the identified IA"
+                    ]
                 )
             else:
-                s = _canopy_value(case, gis, screened, region, as_of, tariff)
-            canopy_scenarios.append(
-                {
-                    **s,
-                    "name": name,
-                    "area_sqft": area,
-                    "basis": "conditional AI canopy alternative",
-                    "assumptions": assumptions + list(s.get("assumptions", [])),
-                }
-            )
+                s = _canopy_value(
+                    case, gis, screened, region, as_of, tariff, credited_area if cap else None
+                )
+            row = {
+                **s,
+                "name": name,
+                "area_sqft": credited_area,
+                "basis": "conditional AI canopy alternative",
+                "assumptions": assumptions + list(s.get("assumptions", [])),
+            }
+            if cap:
+                row["recorded_ia_cap"] = cap
+            canopy_scenarios.append(row)
     available = integrated["ai"]["status"] == "modeled"
     pavement = shape(integrated["ai"]["geometries"]["road"]).union(
         shape(integrated["ai"]["geometries"]["developed_space"])
