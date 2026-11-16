@@ -1,34 +1,51 @@
-# Current task: confirmed adversarial defects
+# Current task: estimate 01073 managed runoff and savings
 
-Status: complete for the authorized implementation and unit-only checks, 2026-11-15.
+Status: complete, 2026-11-16.
 
-[Bounded brief and acceptance](ADVERSARIAL-FIX-TASK.md),
-[changes and remaining limits](ADVERSARIAL-FIXES-2026-11-15.md),
-[exact check record](adversarial-fix-checks-2026-11-15.txt).
-The completed concurrent CN TASK is preserved verbatim in the latest checkpoint.
+Objective: estimate the runoff rain garden01073 can manage from saved data, then
+calculate savings from that estimated managed area. Withdraw invented confidence
+percentages from active pilot code, outputs and current documentation.
 
-Implemented: correct appearance/physical semantics; invalidate unsafe saved derived
-IA/savings without rewriting property artifacts; share prerequisite failures and
-exclude known nonexisting receivers; propagate extent; reconcile refreshed candidates
-and stage baseline changes; calculated subsets and separate net bills; response CRS,
-processing fingerprints and evidence-support gates; repair mocked workflow interface.
-Keep GIS independent of all jurisdiction/account/credit/billing rules.
+Context: previous38,542.84sqft/$5,989.92 annual result assumed complete management;
+DEM fill-depth67kcuft was only a diagnostic. Need a local surface storage/capture
+estimate, not just pricing an assumed managed area. Existing source snapshots,
+frozen routing and original policy outputs must remain intact.
 
-Verification: 340 unit tests passed, including 26 new regressions and a check of
-36 original case/GIS/analysis byte hashes. Only invented/mocked workflow inputs;
-no properties, imagery/inference, sources or terrain were rerun/refreshed. No live
-HTTP/browser, broader suite, field/treatment/invoice/award validation or service
-restart. Initial failures and warnings are recorded; no commit or push requested.
+Constraints: only saved data/local processing; no network, classification inference,
+property/routing rerun, browser, report redesign, paid services, outreach, application,
+commit/push or broader tests. Requested saved-data computation is task execution;
+software verification uses unit tests only. Physical quantities stay in drainage_core;
+PWD treatment-depth interpretation and bill calculations stay in stormwater.
 
-Next: load the changes by restarting the existing local app, then await the user's
-next scope. Do not automatically rerun Whitaker or the portfolio, collect public
-records, run broader/browser tests or publish. Existing running processes still
-contain old Python code. Revised property savings and independent classification/
-drainage accuracy remain unverified. Native imagery/terrain/request-accounting and
-scientific validation limitations are listed in the implementation note.
+Plan/success criteria:
+- [x] Derive reproducible terrain-based surface storage from source elevations and
+  local overflow/spill geometry; distinguish global depression fill and real storage,
+  expose terrain/footprint/NoData/unit sensitivities without invented probabilities.
+- [x] Compute capacity-limited managed area/runoff and price through existing policy
+  ledger/rates, keeping candidate, captured, stored and treated quantities distinct.
+  Unknown infiltration/drawdown/operating condition are not verified eligibility.
+- [x] Remove numerical confidence guesses from active generator/output and withdraw
+  their current documentation claims; preserve historical artifacts marked superseded.
+- [x] Unit tests cover known geometry/volume, managed-area cap, scalar/geometry
+  consistency, missing versus zero capacity, false facts, hashes/units and isolation.
+- [x] Produce the actual saved01073result and short explanation, checkpoint exact
+  commands/results/limits and preserve original inputs. No full assessment rerun.
 
-Publication follow-up: user now explicitly requested commit and push of this work
-to the existing GitHub origin. The earlier no-publication statement describes the
-implementation checkpoint. Include supporting source/tests/docs; keep runtime data
-and private uploads ignored. No additional property processing or broader testing.
-Git owns the final commit hash and push state.
+Results: [capacity/credit calculation](01073-CAPACITY-RESULTS-2026-11-16.md),
+[82 passing targeted unit tests](01073-capacity-unit-results-2026-11-16.txt), zero skips.
+Local storage1,488.28cuft minus1,230.36cuft gardenrain leaves257.91cuft for outside
+runoff:2,063.31sqft managed-IA equivalent, $32.21/month / $386.52/year. This is a
+conservative dry-start storage estimate; sensitivity range$0–$4,915.20/year, not
+statistical confidence. Oldfull-area01073price is flagged superseded/unusable.
+Invented scores removed from code/current outputs/docs; archived versions preserved.
+All169 protected originals and consumed case/GIS input bytes remain unchanged.
+
+Next: user review. Real-site operation, fine spill/outlet geometry, treatment,
+drawdown and statistical accuracy remain unverified. No new rerun, wider assessment,
+report redesign, network, publication or follow-up is authorized automatically.
+
+Publication update: user explicitly requested commit and push after completion.
+That request authorizes publishing the reviewed source/tests/docs to the existing
+origin/main. Runtime data/caches/uploads remain excluded. No new property execution
+or additional tests are part of this publication action; Git records the resulting
+commit and remote state.

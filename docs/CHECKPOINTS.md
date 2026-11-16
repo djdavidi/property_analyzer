@@ -4,6 +4,470 @@ Newest entries first. Current truth belongs in STATE; the active bounded task be
 in TASK. These records preserve changes, decisions, evidence, unresolved issues and
 handoffs. Do not rewrite past results to match later runs.
 
+## 2026-11-16 — Completed source snapshot authorized for commit and push
+
+User explicitly requested Git commit/push. Reviewed all26 pending source/test/doc
+files (~526KB before this publication note); no secret-pattern matches, private or
+runtime/cache paths, broken local Markdown links or whitespace errors. Include
+earlier completed portfolio-report work alongside the saved-data pilot and01073
+capacity/credit correction, preserving their test/result history. Unsupported
+confidence scores remain withdrawn; earlier checkpoint entries are history.
+
+Use the existing origin/main; no new external repository, deployment or application
+action. Data/cases/cache/model/upload/result artifacts stay ignored. The82 passing
+unit result remains the latest implementation evidence; no new tests, property
+routing, inference, downloads or browser use during publication. Git records the
+resulting commit ID and remote state. Real-site treatment/accuracy remains unverified.
+
+Resume: building the existing-site assessment; implementation and recorded unit
+checks complete; this source snapshot is authorized for publication. The next
+product action requires a user request, with existing empirical gaps preserved.
+
+## 2026-11-16 — 01073 runoff-capacity estimate complete; unsupported scores removed
+
+User requested estimating how much runoff01073can manage from saved data, then
+calculating savings, removing invented confidence percentages and running only
+unit tests. [Calculation/results](01073-CAPACITY-RESULTS-2026-11-16.md).
+Earlier subjective percentage claims are withdrawn. Historical entries below
+record what happened, not valid probabilities or instructions to restore scores.
+
+Implemented independent `drainage_core/runoff_capacity.py` and separate
+`stormwater/runoff_capacity.py`;01073's primary pilot amount now follows managed
+runoff rather than assuming full management. Source-DEM local spill volume
+1,488.28cuft, minus1,230.36cuft directgardenrain at1.5in, leaves257.91cuft for
+outside runoff. This supports a **2,063.31sqft managed-IA equivalent**, priced with
+the existing PWD ledger at **$32.21/month / $386.52/year**. The original38,542.84sqft
+included7,227.68sqft inside the garden bed; externalcandidate is31,315.16sqft.
+Old$5,989.92full-management result is retained as superseded history and flagged
+unusable for current savings. No fallback to that price when capacity is missing.
+
+Base is conservative dry-start static surface storage, with no invented infiltration,
+media/underground volume or outlet recovery. The1m grid, bilinear perimeter and
+half-cell offset/event-load sensitivities produce$0–$4,915.20/year. EquivalentIA
+is an explicitly fractional screening allocation, not independently identified
+qualifying subareas or proven treatment/drawdown. Original GIS remains frozen;
+no drainage/model acquisition or routing rerun. Existing rule periods, failed
+facts, area/credit budgets, overlap and source hashes remain enforced. Cross-parcel
+storage/incorrect rainfall exposure are blocked rather than assigned to one account.
+
+Removed the hard-coded confidence table, manual-score function and assigned values
+from pilot outputs. Current summaries/PRD/STATE/README corrected. Current runtime
+pilot views were refreshed from the new01073result and saved other results; their
+original unsupported-score files are preserved only under `withdrawn/`. Other
+systems/properties were not rerun. No main report redesign.
+
+Verification: [82 passing unit tests](01073-capacity-unit-results-2026-11-16.txt),
+zero skips,0.248s. Command in log covers new physical/policy budgets, pilot integration,
+existing management ledger and core import isolation. First77-test run had one
+weighted-fixture scalar error; corrected, malformed scalar rejection retained and
+failed log preserved locally. Requested saved01073calculation takes about5s and
+produces~1.57MB compact JSON. Case/GIS bytes and169 prior protected originals unchanged;
+source/method hashes match. Runtime outputs: `data/assessments/01073-capacity-2026-11-16/`.
+
+No broader/integration/HTTP/browser tests, personal Chrome, empirical accuracy or
+capture/treatment/drawdown/calibration validation. No new data/network/inference,
+paid service, outreach, application, deployment, commit or push. Remaining limits
+are unresolved fine rim/outlet geometry, construction/current condition, soft-ground
+runoff and actual treatment/award. The result is an estimate despite those limits.
+Next: user review; no automatic batch expansion or new task.
+
+Repository-only resume answers:
+1. Existing-site GIS and separate jurisdiction assessment (PRD).
+2.01073 storage-supported runoff and PWD credit estimate implemented; unsupported confidence guesses withdrawn.
+3. Current TASK complete; source remains uncommitted, other saved scenarios preserved.
+4.82 unit tests and unchanged source hashes establish software/lineage behavior; field accuracy/treatment/awards remain unverified.
+5. Next is user review or separately requested validation; no further work authorized automatically.
+
+## 2026-11-16 — 01073 runoff-capacity task started; subjective percentages withdrawn
+
+User requested estimating managed runoff/capacity from saved01073data, pricing that
+managed area, removing invented confidence percentages and running only unit tests.
+Prior subjective scores are withdrawn; earlier completion claims concerned the
+conditional pilot, not a capacity-limited savings estimate. Original inputs and
+results remain preserved. Previous bounded brief:
+
+# Current task: three-system management-estimate pilot
+
+Status: complete, 2026-11-16. User explicitly authorized the pilot evaluation.
+
+Objective: produce useful per-system area and conditional savings estimates with
+explicit uncertainty from saved Whitaker62571 and3060S61st01073/01074 data. Preserve
+independent GIS and separate policy. No report redesign.
+
+User clarification: include canopy savings, system credits and IA changes with best
+current estimates and confidence percentages. Percentages are explicitly subjective
+evidence judgments, separate from empirical accuracy or approval probabilities;
+do not imply statistical calibration. Include local-context/billing-compatible
+ground scenarios without promoting appearance to observed pavement. Keep the final
+answer short and numerical rather than repeating evidence-request checklists.
+
+Scope: new small physical-estimate and policy-estimate modules, shared-schema unit
+checks, saved-data pilot invocation/output only. Reuse frozen routes where suitable;
+if current compatible Whitaker GIS is absent, recompute only that saved case locally.
+No new source requests, model inference, personal browser, outreach, paid services,
+applications, broader/integration/browser testing, deployment, commit or push.
+Preserve original cases, frozen GIS/policy outputs, source bytes and hashes.
+
+Plan / success criteria:
+- [x] Independent per-system contributing-area/appearance scenarios and coverage/
+  connection diagnostics; no blanket partial-extent suppression or fake probability.
+- [x] Respect underground connection limits; use a clearly labeled geometry-supported
+  connection alternative if available, never a footprint multiplier or invented inlet.
+- [x] Separate routed area, captured flow, treatment assumptions and conditional credit
+  money. Use existing bill ledger/current areas and prevent double counting.
+- [x] Add meaningful unit tests, including uncertainty, false facts, area/credit budgets,
+  partial extents, overlapping systems, input hashes and boundary isolation.
+- [x] Execute only requested saved-data pilot, record actual estimates/timings/gaps,
+  preserve originals and checkpoint. No 80% reliability without real calibration.
+
+Results: [pilot numbers/methods](MANAGEMENT-PILOT-RESULTS-2026-11-16.md),
+[78 passing unit tests](management-pilot-unit-results-2026-11-16.txt), no skips.
+Whitaker saved-only core update12.516s;3060frozenGIS reused. Pricing/context pass
+about6.7s. Candidate canopy/system areas, conditional dollars, low/high scenarios,
+subjective confidence and immutable-source/method hashes saved separately. All169
+previously protected files and four consumed input files unchanged. First fixture
+failures/preparation import error are recorded, corrected and not counted as passes.
+
+Next: user review of the actual estimates; no automatic wider run, browser check,
+main-report redesign or publication. Empirical accuracy, actual conveyance/treatment,
+joint overlap-aware totals and statistically calibrated confidence remain unverified.
+Confidence judgments are explicit; IA$0means no reduction identified, not proof none.
+
+
+## 2026-11-16 — Whitaker / 3060 saved-data estimate pilot complete
+
+User requested actual per-system areas/savings with uncertainty for Whitaker62571
+and 3060 S61st rain-garden01073 / basin01074, then clarified that canopy savings,
+system credits and IA changes must each have best current estimates and confidence
+percentages. Implemented the separate pilot command and four small physical/policy
+modules; existing app/report layout was not redesigned. Previous report work remains
+uncommitted and preserved. [Numbers and full method](MANAGEMENT-PILOT-RESULTS-2026-11-16.md).
+
+Annual individual alternatives: Whitaker canopy $1,184.16 (25% subjective evidence
+confidence), garden62571 $2,511.96 (35%); 3060 canopy $0 (80%), garden01073 $5,989.92
+(25%), basin01074 $1,739.04 (15%). Positive IA reduction not independently supported:
+current $0 reduction estimate, retaining recorded IA, with 55%/45% confidence in
+that prior. This is not proof of no savings. Credit ranges/weighted ground and
+connections are explicit hypotheses; percentages are not empirical accuracy,
+range coverage, model scores or approval odds. Do not add overlapping alternatives.
+
+Physical modules remeasure saved source/class geometry, preserve ground uncertainty,
+source/AI roofs, pre-burn DEM storage diagnostics, routing coverage and original
+source-roof alternative diagnostics. Basin uses exact conservative depression
+catchments with named hypothetical collection points, not footprint multipliers.
+Policy solves an explicit recorded-IA-compatible ground mixture plus crown context,
+then applies current billing/credits separately without rerouting. Fractional polygon
+components are disjoint and scalar-validated. Existing occupied-area/overlap budgets,
+known failures, dates and case/GIS content/lineage checks stay enforced. Missing or
+incompatible priors/imagery cannot silently become zero or a priced best estimate.
+
+Execution: Whitaker's incompatible v4 output required one explicit saved-only pure
+v5 GIS recomputation (12.516 s); corrected 3060 v5 GIS reused. Estimate-only runs take
+about 6.7 s for both properties; final timings/source/method hashes are in separate
+Git-ignored `data/assessments/management-pilot-2026-11-16/`. Compact output about1.10MB.
+Four consumed files stayed byte-identical; Whitaker source case matches the new copy;
+all169 files in the prior protected-originals manifest still match. No source case,
+old GIS/policy result, source bytes or original report overwritten.
+
+Verification: [unit command/output](management-pilot-unit-results-2026-11-16.txt),
+78 passing targeted unit tests, zero skips. Includes core import isolation and
+physical/policy/summary unit regressions. First run had three incompatible-prior
+fixture expectations; corrected, with incompatible-prior behavior retained as a
+regression. One preparation command failed on a missing serialization import before
+processing and was corrected. Neither is a pass. No broader/integration/HTTP/browser
+tests or empirical accuracy/capture/treatment/calibration validation; no new property
+requests/inference, personal Chrome, report redesign, commit/push or external resources.
+
+Remaining limits: actual concealed ground, private runoff conveyance and treatment,
+3060 construction/terrain timing, actual account reconciliation, overlap-aware joint
+totals and independent calibration. Next: user review of pilot numbers; only then
+separately requested calibration/combined scenario work. No automatic batch expansion.
+
+Repository-only resume answers:
+1. Building existing-site assessment over independent GIS with separate jurisdiction policy (PRD).
+2. Saved-data three-system canopy/management/IA pilot implemented; detailed estimates in the linked result note.
+3. Current bounded TASK complete; existing main app/report unchanged, source uncommitted.
+4. 78 targeted unit tests and preserved hashes support software/lineage behavior; no empirical accuracy or awards proven.
+5. Next is user review or separately requested evidence calibration/joint scenarios; real conveyance/treatment and calibrated certainty remain unresolved.
+
+## 2026-11-16 — Three-system saved-data pilot started
+
+User authorized implementation and saved-data pilot evaluation for Whitaker62571
+and3060S61st garden01073/basin01074. Only unit tests for verification; no new
+property data/model inference/browser/report redesign/commit/push. Preserve old
+inputs/results and GIS-policy separation. Previous planning TASK:
+
+# Current task: plan useful stormwater estimates and measured certainty
+
+Status: planning complete, 2026-11-16. Implementation not started.
+
+User wants somewhat accurate rain-garden/basin/system estimates plus a percentage
+of certainty. [Proposed plan](STORMWATER-ESTIMATION-PLAN-2026-11-16.md) separates
+conditional management-value estimates at current billed areas from independently
+validated range reliability and credit eligibility.
+
+Planning performed: read-only repo/saved schema inspection; primary method, PWD
+record-drawing/design and calibration research. No tests or property processing,
+new property acquisition, inference, browser, code edits, commit or push.
+
+Proposed order: preserve partial catchment estimates with diagnostics; estimate
+catchment hard-surface mix; model capture and capacity separately; reuse project
+status/approval evidence; calculate conditional bill changes with one ledger;
+calibrate ranges on independent references before labeling a percentage reliable.
+Known nonexisting/nonqualifying facts still block; unknown is not zero or an award.
+
+First proposed milestone: Whitaker rain garden62571 and3060S61st rain garden01073 /
+underground basin01074 using saved1m data. Deliver per-system areas, assumptions,
+low/base/high dollars and uncertainty drivers before a wider batch/report rewrite.
+Initial20–30 documented systems are a calibration pilot, not sufficient by decree;
+80% range coverage and≤25% median positive-area error are proposed targets only.
+
+Next: agree implementation/validation scope. Do not implement, acquire plans/data,
+rerun properties, broaden tests or publish automatically from this planning brief.
+Empirical percentage/operating treatment and approval outcomes remain unvalidated.
+
+
+
+## 2026-11-16 — Management-estimate and certainty plan completed
+
+User requested a plan for useful rain-garden/basin/system estimates with a percentage
+of certainty. Planning only: [proposed staged plan](STORMWATER-ESTIMATION-PLAN-2026-11-16.md).
+Read source/method/requirements, inspected saved project attributes and consulted
+primary PWD/design/reference-drawing and uncertainty/calibration research. No code
+edits, tests, property runs, inference, new property acquisition or browser.
+
+Findings: static extent=False blocks all catchment finance; only roofs receive AI
+IA hypotheses; no separate capture/capacity model; underground footprints correctly
+lack inlet assumptions; cached verified-project/approval/disconnection evidence is
+underused. Full-parcel IA correction need not gate a conditional management-credit
+estimate at current billed areas. Known false facts/overlap still block invalid
+scenarios. Preliminary ranges can precede calibrated accuracy percentages.
+
+Proposed first milestone: Whitaker62571 plus3060S61st rain garden01073/basin01074,
+using saved terrain and targeted existing/public evidence. Then expand validation
+from an initial20–30 documented systems across independent sites as needed. Define
+an80% prediction-range target, measure coverage/width on held-out properties, keep
+eligibility/award probability separate, and avoid self-confidence/evidence-score
+substitutes. Sample size and≤25% positive-area median-error goal are proposals,
+not achieved/guaranteed performance. No target leakage from approved served area.
+
+Resume answers: building existing-site estimates with separate GIS/policy; planning
+complete, implementation/calibration not begun; evidence is read-only inspection
+and primary sources, not new validation. Next is user agreement on staged scope;
+missing plan/connection/capacity/reference data remain explicit. No automatic batch,
+new classifier, report redesign, commit/push or external-resource creation.
+
+### Archived completed wording-task brief
+
+# Current task: simplify the top-ten report
+
+Status: complete, 2026-11-16.
+
+Objective: make the existing results easy for a junior reader to use: short
+conclusion, small overview, clear category findings, plainly labeled example
+amounts, reasons missing totals cannot be estimated, and one next step per site.
+
+Scope: report wording/layout and reusable renderer only. Read saved comparison
+JSON; preserve all numerical results, inputs, raw evidence and the previous HTML.
+No property processing, acquisition, inference, new financial/scientific analysis,
+browser, full suite, commit or push. Unit tests only for renderer changes.
+
+Plan:
+- [x] Replace jargon and the wide table with a short overview and readable cards.
+- [x] Keep all categories; distinguish examples from confirmed amounts and explain
+  unknowns. Put sources, method extremes and calculation data behind clear links.
+- [x] Update the summary Markdown; render from saved JSON only, run focused units,
+  check saved-data preservation and checkpoint results/limits.
+
+Results: [plain-language summary](TOP10-CORRECTED-RESULTS-2026-11-15.md) links the
+updated HTML. Four-column overview; expandable properties; short findings, example
+amounts and next checks; all twelve categories retained. Methods/raw data are
+optional links. Prior detailed Markdown and HTML backed up. HTML shrank from
+1,087,377 to78,995 bytes; no calculation/input changes. 37 result file hashes
+unchanged;13 focused units passed. No property rerun, acquisition, inference,
+browser, broader suite, commit or push. Raw evidence: data/validation/plain-report-2026-11-16/.
+
+Next: user reviews wording. No further analysis or property processing authorized
+automatically. Field/billing/treatment accuracy and visual browser validation remain
+unverified; this task changed presentation only.
+
+
+
+## 2026-11-16 — Plain-language report rewrite completed
+
+Presentation-only response to user's readability complaint. Four-column overview,
+expandable site cards and short category findings/example amounts/next checks.
+All twelve categories retained; secondary checks and area/bill detail collapsed;
+raw data/methods linked instead of dumped inline. Jargon replaced with roof/pavement
+area, trees over pavement, cannot estimate yet and plain explanations of unknowns.
+Examples remain distinct from confirmed savings; negative changes say bill higher.
+No calculations, assumptions, eligibility or stored numerical results were changed.
+
+Saved comparison JSON rendered once, original HTML backed up, prior detailed
+Markdown retained under TOP10-CORRECTED-TECHNICAL-DETAILS-2026-11-15.md. Updated
+reader summary retains the original link and points to the technical history.
+HTML1,087,377→78,995 bytes;37 saved input/GIS/policy/comparison files hash-identical.
+No property rerun, source access, inference, browser, broad suite, commit or push.
+
+Actual check: `PYTHONPATH=tests:. .venv/bin/python -m unittest test_portfolio_report`:
+13 passed in0.010s, no failures/skips. Includes category coverage, four-column
+overview, escaping, no visible machine names/raw JSON, signed increases, example
+scope and saved-input preservation. First13-unit run and final run passed.
+Evidence: data/validation/plain-report-2026-11-16/{units-final.txt,render-checks.json,saved-result-hashes.json}.
+No visual/browser validation; empirical/evidence limitations unchanged.
+
+Repository-only resume:
+1. Building: existing-site assessment; this task made its existing top-ten report
+   understandable for a junior reader, without changing GIS or policy calculations.
+2. Done: renderer and reader summary rewritten; original detailed reports preserved.
+3. Current: wording task complete; changes local/uncommitted, awaiting user feedback.
+4. Evidence:13 units and37 unchanged saved-file hashes. No new accuracy or savings
+   claim follows; visual browser and field/bill/treatment evidence remain unverified.
+5. Next: review the simple report. Do not start data acquisition or reruns by default.
+
+## 2026-11-16 — Plain-language report rewrite started
+
+User requested a simpler report for a junior reader. Presentation only: reuse the
+saved comparison JSON, preserve calculations/inputs and original report backup.
+No property rerun, acquisition, inference, browser, new analysis or publication.
+Previous completed task:
+
+# Current task: corrected top-ten reassessment and section report
+
+Status: complete for the selected local rerun/report, 2026-11-15.
+User explicitly authorized these property reruns; no new acquisition/inference ran.
+
+Objective: rerun the same ten no-area-credit sites / twelve billing parcels under
+corrected classification/guards, presenting recorded charges, GA/IA, identified IA,
+unresolved ground, area-adjustment scenarios, existing credits, additional credits,
+net bill changes, evidence status and next evidence action. Expand every savings
+category for each site and member parcel, with sources/dates and explicit unknowns.
+
+Scope: process saved case inputs, imagery predictions and available terrain locally.
+No new property-data downloads or inference unless saved evidence proves unusable;
+report that limitation rather than silently starting acquisition. Preserve original
+case/GIS/analysis and prior report bytes; write a new dated local output directory.
+Keep GIS independent from policy. No personal browser, paid service, outreach,
+applications, deployment or new commit/push. Only unit tests for code verification.
+
+Plan / acceptance:
+- [x] Freeze exact ten-site selection and original artifact/source hashes.
+- [x] Sequential local reassessment; persist current physical and policy artifacts,
+  timings/failures, source reuse and method/quality versions; no stale GIS reuse.
+- [x] Generate reusable summary plus complete site/parcel/category breakdown and
+  coherent financial ladder. Separate supported values, assumptions and blocked
+  values; do not sum overlapping categories or call unknown zero/refund.
+- [x] Focused report units, actual result reconciliation and original-byte guards;
+  report failed/omitted validation and checkpoint the five resume questions.
+
+Results: [corrected results, report links and limitations](TOP10-CORRECTED-RESULTS-2026-11-15.md).
+Twelve/twelve local recomputations succeeded in100.787s; 169 original files unchanged.
+100 focused unit tests passed; 61 internal report/hash/arithmetic guards held. Three
+native terrain grids, all watershed extents unverified; no supported net savings or
+IA appeal amount established at any site. Unknown is not zero. Conditional category
+scenarios stay separate and nonadditive. No assumed CN65 or new soil acquisition.
+
+Next: user reviews results and selects evidence follow-up. Do not automatically
+rerun/acquire more, restart/use a browser, run broader tests or publish. New runtime
+outputs are separate from original active cases; no original result was overwritten.
+Independent class/under-canopy/route/treatment/bill/award and ArcHydro validation
+remain incomplete. New report module/docs/tests are local and uncommitted.
+
+
+
+## 2026-11-15 — Corrected top-ten reassessment and section report complete
+
+User authorized the same ten sites again with the agreed fields. Twelve billing
+parcels recomputed under GISv5/integrationv2 and separate policy in100.787s. Saved
+imagery predictions, public snapshots and native terrain reused; actual task
+execution, not an empirical validation test. Socket/model/acquisition guards blocked
+new property requests and inference. All169 original file hashes unchanged; new
+case copies/GIS/policy outputs stored separately. [Results](TOP10-CORRECTED-RESULTS-2026-11-15.md)
+link HTML/JSON and runtime evidence. Prior completed TASK was archived in start entry.
+
+Added policy/presentation-only portfolio formatter and eleven report units. Ten-site
+summary, twelve categories per parcel, source dates/hashes, public charge and GA/IA,
+identified/unknown ground, conditional credits, area hypotheses, net blockers and
+bill ladder. Unknown never becomes zero. Cover extremes use coherent source GA;
+canopy stress caps expose conflicts with recorded IA totals rather than presenting
+all hidden ground as pavement. Spring campus cap $13,616.76/year is a conditional
+credit-only upper stress test, not expected or validated savings. Candidate porous/
+green-roof alternatives remain individual; overlapping values are not summed.
+
+No supported net savings or IA appeal at any site. Three saved native1m terrains,
+all watershed extents unverified; related finance blocks. No new soil acquisition
+or CN65 defaults. No independent ground/canopy/route/treatment or actual-bill/award
+evidence. Two construction permits excluded using the previously reviewed primary
+notices; other industrial cases retain explicit unverified what-ifs. No refunds.
+
+Actual command: `PYTHONPATH=tests:. .venv/bin/python -m unittest test_portfolio_report
+test_modeled_assessment_unit test_assessment_policy test_jurisdiction_adapter`.
+Final100 pass in0.499s, no failures/skips. First98 pass, then two edge cases added;
+100 passed before/after drainage-label refinement. 61 internal hash/version/baseline/
+section/conditional-arithmetic/preservation guards held during report generation.
+Exact task commands/logs in results doc and ignored runtime directory. Primary PWD
+manual/tariff rechecked using browser-free web tool; no property service acquisition.
+Only unit tests for code verification; no broader/browser/HTTP checks. Existing
+Shapely deprecation warnings remain. No personal browser, deployment or new push.
+
+Repository-only resume answers:
+1. Building: free existing-site assessment with independent GIS and separate PWD
+   policy; read-only top-ten report adds presentation, not new physical facts.
+2. Done: twelve fresh local physical/policy calculations; full report and source/
+   timing/preservation evidence; original active properties/results preserved.
+3. Current: bounded rerun/report complete, local module/docs/tests uncommitted;
+   no automatic further acquisition, rerun or publication authorized.
+4. Evidence:100 focused unit passes;61 internal reconciliation guards;169 old hashes
+   preserved. These do not establish real cover, treatment, eligibility or savings.
+5. Next/blocked: user selects evidence follow-up after report review. Net finance
+   blocked by incomplete ground IA/treatment/allocation evidence; public-source
+   gaps may be resolvable without owner input. Live-app and field accuracy unrun.
+
+## 2026-11-15 — Top-ten corrected reassessment started
+
+User explicitly authorized rerunning the same top ten with the agreed summary and
+category breakdown. Reuse saved imagery/predictions/datasets first; no new property
+source requests, no personal browser, no paid service, no commit/push. Preserve
+original cases and prior reports. Actual selected reassessment is the task; only
+unit tests are used for implementation verification. Previous completed brief:
+
+# Current task: confirmed adversarial defects
+
+Status: complete for the authorized implementation and unit-only checks, 2026-11-15.
+
+[Bounded brief and acceptance](ADVERSARIAL-FIX-TASK.md),
+[changes and remaining limits](ADVERSARIAL-FIXES-2026-11-15.md),
+[exact check record](adversarial-fix-checks-2026-11-15.txt).
+The completed concurrent CN TASK is preserved verbatim in the latest checkpoint.
+
+Implemented: correct appearance/physical semantics; invalidate unsafe saved derived
+IA/savings without rewriting property artifacts; share prerequisite failures and
+exclude known nonexisting receivers; propagate extent; reconcile refreshed candidates
+and stage baseline changes; calculated subsets and separate net bills; response CRS,
+processing fingerprints and evidence-support gates; repair mocked workflow interface.
+Keep GIS independent of all jurisdiction/account/credit/billing rules.
+
+Verification: 340 unit tests passed, including 26 new regressions and a check of
+36 original case/GIS/analysis byte hashes. Only invented/mocked workflow inputs;
+no properties, imagery/inference, sources or terrain were rerun/refreshed. No live
+HTTP/browser, broader suite, field/treatment/invoice/award validation or service
+restart. Initial failures and warnings are recorded; no commit or push requested.
+
+Next: load the changes by restarting the existing local app, then await the user's
+next scope. Do not automatically rerun Whitaker or the portfolio, collect public
+records, run broader/browser tests or publish. Existing running processes still
+contain old Python code. Revised property savings and independent classification/
+drainage accuracy remain unverified. Native imagery/terrain/request-accounting and
+scientific validation limitations are listed in the implementation note.
+
+Publication follow-up: user now explicitly requested commit and push of this work
+to the existing GitHub origin. The earlier no-publication statement describes the
+implementation checkpoint. Include supporting source/tests/docs; keep runtime data
+and private uploads ignored. No additional property processing or broader testing.
+Git owns the final commit hash and push state.
+
+
+
 ## 2026-11-15 — Source commit and push authorized
 
 User requested publication of the completed fixes to the existing

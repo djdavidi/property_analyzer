@@ -1,5 +1,134 @@
 # Current state
 
+## Source publication authorized (2026-11-16)
+
+User requested commit and push of the completed pending work to the existing
+`djdavidi/property_analyzer` origin/main. The reviewed source/tests/docs include the
+saved-data pilot, 01073 capacity correction, confidence withdrawal and earlier
+completed portfolio-report work. Runtime cases, imagery/model weights, uploads and
+caches remain excluded. Publication uses the recorded unit evidence below; it does
+not rerun properties or establish real-site accuracy. Git records the published
+commit and remote state.
+
+## 01073 managed-runoff estimate complete; confidence guesses removed (2026-11-16)
+
+[Current calculation and limits](01073-CAPACITY-RESULTS-2026-11-16.md). Independent
+source-DEM local spill storage is1,488.28cuft. Reserve1,230.36cuft directgardenrain
+at1.5in, leaving257.91cuft outside-runoff storage, equivalent to2,063.31sqft
+managedIA. Existing PWD ledger gives **$32.21/month / $386.52/year**. Candidate
+externalIA is31,315.16sqft after excluding7,227.68sqft modeledIA within the garden
+bed. Prior38,543sqft/$5,989.92 is superseded and unusable for current savings.
+
+The base is a conservative, dry-start static-storage screening estimate, without
+added infiltration/media/outlet recovery. Other soft-ground runoff, perimeter
+interpolation and half-cell geometry sensitivities yield$0–$4,915.20/year. Those
+scenarios are not statistical probabilities. Estimated IA is a volume equivalent,
+not verified treatment/drawdown or an independently located qualifying subarea.
+Cross-parcel storage, missing capacity, failed prerequisites and lineage/ledger
+conflicts cannot silently become zero or an unlimited credit.
+
+Hard-coded subjective confidence percentages were unsupported, are withdrawn, and
+are removed from active code/output/current summaries. Earlier checkpoint claims
+are history, not permission to restore those scores. No calibrated probability is
+available. Other pilot properties/systems were reused without rerunning; their
+management amounts remain conditional full-management scenarios.
+
+New physical/policy runoff-capacity modules feed01073's primary pilot result;
+original frozen GIS/routing and the main app/report layout remain intact. Requested
+saved01073calculation takes about5s. Outputs are Git-ignored under
+`data/assessments/01073-capacity-2026-11-16/`; active pilot views were updated with
+unsupported-score versions preserved only under `withdrawn/`. Consumed case/GIS
+bytes and all169 prior protected original files unchanged.
+
+[82 targeted unit tests passed](01073-capacity-unit-results-2026-11-16.txt), no skips.
+One initial weighted-fixture scalar error was corrected and retained as failed-run
+history. No full assessment/routing rerun, data acquisition/inference, broader suite,
+integration/HTTP/browser or empirical accuracy/treatment/calibration checks; no
+personal Chrome, commit/push or external publication. Next: user review of the
+actual capacity estimate. Field operation, fine rim/outlet geometry, treatment and
+independent accuracy remain unverified; no automatic new task or wider batch.
+
+## Original conditional pilot (2026-11-16)
+
+[Original methods with current corrected summary](MANAGEMENT-PILOT-RESULTS-2026-11-16.md).
+The original78unit checks and saved-data execution remain historical evidence;
+01073's main figure is superseded by the capacity calculation above. Other canopy,
+IA and system scenarios remain available and nonadditive. No invented percentage
+from that pilot should be used.
+
+## Management-estimate and certainty plan prepared — superseded by pilot above (2026-11-16)
+
+User requested a plan for useful system-level estimates and a defensible certainty
+percentage. [Proposed sequence and confidence definition](STORMWATER-ESTIMATION-PLAN-2026-11-16.md).
+No implementation or new tests/runs. Read-only code/saved-attribute inspection found
+the global extent flag erases conditional management dollars, ground IA estimation
+is missing after semantics correction, capture/capacity remains assumed, and cached
+project status/approval/disconnection evidence is underused. A full property IA
+correction should not be prerequisite to a management estimate at current bill areas.
+
+First proposed milestone is Whitaker62571 plus3060S61st's rain garden/basin pair.
+Useful preliminary engineering ranges come first; calibrated percentages require
+independent comparable reference systems and held-out testing. Proposed80% range
+coverage/≤25% median positive-area error are targets, not achieved performance;
+20–30 systems are only a starting reference pilot. Eligibility/award probability
+stays separate. No application code, property acquisition/rerun, classifier, browser,
+unit/broad testing or publication occurred during planning. Await scope agreement.
+
+## Plain-language report rewrite complete (2026-11-16)
+
+User found the report hard to parse. Updated only `portfolio_report.py` presentation
+and the [reader summary](TOP10-CORRECTED-RESULTS-2026-11-15.md). The existing HTML
+now opens with a four-column overview and expandable properties, short findings,
+plainly labeled example amounts and next checks. All twelve categories remain;
+less relevant checks, area numbers, bill checks and raw data are expandable/linked.
+No raw JSON dumps or machine scenario names in the main report. Bill increases
+say higher; unknowns say cannot estimate yet; examples are explicitly not totals.
+
+Original detailed note preserved as [technical record](TOP10-CORRECTED-TECHNICAL-DETAILS-2026-11-15.md);
+original HTML backed up beside the updated file. Rendering reused comparison.json;
+37 saved input/GIS/policy/comparison files have unchanged hashes. No new property
+processing, sources, inference or numerical calculation. HTML78,995 bytes versus
+1,087,377 before. Thirteen focused unit tests passed, no skips; browser/visual check
+not run. Logs/hash manifest: `data/validation/plain-report-2026-11-16/`. No personal
+Chrome, broader tests, new commit/push or application work. Results remain as of
+November15; November16 changed wording only. Real-site/evidence gaps remain open.
+
+## Corrected top ten rerun and full section report complete (2026-11-15)
+
+User explicitly authorized the same ten no-area-credit sites / twelve billing
+parcels to rerun. [Results and full report](TOP10-CORRECTED-RESULTS-2026-11-15.md).
+Current physical GIS and policy were recomputed locally from saved 2025 predictions,
+public records and available terrain: twelve/twelve succeeded in100.787s, zero new
+property requests/inferences. All169 original case/history/artifact byte hashes
+unchanged. New artifacts are separate under `data/assessments/top10-corrected-2026-11-15/`.
+
+Summary fields and twelve categories per parcel cover public bills, recorded GA/IA,
+identified IA, unresolved ground, canopy, area hypotheses, current credits, additional
+alternatives, net status and evidence/source details. Net savings/IA appeal amounts
+are **Unknown for all ten**, not zero. Three saved native1m grids have unverified
+watershed extent and catchment finance blocks. No new soil data acquired; CN remains
+unknown and the old CN65 illustration was not reused. Two previously source-reviewed
+construction permits are excluded from industrial credit; other permit values remain
+what-ifs without verified coverage/compliance or supported totals/refunds.
+
+New `stormwater/portfolio_report.py` is a read-only policy/presentation formatter,
+not a GIS rerouter. It adds explicit joint GA/IA extremes (one coherent GA basis),
+canopy compatibility stress caps (recorded total and identified IA must both be true),
+nonadditivity, missing values, distinct parcel rows and full bill/evidence detail.
+At Springside the cap is $13,616.76/year credit-only under the joint assumptions;
+it is not predicted savings or a validated pavement overlap. Full raw hypotheses
+remain auditable; incompatible all-hidden-impervious assumptions are flagged.
+Overlapping porous/green-roof candidate alternatives are not summed into site savings.
+No field, treatment, actual-bill/award or independent image/catchment accuracy proven.
+
+Implementation checks:100 focused unit tests passed (eleven new report units), plus
+61 internal report linkage/arithmetic/coverage/preservation guards. No broader suite,
+HTTP/browser/visual test, new property acquisition or neural inference. Primary PWD
+manual/tariff were separately rechecked via browser-free web retrieval. HTML about1MB,
+comparison JSON about660KB; detailed polygons stay in frozen per-parcel files.
+No personal Chrome, paid service, outreach, application, deployment or new commit/push.
+Next: review report and select evidence follow-up; no automatic further reruns.
+
 ## Source publication authorized (2026-11-15)
 
 User requested commit and push of the completed changes to the existing

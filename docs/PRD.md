@@ -4,6 +4,22 @@ This is the accepted product scope and decision record. See [STATE](STATE.md) fo
 current implementation, actual results and remaining gaps.
 The independent GIS engine and Philadelphia policy boundary remain intact.
 
+## Saved-data estimation pilot (accepted 2026-11-16)
+
+Implement a bounded pilot for Whitaker62571 and3060S61st rain-garden01073/basin01074
+using saved data, with per-system areas and conditional savings. Include canopy
+savings and current best IA-change assessment at each property. User clarified
+that invented confidence percentages must be removed; no manually assigned numerical
+confidence or approval odds are permitted. Use explicit, data-derived scenarios and
+limits until independent calibration exists. For01073, estimate source-DEM surface
+storage, reserve garden rainfall, exclude the system bed from contributing credit
+IA, and calculate savings from a capacity-limited managed-runoff equivalent. Keep
+the earlier full-management amount separate. Preserve physical
+GIS/policy separation and original snapshots; use only unit tests for verification,
+no report redesign or automatic wider batch. Appearance/connection/capacity hypotheses
+stay separate from observed facts and approved credits. Independent validation
+remains unfinished while useful estimates are provided from available evidence.
+
 ## Automatic open-space CN worksheet (accepted 2026-11-15)
 
 User requested automatic curve-number calculation from free public soil data and

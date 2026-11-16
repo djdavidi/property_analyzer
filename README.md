@@ -16,6 +16,11 @@ documents the appearance-class-to-IA error and related defects. The
 and quarantine affected saved savings. 340 unit checks passed; no properties were
 rerun. Independent accuracy and corrected property savings remain unverified.
 
+The subsequent [corrected top-ten rerun](docs/TOP10-CORRECTED-RESULTS-2026-11-15.md)
+records twelve successful local recomputations and a full per-site/category report.
+Original cases were preserved. Conditional scenarios are separate; supported net
+savings and appeal amounts remain unknown for all ten sites.
+
 ## Coding sessions: start here
 
 Open this repository in your coding agent and say **“Continue from the repository
@@ -36,6 +41,14 @@ service, setup or old chat is required. Commit/backup remains a separate human
 choice; no automatic commits or pushes are made.
 
 ## Product and implementation
+
+**Saved-data estimation pilot:** [Whitaker and 3060 S 61st results](docs/MANAGEMENT-PILOT-RESULTS-2026-11-16.md)
+show canopy, individual rain-garden/basin credits and current IA-reduction estimates,
+with explicit scenario ranges. [01073 capacity calculation](docs/01073-CAPACITY-RESULTS-2026-11-16.md)
+now estimates storage-supported runoff before pricing its credit. Invented confidence
+percentages have been removed. This is a separate local command; the app/report
+layout is unchanged. Empirical accuracy, treatment and calibration remain unverified. The earlier
+[certainty plan](docs/STORMWATER-ESTIMATION-PLAN-2026-11-16.md) remains planning history.
 
 **Building imagery research:** [prior-art survey](docs/BUILDING-IMAGERY-PRIOR-ART.md)
 records 14 studies/projects, with current priorities limited to drainage features,
