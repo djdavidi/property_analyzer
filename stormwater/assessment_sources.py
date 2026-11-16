@@ -194,6 +194,49 @@ def normalize_gsi(feature, source, crs, kind="system"):
                 "raw_record": deepcopy(p),
             }
         )
+    if kind == "system" and p.get("gsi_system_id") not in (None, ""):
+        # Fix 3: every mapped system is also a management-credit lead. Its footprint is
+        # not a managed area; the PCSMP/as-built records establish IA Managed.
+        from .existing_systems import evidence_needed
+
+        output.append(
+            {
+                "id": "public-" + digest([source, oid, "existing_system_management"])[:28],
+                "category": "existing_system_management",
+                "decision": "candidate",
+                "basis": "public_candidate",
+                "label": "Mapped system "
+                + str(p.get("gsi_system_id"))
+                + " ("
+                + str(p.get("gsi_system_type") or "type not recorded")
+                + ")",
+                "facts": {
+                    "gsi_system_id": str(p.get("gsi_system_id")),
+                    "public_system_type": p.get("gsi_system_type"),
+                    "public_status": p.get("status"),
+                    "public_project_type": p.get("project_type"),
+                    "public_project_number": p.get("project_number"),
+                    "public_year_installed": p.get("year_installed"),
+                    "proposed_only": proposed,
+                    "installed": None,
+                    "documented_managed_ia_sqft": None,
+                },
+                "source": {
+                    "url": source,
+                    "record_id": str(oid),
+                    "crs": crs,
+                    "acquisition_date": None,
+                    "publication_date": None,
+                    "effective_date": None,
+                },
+                "evidence_refs": [{"source_url": source, "record_id": str(oid)}],
+                "public_geometry": deepcopy(feature.get("geometry")),
+                "public_geometry_role": "system footprint, not managed catchment",
+                "managed_area_sqft": None,
+                "missing_evidence": evidence_needed(p.get("project_type"), p.get("project_number")),
+                "raw_record": deepcopy(p),
+            }
+        )
     return output
 
 
@@ -244,6 +287,31 @@ def normalize_permit(row, url, identifiers):
         ],
         "raw_record": deepcopy(row),
     }
+
+
+def _on_parcel_leads(records, case, parcel):
+    """Keep a system lead only when its footprint lies partly on the parcel (fix 3)."""
+    from drainage_core.geometry import case_area_sqft
+    from shapely.geometry import shape
+
+    kept = []
+    for record in records:
+        if record["category"] != "existing_system_management":
+            kept.append(record)
+            continue
+        if (record.get("source") or {}).get("crs") != case.get("crs"):
+            continue  # an unprojected footprint cannot establish on-parcel position
+        try:
+            footprint = shape(record["public_geometry"])
+            on = case_area_sqft(footprint.intersection(parcel), case)
+            whole = case_area_sqft(footprint, case)
+        except (KeyError, ValueError, TypeError, AttributeError):
+            continue
+        if on > 0.000001:
+            record["facts"]["on_parcel_footprint_sqft"] = on
+            record["facts"]["footprint_sqft"] = whole
+            kept.append(record)
+    return kept
 
 
 def _echo_rows(proxy, url, refresh, sources):
@@ -356,7 +424,11 @@ def discover(case, cache, refresh=True):
             sources.extend(response["sources"])
             found = []
             for feature in response["features"]:
-                found.extend(normalize_gsi(feature, layer, response["crs"], kind))
+                found.extend(
+                    _on_parcel_leads(
+                        normalize_gsi(feature, layer, response["crs"], kind), case, parcel
+                    )
+                )
             for record in found:
                 record["source_snapshots"] = deepcopy(response["sources"])
             records.extend(found)

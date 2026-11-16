@@ -33,6 +33,7 @@ from .billing import (
     billed_area_check,
 )
 from .rules import screen, open_space_factor, factor, load_rule_config, MANUAL_URL, TARIFF_URL
+from .existing_systems import existing_system_leads
 from .prerequisites import case_vetoes
 
 _CONFIG = load_rule_config()
@@ -42,6 +43,8 @@ LABELS = {
     "permeable_pavement": "Existing permeable pavement",
     "direct_discharge": "Direct surface-water discharge",
     "industrial_npdes": "Industrial NPDES",
+    # Fix 3: a mapped system on the parcel is a management-credit lead (manual 4.3.2.2).
+    "existing_system_management": "Existing mapped system (management lead)",
 }
 # One source for the verified rule period: config/rules-pwd-2026-09.json (the
 # assessment uses the tariff verification window; docs/ASSESSMENT-RULES.md).
@@ -535,6 +538,17 @@ def screen_record(record, case, gis, as_of):
                 require(key)
             if facts.get("credit_path") not in (None, "management"):
                 failed.append("unsupported_credit_path")
+        elif category == "existing_system_management":
+            # Manual 4.3.2.2 / 4.5.1: an existing SMP managing IA; the PCSMP/as-built
+            # drainage area is the managed geometry, never the mapped footprint.
+            for key in SMP:
+                require(key)
+            number(
+                "treatment_depth_inches",
+                1 if facts.get("old_standard_renewal_verified") is True else 1.5,
+            )
+            if facts.get("credit_path") not in (None, "management"):
+                failed.append("unsupported_credit_path")
         else:
             for key in DIRECT:
                 require(key)
@@ -689,7 +703,12 @@ def _legacy_benefits(case, gis):
     return result
 
 
-IA_MANAGED_CATEGORIES = ("management", "direct_discharge", "permeable_pavement")
+IA_MANAGED_CATEGORIES = (
+    "management",
+    "direct_discharge",
+    "permeable_pavement",
+    "existing_system_management",
+)
 OPEN_CATEGORIES = ("open_space", "open_space_direct_discharge")
 # Manual Table 1 IARs; a green roof is "Rooftop Disconnection via Green Roof".
 IAR_CATEGORIES = ("canopy", "roof_disconnection", "pavement_disconnection", "green_roof")
@@ -1835,6 +1854,10 @@ def evaluate_assessment(case, gis_result, as_of=None, tariff=None):
         "economics": economics,
         "modeled_integration": modeled,
         "research_drainage_scenarios": research_economics(case, gis_result, records, day, tariff),
+        # Fix 3: on-parcel mapped systems as leads; a list B2's summary can show.
+        "existing_system_management": existing_system_leads(
+            case, gis_result, records, day, tariff
+        ),
         "historical_flags": historical_flags(case, economics),
         "rules": {
             **deepcopy(RULES),
@@ -1847,6 +1870,9 @@ def evaluate_assessment(case, gis_result, as_of=None, tariff=None):
     }
     from .curve_number import worksheet, finance_scenario
 
+    result["systems_without_recorded_credit"] = deepcopy(
+        result["existing_system_management"]["systems_without_recorded_credit"]
+    )
     sheet = result["open_space_curve_number"] = worksheet(case, gis_result)
     if result["rules"]["applicability"] != "applicable":
         sheet["credit_factor"] = None

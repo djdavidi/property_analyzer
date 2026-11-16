@@ -154,5 +154,117 @@ class PermitDiscoveryTests(unittest.TestCase):
         self.assertEqual(statuses["PWD account/credit public record"], "retrieved")
 
 
+def system_feature(sid="62571", geometry=None, **props):
+    return {
+        "type": "Feature",
+        "id": "public-system_footprint-" + sid,
+        "geometry": mapping(geometry or box(0, 0, 3.048, 30.48)),
+        "properties": {
+            "kind": "system_footprint",
+            "layer": "footprint",
+            "gsi_system_id": sid,
+            "gsi_system_type": "Rain Garden",
+            "project_type": "Private - Regulations",
+            "project_number": "2014-INVT-0001-01",
+            "year_installed": 2015,
+            "status": None,
+            "source_url": "https://example.test/GSI_SMP_TYPES",
+            **props,
+        },
+    }
+
+
+def lead_case(*features, **baseline):
+    c = fixture()
+    c["baseline"].update({"existing_ga_credit_sqft": 0, "existing_ia_credit_sqft": 0, **baseline})
+    c["features"]["features"].extend(features)
+    return c
+
+
+class ExistingSystemLeadTests(unittest.TestCase):
+    def test_on_parcel_system_is_a_pcsmp_lead_without_a_figure(self):
+        off = system_feature("70000", box(40, 40, 45, 45))  # outside the parcel
+        out = assess(lead_case(system_feature(), off))
+        leads = out["existing_system_management"]
+        self.assertEqual([s["system_id"] for s in leads["systems"]], ["62571"])
+        lead = leads["systems"][0]
+        self.assertEqual(lead["lead_status"], "lead_request_pcsmp")
+        self.assertEqual(lead["lead_label"], "lead: request PCSMP")
+        self.assertIsNone(lead["figure"])
+        self.assertAlmostEqual(lead["on_parcel_footprint_sqft"], 1000)
+        self.assertTrue(lead["priority"])
+        self.assertIn("2014-INVT-0001-01", lead["request"])
+        self.assertTrue(any("PCSMP" in e for e in lead["evidence_needed"]))
+        self.assertEqual(
+            [s["system_id"] for s in out["systems_without_recorded_credit"]], ["62571"]
+        )
+
+    def test_documented_managed_area_is_priced_as_management(self):
+        # Fixture: GA 10,000 / IA 10,000 -> 20 x $1.003 = $20.06 + 20 x $7.048 = $140.96;
+        # $161.02 + $2.81 = $163.83. Documented IA Managed 5,000 (manual 4.3.5.1): IA credit
+        # 80% = 4,000 and GA credit 4,000 -> GA 6,000 = 12 x $1.003 = $12.036 -> $12.04;
+        # IA 6,000 = 12 x $7.048 = $84.576 -> $84.58; $96.62 + $2.81 = $99.43.
+        # Reduction $64.40/month, $772.80/year.
+        c = lead_case(system_feature())
+        c["assessment"]["records"] = [
+            {
+                "id": "lead-62571",
+                "category": "existing_system_management",
+                "decision": "candidate",
+                "basis": "public_candidate",
+                "facts": {"gsi_system_id": "062571", "documented_managed_ia_sqft": 5000},
+            }
+        ]
+        lead = assess(c)["existing_system_management"]["systems"][0]
+        self.assertEqual(lead["record_id"], "lead-62571")
+        self.assertEqual(lead["lead_status"], "priced_documented_area")
+        self.assertEqual(lead["figure"]["status"], "calculated")
+        self.assertEqual(lead["figure"]["bill"]["monthly_total"], 99.43)
+        self.assertEqual(lead["figure"]["gross_annual_reduction"], 772.80)
+
+    def test_recorded_credit_is_not_reported_as_uncredited(self):
+        out = assess(lead_case(system_feature(), existing_ia_credit_sqft=800))
+        leads = out["existing_system_management"]
+        self.assertEqual(leads["recorded_credit_status"], "recorded_credits_unattributed")
+        self.assertEqual(out["systems_without_recorded_credit"], [])
+        self.assertEqual(leads["systems"][0]["lead_status"], "lead_request_pcsmp")
+
+    def test_lead_does_not_take_over_the_modeled_catchment_alternative(self):
+        from test_modeled_assessment_unit import fake_research, frozen_gis
+
+        c = lead_case()
+        c["assessment"]["records"] = [
+            {
+                "id": "lead-g1",
+                "category": "existing_system_management",
+                "decision": "candidate",
+                "basis": "public_candidate",
+                "facts": {"gsi_system_id": "G1"},
+            }
+        ]
+        r = assess(c, frozen_gis(c, fake_research(c)))
+        rows = r["modeled_integration"]["catchment_scenarios"]
+        self.assertTrue(any(v["receiver_id"] == "G1" and v["status"] == "calculated" for v in rows))
+        info = next(i for i in r["modeled_integration"]["records"] if i["record_id"] == "lead-g1")
+        self.assertEqual(info["status"], "lead")
+
+    def test_discovery_keeps_only_on_parcel_system_leads(self):
+        from stormwater.assessment_sources import _on_parcel_leads, normalize_gsi
+        from shapely.geometry import shape
+
+        c = fixture()
+        parcel = shape(c["parcel"])
+        on = {"id": 1, "geometry": mapping(box(0, 0, 3.048, 30.48)), "properties": {
+            "gsi_system_id": "62571", "gsi_system_type": "Subsurface Basin",
+            "project_type": "Private - Regulations", "project_number": "2015-X-1-01"}}
+        off = {**on, "id": 2, "geometry": mapping(box(40, 40, 45, 45))}
+        found = []
+        for feature in (on, off):
+            found += _on_parcel_leads(normalize_gsi(feature, "u", c["crs"]), c, parcel)
+        self.assertEqual([r["category"] for r in found], ["existing_system_management"])
+        self.assertEqual(found[0]["facts"]["public_project_number"], "2015-X-1-01")
+        self.assertAlmostEqual(found[0]["facts"]["on_parcel_footprint_sqft"], 1000)
+
+
 if __name__ == "__main__":
     unittest.main()

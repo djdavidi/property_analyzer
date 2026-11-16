@@ -177,6 +177,7 @@ def receiver_links(case, integrated, runs=None):
             table.setdefault(linked["catchment"]["receiver_id"], []).append(
                 {
                     "record_id": record["id"],
+                    "category": category,
                     "decision": record.get("decision", "candidate"),
                     "vetoes": record_vetoes(record, required),
                 }
@@ -444,7 +445,11 @@ def catchment_alternatives(case, gis, screened, as_of, tariff, occupied, record_
             linked = links.get(run["name"], {}).get(c["receiver_id"], [])
             if c["kind"] != "gsi" or c["composition"]["region_area_sqft"] < 0.000001:
                 continue
-            if any(l["decision"] != "rejected" for l in linked):
+            # A lead (fix 3) does not take the receiver over; its vetoes still block.
+            if any(
+                l["decision"] != "rejected" and l.get("category") != "existing_system_management"
+                for l in linked
+            ):
                 continue
             receiver = next(
                 (
@@ -721,6 +726,18 @@ def integrate(case, gis, screened, as_of, tariff):
             info.update(
                 status="not_applicable",
                 reason="AI/drainage does not establish permit coverage, operator identity or compliance",
+            )
+            items.append(info)
+            continue
+        if category == "existing_system_management":
+            # Fix 3: a lead is priced only from a documented managed area
+            # (``existing_systems``); its modeled catchment stays a catchment alternative.
+            info.update(
+                status="lead",
+                reason=(
+                    "Mapped-system lead; priced only from a documented managed area "
+                    "(PCSMP/as-built), see existing_system_management"
+                ),
             )
             items.append(info)
             continue
