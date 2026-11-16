@@ -6,7 +6,7 @@ from copy import deepcopy
 from math import hypot, isfinite
 from shapely.geometry import shape, mapping
 from shapely.errors import ShapelyError
-from .geometry import effective_features, union, measure, case_area_sqft, projected_crs
+from .geometry import effective_features, union, measure, case_area_sqft, projected_crs, area_only, erode_against
 from .freshness import freshness
 from .research import analyze_research, feature_inputs, digest
 
@@ -15,9 +15,8 @@ CLASSES=('canopy','grass_shrub','bare_soil','water','roof','road','developed_spa
 EMPTY={'type':'GeometryCollection','geometries':[]}
 
 
-def _area_only(g):
-    if g.geom_type in ('Polygon','MultiPolygon'):return g
-    return union([_area_only(p) for p in getattr(g,'geoms',[])])
+# Shared with geometry.measure; kept under the historical private name for callers.
+_area_only=area_only
 
 
 def _polygon(value):
@@ -97,11 +96,15 @@ def composition(case, ai, measurement, geometry):
     # lines/points. Composition measures area; mixed dimensions can break GEOS.
     region=_area_only(_polygon(geometry).intersection(shape(case['parcel'])));edge=ai.get('edge_distance_native')
     available=ai.get('status')=='modeled';coverage=shape(ai.get('coverage_geometry',EMPTY))
+    parcel=shape(case['parcel'])
     rows=[]
     for name in CLASSES:
         geom=shape(ai.get('geometries',{}).get(name,EMPTY))
+        # Erode before clipping to the catchment, and only against other classes or
+        # unclassified ground inside the parcel; never against the parcel line (D1).
+        lower=erode_against(geom,parcel.difference(geom),edge) if available and edge is not None else None
         rows.append({'class':name,'area_sqft':case_area_sqft(geom.intersection(region),case) if available else None,
-            'edge_lower_sqft':case_area_sqft(geom.buffer(-edge).intersection(region),case) if available and edge is not None else None,
+            'edge_lower_sqft':case_area_sqft(_area_only(lower.intersection(region)),case) if lower is not None else None,
             'edge_upper_sqft':case_area_sqft(geom.buffer(edge).intersection(region),case) if available and edge is not None else None})
     return {'region_area_sqft':case_area_sqft(region,case),'classes':rows,
         'ai_unclassified_sqft':case_area_sqft(region.difference(coverage),case) if available else None,
@@ -140,10 +143,14 @@ def build(case, observation, conservative, research):
             for c in run.get(key,[]):
                 catchments.append({'kind':kind,'receiver_id':str(c[idkey]),'geometry':deepcopy(c['geometry']),
                     'composition':composition(case,ai,modeled,c['geometry']),
-                    'off_parcel_area_sqft':c['off_parcel_area_sqft'],'off_parcel_surface_classes':'Unknown; parcel imagery is not extrapolated'})
+                    'off_parcel_area_sqft':c['off_parcel_area_sqft'],'off_parcel_surface_classes':'Unknown; parcel imagery is not extrapolated',
+                    # Per-catchment extent test from the run's own cells (A2).
+                    **{k:c.get(k) for k in ('touches_window_edge','touches_nodata','extent_complete')}})
+        # Run-level extent honours the measured terrain coverage, never the raw setting alone.
         runs.append({'name':name,'parameters':deepcopy(run['parameters']),'grid':deepcopy(run['grid']),
-                     'extent_sufficient':run.get('extent_sufficient',False),
-                     'catchments':catchments,'area_conservation_pass':run['area_conservation_pass']})
+                     'extent_sufficient':run.get('extent_sufficient') is True,
+                     'coverage_complete':(run.get('coverage') or {}).get('coverage_complete'),
+                     'catchments':catchments,'invariants':deepcopy(run.get('invariants'))})
     native_features=feature_inputs(case)[0] if research.get('primary') else []
     receivers=[{'id':f['id'],'gsi_id':str(f.get('gsi_id') or f['id']),'geometry':f['geometry'],
                 'source':deepcopy(f.get('source',{}))}
@@ -167,7 +174,13 @@ def ia_bounds(case, integration, region):
     # Nominal may depend on AI. Lower retains only observed IA and shrunk AI IA.
     added=shape(ai['ai_ia_on_unknown_geometry']);edge=ai['edge_distance_native']
     observed=modeled.difference(added)
-    lower=observed.union(added.buffer(-edge)) if edge is not None else observed
+    if edge is not None:
+        # Erode the AI roof class against other classes/unclassified pixels before
+        # clipping it to unknown ground; the parcel line is not a class edge (D1).
+        parcel=shape(case['parcel']);roof=shape(ai['geometries']['roof'])
+        lower=observed.union(_area_only(erode_against(roof,parcel.difference(roof),edge).intersection(added)))
+    else:
+        lower=observed
     upper=modeled.union(unknown)
     if edge is not None:
         # Boundary ambiguity may include adjacent predicted classes, but never

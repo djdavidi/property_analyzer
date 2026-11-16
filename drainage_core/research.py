@@ -14,8 +14,9 @@ import numpy as np
 from rasterio.features import rasterize, shapes
 from rasterio.transform import from_origin
 from shapely.geometry import shape, mapping, box
-from .geometry import effective_features, union, case_area_sqft
+from .geometry import effective_features, union, case_area_sqft, area_only
 from .drainage import route_grid
+from .extent import coverage as terrain_coverage, catchment_extent
 
 METHOD = 'villanova-temple-local-v1'
 PAPER = 'https://doi.org/10.2166/wst.2023.072'
@@ -124,10 +125,17 @@ def feature_inputs(case):
     return sorted(features, key=lambda f: f['id']), omitted
 
 
-def _mask(geometry, grid, buffer_m=0., all_touched=False):
+def _linear(geometry):
+    return shape(geometry).geom_type in ('Point', 'MultiPoint', 'LineString', 'MultiLineString')
+
+
+def _mask(geometry, grid, buffer_m=0., all_touched=None):
+    """Raster cells of a feature. By default point/line features use touched cells
+    (a small buffer must not make them vanish, C5); polygons use cell centres."""
     size = grid['cell_size']; factor = METRES[grid['horizontal_unit']]
     geom = shape(geometry)
     if not geom.is_valid or geom.is_empty: raise ValueError('Research infrastructure geometry must be valid and nonempty')
+    if all_touched is None: all_touched = _linear(geometry)
     if buffer_m: geom = geom.buffer(buffer_m / factor)
     return rasterize([(mapping(geom), 1)], out_shape=(len(grid['elevations']), len(grid['elevations'][0])),
                      transform=from_origin(*grid['origin'], size, size), all_touched=all_touched, dtype='uint8').astype(bool)
@@ -157,7 +165,13 @@ def condition(grid, features, *, dem_type='lidar', offset_scale=1., inlet_buffer
         buffer = (.305 if role == 'gsi' else .152 if role == 'curb_cut' else
                   default_buffer if inlet_buffer_m is None else inlet_buffer_m) if role in ('gsi', 'curb_cut', 'inlet', 'wall') else 0.
         if not math.isfinite(buffer) or buffer < 0: raise ValueError('Infrastructure buffer must be nonnegative')
-        mask = _mask(f['geometry'], grid, buffer, all_touched) & valid
+        # Point/line features rasterize by touched cell in every run, so a small
+        # buffer cannot make an inlet or curb cut vanish from the grid (C5). Small
+        # collection polygons fall back to touched cells when no centre is covered.
+        method = 'touched' if all_touched or _linear(f['geometry']) else 'centre'
+        mask = _mask(f['geometry'], grid, buffer, method == 'touched') & valid
+        if not mask.any() and method == 'centre' and role in ('gsi', 'inlet', 'curb_cut'):
+            method = 'touched_fallback'; mask = _mask(f['geometry'], grid, buffer, True) & valid
         masks[f['id']] = mask
         offset = OFFSETS[dem_type][role] * offset_scale / factor
         if offset > 0: rise[mask] = np.maximum(rise[mask], offset)
@@ -165,7 +179,7 @@ def condition(grid, features, *, dem_type='lidar', offset_scale=1., inlet_buffer
         if role == 'building': building |= mask
         if role == 'curb_cut': cuts |= mask
         audit.append({'id': f['id'], 'role': role, 'raster_cells': int(mask.sum()), 'buffer_m': buffer,
-                      'offset_m': offset * factor, 'source': deepcopy(f.get('source', {})),
+                      'rasterization': method, 'offset_m': offset * factor, 'source': deepcopy(f.get('source', {})),
                       'status': 'scenario' if mask.any() else 'not_represented_on_grid'})
     delta = np.where(rise > 0, rise, drop)
     delta[cuts & ~building] = drop[cuts & ~building]
@@ -227,11 +241,19 @@ def run_model(case, measurement, features, *, offset_scale=1., inlet_buffer_m=No
         p=f.get('properties',{})
         if p.get('layer')=='barrier' and not p.get('drainage_role'):
             barrier.update(map(tuple,np.argwhere(_mask(f['geometry'],grid,all_touched=True))))
-    barrier={p for p in barrier if np.isfinite(conditioned['adjusted'][p])}
+    storage={tuple(c) for c in grid.get('storage', [])}
+    barrier={p for p in barrier if np.isfinite(conditioned['adjusted'][p]) and p not in storage}
     routed_grid['barriers']=[[int(r),int(c)] for r,c in sorted(barrier)]
     roof &= np.isfinite(conditioned['adjusted'])
-    for cell in barrier: roof[cell] = False
+    for cell in barrier | storage: roof[cell] = False
     routed_grid['roofs'] = np.argwhere(roof).tolist()
+    # Raised walls/berms stay routable but block diagonal corner crossing (C3);
+    # a curb cut that lowers a raised cell reopens it.
+    raised = np.zeros(roof.shape, bool)
+    for f in features:
+        if f['role'] in ('wall', 'berm'): raised |= conditioned['masks'][f['id']]
+    raised &= (conditioned['adjustment'] > 0) & np.isfinite(conditioned['adjusted'])
+    routed_grid['corner_blocking'] = np.argwhere(raised).tolist()
     routed_grid.setdefault('settings', {})['max_flow_paths'] = 25
     flow = route_grid(routed_grid)
     accumulation = accumulate(flow['next_cells'], flow['labels'])
@@ -260,11 +282,26 @@ def run_model(case, measurement, features, *, offset_scale=1., inlet_buffer_m=No
     parcel = shape(case['parcel']); ia = shape(measurement['geometries']['physical_ia'])
     building_geometry = union([shape(f['geometry']) for f in features if f['role'] == 'building'])
     unknown = shape(measurement['geometries']['unknown']); groups = {}; outlet_groups={}; basin_rows = []
+    # A collection feature inside a GSI footprint (overflow structure, public inlet)
+    # is part of that GSI: its deeper burn must not erase the GSI catchment (C4).
+    footprints = [(f, shape(f['geometry'])) for f in features if f['role'] == 'gsi']
+    contained = {}
+    for f in features:
+        if f['role'] in ('inlet', 'curb_cut'):
+            g = shape(f['geometry'])
+            owners = [(o['id'], str(o.get('gsi_id') or o['id'])) for o, fp in footprints
+                      if fp.geom_type in ('Polygon', 'MultiPolygon') and fp.covers(g)]
+            if owners: contained[f['id']] = owners
+    target_codes = {}
     for name in names:
         code = codes[name]; root = terminals[name]
         recipients = set(); traces = []; unresolved = []
         for f in features:
             if f['role'] in ('gsi', 'inlet', 'curb_cut') and conditioned['masks'][f['id']][root]:
+                if f['id'] in contained:
+                    recipients.update(('gsi', gsi) for _, gsi in contained[f['id']])
+                    traces.append([f['id']] + [owner for owner, _ in contained[f['id']]])
+                    continue
                 target, path, reason = _recipient(f['id'], by_id, links)
                 if target: recipients.add(target)
                 traces.append(path)
@@ -274,31 +311,36 @@ def run_model(case, measurement, features, *, offset_scale=1., inlet_buffer_m=No
         target = next(iter(recipients)) if len(recipients) == 1 and not unresolved else None
         if target:
             (groups if target[0]=='gsi' else outlet_groups).setdefault(target[1],[]).extend(geometries[code])
+            target_codes.setdefault(target, []).append(code)
         basin_rows.append({'id': code, 'terminal': name, 'sink_cell': list(root),
                            'cells': flow['counts'][name], 'gsi_id': target[1] if target and target[0]=='gsi' else None,
                            'outlet_id':target[1] if target and target[0]=='outlet' else None,'upstream_trace': traces,
                            'candidate_gsi_ids': sorted(t[1] for t in recipients if t[0]=='gsi'),
                            'reason': '; '.join(unresolved) or ('Ambiguous receivers' if len(recipients) > 1 else
                                      'No known receiving feature' if not target else 'Modeled connection, not verified treatment')})
+    coverage = terrain_coverage(case, grid); missing = ~np.isfinite(conditioned['adjusted'])
     catchments = [];outlet_catchments=[]
     for kind,target,parts in [('gsi',k,v) for k,v in sorted(groups.items())]+[('outlet',k,v) for k,v in sorted(outlet_groups.items())]:
+        # Per-catchment extent: unseen inflow can enter only via window-edge or
+        # NoData-adjacent cells of this catchment (A2).
+        extent = catchment_extent(np.isin(basins, target_codes[(kind, target)]), missing, coverage['terrain_covers_parcel_buffer'])
         # Center-cell rasterization must not count slivers of excluded roofs as
         # managed ground IA when vector boundaries cross a raster cell.
-        geom = union(parts).difference(building_geometry)
-        on = geom.intersection(parcel); known = on.intersection(ia); hidden = on.intersection(unknown)
+        geom = area_only(union(parts).difference(building_geometry))
+        on = area_only(geom.intersection(parcel)); known = area_only(on.intersection(ia)); hidden = area_only(on.intersection(unknown))
         # Remove numerical overlay dust, not a minimum reportable physical area.
         if case_area_sqft(known,case)<.000001: known=union([])
         (catchments if kind=='gsi' else outlet_catchments).append({('gsi_id' if kind=='gsi' else 'outlet_id'): target,
                            'geometry': mapping(geom), 'known_ia_geometry': mapping(known),
                            'contributing_area_sqft': case_area_sqft(geom, case),
                            'on_parcel_area_sqft': case_area_sqft(on, case),
-                           'off_parcel_area_sqft': case_area_sqft(geom.difference(parcel), case),
+                           'off_parcel_area_sqft': case_area_sqft(area_only(geom.difference(parcel)), case),
                            'on_parcel_known_ia_sqft': case_area_sqft(known, case),
                            'on_parcel_unknown_surface_sqft': case_area_sqft(hidden, case),
                            'potential_ia_upper_sqft': case_area_sqft(known.union(hidden), case),
-                           'basis': 'modeled scenario', 'eligibility': 'Not established'})
+                           **extent, 'basis': 'modeled scenario', 'eligibility': 'Not established'})
     managed = union([shape(c['known_ia_geometry']) for c in catchments])
-    unknown_managed=union([shape(c['geometry']).intersection(parcel).intersection(unknown) for c in catchments])
+    unknown_managed=union([area_only(area_only(shape(c['geometry']).intersection(parcel)).intersection(unknown)) for c in catchments])
     fill_depth = conditioned['fill_depth']; valid = np.isfinite(fill_depth)
     directions = [[None if flow['labels'][r][c] == 'nodata' else
                    DIRECTIONS[(n[0] - r, n[1] - c)] if (n := flow['next_cells'][r][c]) is not None else 0
@@ -319,11 +361,18 @@ def run_model(case, measurement, features, *, offset_scale=1., inlet_buffer_m=No
             'unknown_ground_union_sqft':case_area_sqft(unknown_managed,case),
             'filled_cells': int((fill_depth[valid] > 0).sum()),
             'max_fill_depth_vertical_units': float(fill_depth[valid].max()) if valid.any() else None,
-            'roof_excluded_cells': int(roof.sum()), 'nodata_cells': flow['nodata_cells'],
+            'roof_excluded_cells': int(roof.sum()), 'corner_blocking_cells': int(raised.sum()),
+            'nodata_cells': flow['nodata_cells'],
             'routed_ground_cells': int((basins > 0).sum()), 'terminal_accumulation_cells': terminal_sum,
-            'area_conservation_pass': terminal_sum == int((basins > 0).sum()),
+            # accumulate() raises on cycles/excluded pointers, so this cannot fail
+            # silently: an internal invariant, not validation evidence (C10).
+            'invariants': {'terminal_accumulation_equals_routed_cells': terminal_sum == int((basins > 0).sum()),
+                           'meaning': 'Internal accounting invariant enforced by accumulate(); not validation evidence'},
             'boundary_basins': sum(r['terminal'].startswith(('edge:', 'unresolved:nodata:')) for r in basin_rows),
-            'extent_sufficient': bool(grid.get('settings', {}).get('extent_sufficient', False)),
+            # Review setting AND measured coverage of parcel + buffer (A2).
+            'extent_sufficient': coverage['extent_sufficient'], 'coverage': coverage,
+            'contained_collection_features': {k: [g for _, g in v] for k, v in sorted(contained.items())},
+            'not_represented_features': [a['id'] for a in conditioned['features'] if a['status'] == 'not_represented_on_grid'],
             'input_dem_sha256': digest(grid['elevations']), 'rasters': rasters,
             'raster_sha256': {k: digest(v) for k, v in rasters.items()}}
 
@@ -363,6 +412,11 @@ def analyze_research(case, measurement, conservative):
                 'Native and coarser sensitivity ranges are not confidence intervals; resampling does not create finer measured terrain detail.']
     if omitted: warnings.append('Some system footprints were excluded because they do not establish surface entries.')
     if not primary['extent_sufficient']: warnings.append('Surrounding watershed extent remains unverified.')
+    if not primary['coverage']['coverage_complete']:
+        warnings.append('Measured terrain coverage of the parcel and requested buffer is incomplete; run-level extent is insufficient regardless of review settings.')
+    for name, run in [('nominal', primary)] + [(v['name'], v) for v in variants]:
+        if run['not_represented_features']:
+            warnings.append(f'Features not represented on the {name} routing grid: ' + ', '.join(run['not_represented_features']))
     if primary['nodata_cells'] or primary['boundary_basins']: warnings.append('Missing terrain or boundary outlets can change contributing areas.')
     if not any(f['role'] == 'inlet' for f in features): warnings.append('No mapped inlets supplied; missing storm drains may substantially change modeled GSI catchments.')
     values = [r['known_ia_union_sqft'] for r in [primary] + variants]
@@ -370,7 +424,7 @@ def analyze_research(case, measurement, conservative):
     for c in primary['catchments']:
         region=shape(c['geometry']); breakdown=[]
         for old in conservative.get('catchments',[]):
-            overlap=region.intersection(shape(old['geometry']))
+            overlap=area_only(region.intersection(shape(old['geometry'])))
             if not overlap.is_empty:
                 breakdown.append({'previous_terminal':old['outlet'],'overlap_area_sqft':case_area_sqft(overlap,case)})
         comparisons.append({'gsi_id':c['gsi_id'],'previous_terminal_breakdown':breakdown,
@@ -379,8 +433,10 @@ def analyze_research(case, measurement, conservative):
             'implementation_decisions':{
                 'fill':'D8 priority flood, open raster edge and NoData-adjacent boundaries',
                 'overlaps':'Maximum raise beats deepest drop; curb cuts cut berms/walls; buildings win',
-                'routing':'Shared deterministic steepest-D8 and shortest-flat paths; no diagonal corner crossing; untyped existing barriers stay hard barriers',
-                'basins':'Terminal micro-basins; upstream collection-to-GSI traces require supplied documented/scenario links',
+                'rasterization':'Point/line features by touched cell in every run; polygons by cell centre, small collection polygons fall back to touched cells; unrepresented features are warned',
+                'routing':'Shared deterministic steepest-D8 and shortest-flat paths; no diagonal corner crossing at closed cells or raised walls/berms; untyped existing barriers stay hard barriers',
+                'basins':'Terminal micro-basins; collection features inside a GSI footprint belong to that GSI; other upstream collection-to-GSI traces require supplied documented/scenario links',
+                'extent':'Per catchment: window-edge or NoData-adjacent cells, AND measured terrain coverage of parcel plus buffer',
                 'offset_sensitivity':'0.5x/1.5x offsets are analyst stress tests, not published confidence bounds',
                 'buffer_sensitivity':'Small/large published inlet-wall buffers; high case also tests touched-cell rasterization',
                 'equivalence':'ArcGIS/ArcHydro equivalence has not been established'},

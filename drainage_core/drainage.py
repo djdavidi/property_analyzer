@@ -23,9 +23,10 @@ def route_grid(grid):
     """Return stable catchment labels and explicit unknowns for a JSON grid.
 
     Required: elevations, cell_size and separate horizontal_unit/vertical_unit.
-    Optional: barriers/roofs/storage cell lists; inlets [{id,cell}]; connections
-    [{from,to,evidence}], roof_connections [{cell,to,evidence}], parcel_mask,
-    settings {extent_sufficient, flat_tolerance, max_flow_paths}.
+    Optional: barriers/roofs/storage cell lists; corner_blocking cells (raised but
+    routable walls/berms that diagonal flow may not cross); inlets [{id,cell}];
+    connections [{from,to,evidence}], roof_connections [{cell,to,evidence}],
+    parcel_mask, settings {extent_sufficient, flat_tolerance, max_flow_paths}.
 
     Documented links may target an inlet ID or a terminal external outlet ID.
     Scenario links carry a scenario label. Unknown links stop at an unresolved
@@ -141,7 +142,10 @@ def route_grid(grid):
         return p[0] in (0, rows - 1) or p[1] in (0, cols - 1)
 
     ground = set(z) - barriers - roofs
-    closed = barriers | roofs | nodata
+    # Raised linear features (research walls/berms) stay routable ground but, like
+    # closed cells, cannot be crossed diagonally between two touching corners.
+    raised = {cell(v) for v in grid.get("corner_blocking", [])}
+    closed = barriers | roofs | nodata | raised
 
     def neighbours(p):
         r, c = p
@@ -179,8 +183,12 @@ def route_grid(grid):
 
     # Resolve each connected plateau toward existing lower exits or collection
     # points. A multi-source BFS supplies shortest flat paths without cycles.
+    # Cells that already have a downhill exit (or a terminal) are never flat
+    # members, only exits; plateaus are seeded from the lowest remaining cell.
+    # An exit's downhill drop exceeds the tolerance, so its path ends below every
+    # remaining seed, in cells resolved earlier: no flat_tolerance cycle can form.
     remaining = ground - set(terminal) - set(next_cell)
-    for seed in sorted(remaining):
+    for seed in sorted(remaining, key=lambda p: (z[p], p)):
         if seed not in remaining:
             continue
         component = {seed}
@@ -190,7 +198,7 @@ def route_grid(grid):
             for n, _ in neighbours(p):
                 if n not in component and abs(z[n] - z[seed]) <= tolerance:
                     component.add(n)
-                    if n not in terminal:
+                    if n not in terminal and n not in next_cell:
                         queue.append(n)
         pending = component & remaining
         exits = sorted(p for p in component if p in terminal or p in next_cell)

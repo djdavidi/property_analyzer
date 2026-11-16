@@ -22,9 +22,13 @@ from importlib.metadata import PackageNotFoundError, version
 import json
 
 QUALITY_VERSION='physical-quality-v3'
-PHYSICAL_INTERPRETATION_VERSION=1
+# 2 (2026-11-16, Phase 3): polygon-only clipping, overlap precedence, raised-wall
+# corner blocking, inlet-in-GSI, touched point/line rasterization, canopy coverage,
+# flat-tolerance exits, roof-sliver IA, measured/per-catchment extent, class-edge
+# erosion and the installation-status allowlist.
+PHYSICAL_INTERPRETATION_VERSION=2
 PHYSICAL_SCOPE=('engine','geometry','drainage','research','model_integration','semantic_cover',
-                'remote_sensing','model_worker','freshness','installation','sources','validation')
+                'remote_sensing','model_worker','freshness','installation','sources','validation','extent')
 PROVENANCE_LIBRARIES=('numpy','shapely','rasterio','pyproj')
 # A real engine artifact carries one of these. One without an interpretation version
 # predates explicit versions (byte fingerprints or none at all): "unknown/legacy".

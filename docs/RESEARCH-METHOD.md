@@ -68,9 +68,26 @@ run both automatically when suitable terrain exists; no public refresh is requir
 The publication does not fully specify raster overlaps, flat ties or every buffer
 choice. These are explicit adaptation decisions, not claims of identical ArcGIS output:
 
-- Cell-center rasterization is nominal. Largest raise beats deepest drop at overlaps;
-  a curb cut can cut a berm/wall, but buildings win. Existing hard grid and untyped vector barriers stay
-  barriers. Flat paths use the current deterministic router's tie/corner conventions.
+- Polygons rasterize by cell centre. Point and line features (inlets, curb cuts, walls,
+  berms) rasterize by touched cell in every run, so a small buffer cannot make them
+  vanish; a collection polygon that covers no cell centre falls back to touched cells.
+  Every feature still `not_represented_on_grid` is named in a warning per run.
+  Largest raise beats deepest drop at overlaps; a curb cut can cut a berm/wall, but
+  buildings win. Existing hard grid and untyped vector barriers stay barriers. Raised
+  wall/berm cells stay routable but block diagonal corner crossing, so flow cannot
+  slip between two raised cells that touch only at a corner. Flat paths use the
+  current deterministic router's tie/corner conventions.
+- An inlet or curb cut lying inside a GSI footprint is part of that GSI: its deeper
+  burn cannot turn the GSI's pit into an unassigned basin (`contained_collection_features`).
+- Extent is tested per catchment. Each research and integration catchment carries
+  `touches_window_edge`, `touches_nodata` (8-adjacent to, or on, NoData) and
+  `extent_complete`, which is true only when it touches neither and the terrain window
+  covers the parcel plus requested buffer. Under D8 window-edge and NoData-adjacent
+  cells are the only cells through which unseen inflow can enter. Run-level
+  `extent_sufficient` is the review setting AND measured `coverage` (window covers
+  that region and no NoData lies inside it), so a coarse run's NoData border can make
+  its run-level flag false while interior catchments stay complete. The pilot's
+  saved-artifact diagnostics use the same `drainage_core.extent` helpers.
 - Nominal inlet/wall buffer is one native cell in metres, clamped to the published
   0.305–1.5 m range. GSI/curb-cut buffers use their Table 3 values. A contour DEM must
   be explicitly selected; unsupported contour-wall offsets are rejected.
@@ -82,8 +99,11 @@ choice. These are explicit adaptation decisions, not claims of identical ArcGIS 
   include boundary coverage effects. No 30–60 cm terrain is invented from a 1 m DEM.
 - Nominal diagnostics include filled/conditioned elevations, fill depths,
   infrastructure changes, D8 direction, inclusive accumulation and micro-basin IDs.
-  Sensitivity runs retain settings, hashes, catchment geometry, audit and conservation
+  Sensitivity runs retain settings, hashes, catchment geometry, audit and accounting
   counts; reproduce full sensitivity arrays by rerunning the recorded settings.
+  `invariants.terminal_accumulation_equals_routed_cells` (formerly
+  `area_conservation_pass`) cannot fail silently because accumulation raises first;
+  it is an internal consistency invariant, not validation evidence.
 
 Known public rain-garden/swale/planter polygons may nominate receiving candidates.
 An underground basin, cistern, roof or unknown system footprint is not a surface inlet.

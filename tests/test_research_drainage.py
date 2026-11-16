@@ -76,7 +76,7 @@ class ResearchDrainageTests(unittest.TestCase):
         self.assertAlmostEqual(out['adjusted'][3,3]-out['filled'][3,3],9.14)
         r=model(c);self.assertEqual(r['roof_excluded_cells'],1)
         self.assertEqual(r['routed_ground_cells'],48)
-        self.assertTrue(r['area_conservation_pass'])
+        self.assertTrue(r['invariants']['terminal_accumulation_equals_routed_cells'])
 
     def test_curb_cut_opens_berm_but_not_building(self):
         c=fixture();g=mapping(box(3,3,4,4))
@@ -90,7 +90,7 @@ class ResearchDrainageTests(unittest.TestCase):
             'properties':{'layer':'barrier'}})
         r=model(c)
         self.assertEqual(r['routed_ground_cells'],35)
-        self.assertTrue(r['area_conservation_pass'])
+        self.assertTrue(r['invariants']['terminal_accumulation_equals_routed_cells'])
 
     def test_narrow_feature_loss_is_reported_and_touching_can_test_it(self):
         c=fixture();fs=[{'id':'thin','role':'berm','geometry':mapping(box(3.01,2,3.05,5))}]
@@ -109,7 +109,7 @@ class ResearchDrainageTests(unittest.TestCase):
         self.assertGreater(r['known_ia_union_sqft'],0)
         self.assertEqual(r['terminal_accumulation_cells'],49)
         self.assertEqual(r['routed_ground_cells'],49)
-        self.assertTrue(r['area_conservation_pass'])
+        self.assertTrue(r['invariants']['terminal_accumulation_equals_routed_cells'])
         self.assertEqual(r['catchments'][0]['off_parcel_area_sqft'],0)
 
     def test_inlet_upstream_connection_aggregates_only_when_supplied(self):
@@ -169,7 +169,7 @@ class ResearchDrainageTests(unittest.TestCase):
         self.assertEqual(len(r['sensitivity']),3)
         self.assertEqual(r,b['research_drainage']);self.assertEqual(before,canonical(c))
         self.assertEqual(a['analysis_sha256'],result_hash(a))
-        self.assertTrue(all(v['area_conservation_pass'] for v in [r['primary']]+r['sensitivity']))
+        self.assertTrue(all(v['invariants']['terminal_accumulation_equals_routed_cells'] for v in [r['primary']]+r['sensitivity']))
         self.assertTrue(r['sensitivity'][-1]['nodata_cells']>0)
         self.assertEqual(r['validation']['status'],'incomplete')
 

@@ -54,6 +54,34 @@ def union(items):
     return unary_union(items) if items else GeometryCollection()
 
 
+def area_only(g):
+    """Polygonal part of a geometry; boundary lines/points left by clipping are dropped.
+
+    A feature that only touches the parcel line or a corner clips to a line or point.
+    Mixed-dimension leftovers are not area and can break later GEOS overlays.
+    """
+    if g.is_empty:
+        return GeometryCollection()
+    if g.geom_type in ('Polygon','MultiPolygon'):
+        return g
+    return union([p for p in (area_only(x) for x in getattr(g,'geoms',[])) if not p.is_empty])
+
+
+def erode_against(geometry, other, distance):
+    """Shrink ``geometry`` only where it borders ``other`` (a different class/unknown).
+
+    Pixel-edge lower bounds erode class edges, never a clipping boundary such as the
+    legal parcel line or the imagery window. ``distance`` is in native units.
+    """
+    geometry=area_only(geometry)
+    if not distance or geometry.is_empty:
+        return geometry
+    other=area_only(other)
+    if other.is_empty:
+        return geometry
+    return area_only(geometry.difference(other.buffer(distance)))
+
+
 def effective_features(case):
     """Apply append-only edits without altering source observations.
 
@@ -112,19 +140,39 @@ def measure(case):
         if key:
             if key not in classes:
                 raise ValueError('Unsupported surface class: ' + key)
-            classes[key].append(polygon(f['geometry']).intersection(parcel))
-    geom = {key: union(v) for key, v in classes.items()}
-    raw_ia = geom['roof'].union(geom['pavement'])
-    conflicts = raw_ia.intersection(geom['pervious'])
-    ambiguous = geom['unknown'].union(conflicts)
-    ia = raw_ia.difference(ambiguous)
-    pervious = geom['pervious'].difference(raw_ia).difference(ambiguous)
-    unknown = parcel.difference(ia.union(pervious))
-    ground = geom['pavement'].difference(geom['roof']).difference(ambiguous)
-    canopy_ground = ground.intersection(geom['canopy'])
-    canopy_status=case.get('canopy_observation',{}).get('status')
+            # Keep only area: touching neighbours clip to lines/points (C1).
+            clipped = area_only(polygon(f['geometry']).intersection(parcel))
+            if not clipped.is_empty:
+                classes[key].append(clipped)
+    geom = {key: area_only(union(v)) for key, v in classes.items()}
+    raw_ia = area_only(geom['roof'].union(geom['pavement']))
+    conflicts = area_only(raw_ia.intersection(geom['pervious']))
+    ambiguous = area_only(geom['unknown'].union(conflicts))
+    ia = area_only(raw_ia.difference(ambiguous))
+    pervious = area_only(geom['pervious'].difference(raw_ia).difference(ambiguous))
+    unknown = area_only(parcel.difference(ia.union(pervious)))
+    ground = area_only(geom['pavement'].difference(geom['roof']).difference(ambiguous))
+    canopy_ground = area_only(ground.intersection(geom['canopy']))
+    observation=case.get('canopy_observation') or {}
+    canopy_status=observation.get('status')
     canopy_observed=bool(classes['canopy']) or canopy_status=='complete'
-    if not canopy_observed:warnings.append('Canopy coverage unavailable; no absence or zero canopy is established')
+    # Canopy absence is established only inside the observed coverage (C6): the
+    # whole parcel when status is complete, the supplied coverage outline otherwise.
+    # Mapped canopy polygons establish presence, never absence elsewhere.
+    if observation.get('coverage_geometry'):
+        coverage=area_only(shape(observation['coverage_geometry']).intersection(parcel))
+    elif canopy_status=='complete':
+        coverage=parcel
+    else:
+        coverage=GeometryCollection()
+    unobserved_canopy=area_only(parcel.difference(coverage).difference(geom['canopy']))
+    coverage_complete=case_area_sqft(unobserved_canopy,case)<.001
+    if canopy_status=='complete' and not coverage_complete:
+        warnings.append('Canopy status is complete but its coverage outline does not cover the parcel; absence is established only inside the outline')
+    if not coverage_complete:
+        warnings.append('Canopy coverage unavailable; no absence or zero canopy is established' if coverage.is_empty else
+                        'Canopy coverage unavailable outside the partial coverage outline; no absence or zero canopy is established there')
+    canopy_upper_region=area_only(geom['canopy'].union(unobserved_canopy))
     if conflicts.area > 1e-8:
         warnings.append('Conflicting impervious/pervious observations are unknown until corrected')
     if unknown.area > 1e-8:
@@ -139,12 +187,14 @@ def measure(case):
     result = {
         'ga_sqft': sf(parcel), 'ia_sqft': sf(ia), 'ia_min_sqft': sf(ia),
         'ia_max_sqft': sf(ia.union(unknown)), 'unknown_sqft': sf(unknown),
-        'pervious_sqft': sf(pervious), 'roof_sqft': sf(geom['roof'].intersection(ia)),
+        'pervious_sqft': sf(pervious), 'roof_sqft': sf(area_only(geom['roof'].intersection(ia))),
         'ground_ia_sqft': sf(ground), 'canopy_ground_ia_sqft': sf(canopy_ground) if canopy_observed else None,
         'canopy_sqft':sf(geom['canopy']) if canopy_observed else None,
         'canopy_status':canopy_status or ('observed_extent_only' if canopy_observed else 'unavailable'),
         'canopy_source_vintage':case.get('canopy_observation',{}).get('source_vintage'),
-        'canopy_ground_ia_upper_sqft':sf(canopy_ground.union(geom['canopy'].intersection(unknown))) if canopy_observed else sf(ground.union(unknown)),
+        'canopy_coverage_complete':coverage_complete,
+        'canopy_unobserved_sqft':sf(unobserved_canopy),
+        'canopy_ground_ia_upper_sqft':sf(area_only(ground.union(unknown).intersection(canopy_upper_region))),
         'complete': sf(unknown) < .001, 'boundary_claim': 'Source-polygon consistency only; legal boundary unverified',
         'area_crs':case.get('area_crs',crs),
         'source_dependence': dependence, 'warnings': warnings,

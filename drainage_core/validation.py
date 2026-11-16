@@ -22,8 +22,53 @@ def compare_geometry(predicted, reference, crs, area_crs=None):
             'boundary_hausdorff_native_units':p.boundary.hausdorff_distance(r.boundary) if not p.is_empty else None}
 
 
-def validate_case(case, measurement, drainage_geometries=None):
+def _modeled_catchments(research, modeled):
+    """Research/integration catchments keyed by (model, run, kind, receiver_id)."""
+    found = {}
+    primary = (research or {}).get('primary')
+    if primary:
+        for run in [('nominal', primary)] + [(v.get('name'), v) for v in (research or {}).get('sensitivity', [])]:
+            for kind, key, idkey in (('gsi', 'catchments', 'gsi_id'), ('outlet', 'outlet_catchments', 'outlet_id')):
+                for c in run[1].get(key, []):
+                    found[('research', run[0], kind, str(c[idkey]))] = c['geometry']
+    for run in (modeled or {}).get('runs', []):
+        for c in run.get('catchments', []):
+            found[('integration', run['name'], c['kind'], str(c['receiver_id']))] = c['geometry']
+    return found
+
+
+def _reference_target(r, conservative, modeled):
+    """A conservative terminal label, or a modeled receiver catchment by ID (C8).
+
+    Explicit: receiver_id with optional model (research|integration, default
+    research), run (default nominal) and receiver_kind (gsi|outlet). An ``outlet``
+    that is not a conservative terminal label is read as a receiver ID, with an
+    optional ``gsi:``/``outlet:`` kind prefix. Ambiguous matches stay unmeasured.
+    """
+    if not r.get('receiver_id') and r.get('outlet') in conservative:
+        return conservative[r['outlet']], {'model': 'conservative', 'terminal': r['outlet']}, None
+    identifier = r.get('receiver_id'); kind = r.get('receiver_kind')
+    if not identifier and r.get('outlet'):
+        identifier = str(r['outlet'])
+        for prefix in ('gsi', 'outlet'):
+            if identifier.startswith(prefix + ':'):
+                kind = kind or prefix; identifier = identifier[len(prefix) + 1:]
+    if not identifier:
+        return None, None, 'No reconstructed catchment for reference outlet'
+    model = r.get('model', 'research'); run = r.get('run', 'nominal')
+    matches = [(k, g) for k, g in modeled.items() if k[0] == model and k[1] == run and k[3] == str(identifier)
+               and (kind is None or k[2] == kind)]
+    if len(matches) > 1:
+        return None, None, 'Reference receiver ID matches more than one modeled catchment; set receiver_kind'
+    if not matches:
+        return None, None, 'No reconstructed catchment for reference outlet'
+    (model, run, kind, identifier), geometry = matches[0]
+    return geometry, {'model': model, 'run': run, 'receiver_kind': kind, 'receiver_id': identifier}, None
+
+
+def validate_case(case, measurement, drainage_geometries=None, *, research=None, modeled=None):
     refs = case.get('references', [])
+    modeled_catchments = _modeled_catchments(research, modeled)
     result = {}
     for kind in ('ia','drainage'):
         candidates=[r for r in refs if r.get('kind') == kind]
@@ -42,11 +87,12 @@ def validate_case(case, measurement, drainage_geometries=None):
                 if not measurement['complete']:
                     blockers.append('IA surface coverage is incomplete'); continue
                 predicted=measurement['geometries']['physical_ia']
+                target = {'model': 'measurement'}
             else:
-                predicted=(drainage_geometries or {}).get(r.get('outlet'))
+                predicted, target, blocker = _reference_target(r, drainage_geometries or {}, modeled_catchments)
                 if not predicted:
-                    blockers.append('No reconstructed catchment for reference outlet'); continue
-            accepted.append({'reference_id':r['id'],'holdout':r.get('holdout',False),
+                    blockers.append(blocker); continue
+            accepted.append({'reference_id':r['id'],'holdout':r.get('holdout',False),'target':target,
                              'metrics':compare_geometry(predicted,r['geometry'],case['crs'],case.get('area_crs')),
                              'source_url':r['source_url'], 'acquisition_date':r.get('acquisition_date'),
                              'routing_disagreements':r.get('routing_disagreements','Not independently reviewed'),
