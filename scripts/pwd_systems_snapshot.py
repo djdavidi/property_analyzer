@@ -25,6 +25,7 @@ import urllib.request
 from datetime import date
 from pathlib import Path
 
+from shapely import make_valid
 from shapely.geometry import shape
 from shapely.strtree import STRtree
 
@@ -85,12 +86,13 @@ def features(layer: str, where: str, fields: str) -> list[dict]:
 
 
 def join(systems: list[dict], parcels: list[dict]) -> list[dict]:
-    geoms = [shape(p["geometry"]) for p in parcels]
+    # Public polygons can be self-intersecting; repair before overlay.
+    geoms = [make_valid(shape(p["geometry"])) for p in parcels]
     tree = STRtree(geoms)
     rows = []
     for feature in systems:
         props = feature.get("properties") or {}
-        geometry = shape(feature["geometry"]) if feature.get("geometry") else None
+        geometry = make_valid(shape(feature["geometry"])) if feature.get("geometry") else None
         best, share = None, 0.0
         if geometry is not None and not geometry.is_empty and geometry.area > 0:
             for index in tree.query(geometry):
