@@ -4,6 +4,51 @@ Newest entries first. Current truth belongs in STATE; the active bounded task be
 in TASK. These records preserve changes, decisions, evidence, unresolved issues and
 handoffs. Do not rewrite past results to match later runs.
 
+## 2026-11-16 — Fix plan Phase 2 merged: money correctness
+
+Commit `1dfb5b5`, merged on top of Phases 3 and 5. Full suite after merge: Ran 719,
+OK (skipped=1), no `data/`. Rule sources are the PWD Credits and Appeals Manual and
+the tariff (2026-09), fetched from `water.phila.gov`, and 25 Pa. Code ch. 92a.
+
+**Rules implemented.**
+- **B2 minimum charge:** each account pays max(its share, $20.89), in the baseline
+  and every scenario (tariff §4.3(a)(6),(8), §4.5(b); manual §4.3.5 step 5).
+  Repro: a credit can no longer raise a bill.
+- **B1 NPDES residual:** 7% of uncredited IA and 7% of uncredited GA, consistently.
+  Adding a qualifying credit no longer lowers the total ($16.11 → $28.14 in the
+  repro). **Open interpretation:** read literally, manual §4.3.5.2 applies 7% only to
+  uncredited IA. The chosen reading needs PWD confirmation.
+- **B3/R17 managed areas:**
+  - IA credit on managed ∩ IA only.
+  - Open space discharging directly to surface water gets 90% GA, regardless of
+    cover (97% with NPDES; manual §4.3.3.1, §4.3.5.4).
+  - Open space in an SMP area gets 80% (87%) only with sizing/design pre-approval.
+- **B4 CN:** Decimal averaging; steps are whole CN below 75. B5 stays withdrawn:
+  Table A-1 matches.
+- **B6/D7:** the report table and surface scenarios come from the assessment ledger.
+- **B7 NPDES dates:** a lagging DMR period passes only with a sourced future
+  `next_dmr_due`, otherwise needs-update. An expired permit needs
+  `administratively_continued` (§92a.7(b)–(c)); a late application fails (§92a.75(a)).
+- **B9 renewals:** credits expire 4 years after the effective date (tariff
+  §4.5(f)(4), manual §4.4.1). Scheduled terminations are recognised.
+- **B10/D6:**
+  - Undeveloped status is three-state, with both alternatives computed when it is
+    unknown.
+  - An unknown allocation uses the equal-split default, labelled unverified.
+  - PWD's billed areas are compared with computed billed areas (G1 flag).
+  - Rates are loaded from `config/rules-pwd-2026-09.json`.
+- **R1:** `stormwater/prerequisites.py` vetoes known-false prerequisites, such as
+  account standing, in every alternative path.
+- **R2:** rejected receivers are not re-priced.
+- `POLICY_INTERPRETATION_VERSION` 1→2.
+
+**Limits.**
+- `management_pilot` and `portfolio_report` still price through `calculate_scenarios`
+  (Phase 4).
+- Undeveloped-status alternatives show as "Unknown" plus JSON in the UI.
+- Branch coverage was not measured.
+- Saved cases with a missing public allocation will raise a one-time baseline review.
+
 ## 2026-11-16 — Fix plan Phase 5 merged: acquisition and prospects
 
 Commit `c76df31`, merged on top of Phase 3. Full suite after merge: Ran 679, OK

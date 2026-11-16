@@ -1,5 +1,17 @@
 # Current state
 
+## Fix plan Phases 0–3 and 5 merged (2026-11-16)
+
+Full suite: 719 ran, OK (1 data-dependent skip), hermetic. Physical and policy
+interpretation versions are now 2, so saved cases open as `outdated` with a
+recompute action.
+
+**Open rule interpretation:** the NPDES 7% residual on uncredited GA (B1) needs PWD
+confirmation.
+
+**Next:** Phase 4 (pilot/capacity, policy extent gates), then the Phase 6 tooling,
+the Phase 7 docs, and a final review with live property runs.
+
 ## Fix plan Phase 1 complete: saved-result lifecycle (2026-11-16)
 
 full suite Ran 610, OK, 1 data-dependent skip; no network; no data/ writes. Details in the newest checkpoint.
