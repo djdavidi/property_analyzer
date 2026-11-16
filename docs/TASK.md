@@ -1,48 +1,40 @@
-# Current task: fix plan Phases 2, 3 and 5 (parallel)
+# Current task: fix plan Phase 4 (pilot/capacity) and Phase 6 tooling
 
 Status: **in progress**, 2026-11-16. Plan: [FIX-PLAN-2026-11-16.md](FIX-PLAN-2026-11-16.md).
 
-Objective/why: fix the money calculations (Phase 2), geometry and routing (Phase 3),
-and acquisition and prospects (Phase 5). These phases touch mostly separate files,
-so each runs in its own git worktree. Each merges into this branch and main only
-when the full suite is green.
+**Phase 4a, physical capacity layer** (`drainage_core/{runoff_capacity,management_estimates,surface_estimates}.py`):
+- H12: spill level along the perimeter line, plus shift-invariance tests.
+- R7: storage budgeted per connected component.
+- R5: observed canopy included.
+- R9: unit-status lineage.
+- H13: fill diagnostic relabelled.
+- H14/H15: inlets inside the footprint; DEM date versus installation; ponding depth.
+- H16: IA inside the footprint.
+- H17–H19: consistent sensitivities, reported range gaps, tests.
+- R8: distinct route states.
 
-Scope:
-- **Phase 2:**
-  - B1 NPDES residual base.
-  - B2 minimum charge.
-  - B3/R17 managed drainage areas.
-  - B4 CN rounding.
-  - B6 single savings path.
-  - B7 NPDES dates.
-  - B9 renewals.
-  - B10 tri-state undeveloped status, allocation and billed-area check.
-  - Config loading.
-  - R1 shared prerequisite veto.
-  - R2 rejected receivers.
-  - B5 is withdrawn (PWD Table A-1 matches the code).
-- **Phase 3:**
-  - C1–C10.
-  - A2 per-catchment extent fields, GIS core only. Policy gates move to Phase 4.
-  - Review D1 erosion.
-  - Review D2 installation allowlist.
-  - Physical interpretation version bump.
-- **Phase 5:**
-  - Review D3 cached error bodies.
-  - Review D4 pagination.
-  - Review D5 png32.
-  - Review D6 stale reuse, CRS, imagery vintages, outages, RGB fallback, semantic
-    cache, SDA geometry, DEM date.
-  - R16 model window size.
-  - E1 owner screen.
-  - E2 seed-only queries.
-  - E3 retries and stale fallback.
-  - E5 remainder.
+**Phase 4b, pricing and portfolio** (`stormwater/{management_estimates,runoff_capacity,management_pilot,portfolio_report}.py`
+plus the policy extent gates):
+- R4: IA reported as not estimated, not zero.
+- R6: off-parcel load range.
+- R13/R14/D4: ranges first, separate quantities.
+- R15: spatial-allocation sensitivity.
+- A3/D3: one class-interpretation table.
+- H1/H10: one identity resolver.
+- H2: nominal headline.
+- H3/H4/H6: portfolio gates, published charge, real status.
+- H5: capacity chosen by system type.
+- H7/H9: warnings and required lineage.
+- H8: `--as-of`.
+- A2/D2: policy gates read per-catchment `extent_complete` and label partial
+  catchments.
+- Pilot and portfolio price through the assessment ledger (one money path).
 
-Rule sources: the PWD manual and tariff (2026-09) were fetched from `water.phila.gov`
-and cited by section in code and docs.
+**Phase 6 tooling (parallel worktree):**
+- G4: OEM-versus-2018 land-cover agreement tool.
+- G3: public storm-inlet ingestion.
+- A5/B8: UB reviewer option and CN-to-finance link.
+- G1: billed-area reconciliation report.
 
-Success:
-- Each phase's repros become passing tests.
-- Money tests use hand-derived expected values.
-- The full suite stays green and hermetic after each merge.
+Success: the repros in `new-physical/`, `new-policy/` and `second/` behave
+correctly, and the full suite stays green and hermetic after each merge.
