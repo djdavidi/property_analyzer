@@ -6,12 +6,16 @@ import json
 from urllib.parse import urlencode
 
 from drainage_core.sources import SourceError, arcgis_features, now
+from .permits import parcel_addresses, permit_classification, permit_site_match
 
 CITY = "https://services.arcgis.com/fLeGjb7u4uXqeF9q/ArcGIS/rest/services"
 SYSTEMS = CITY + "/GSI_SMP_TYPES/FeatureServer/0"
 RETROFITS = CITY + "/GSI_Private_Projects_Retrofit/FeatureServer/0"
 ECHO = "https://echodata.epa.gov/echo/cwa_rest_services."
 PWD = "https://stormwater.phila.gov/PwdWebApi/api/v1/parcel"
+# Fix 1: EPA facility points are geocoded loosely; the nearby box is wider than
+# the former 0.001 degree pad and only lists facilities (identity attaches them).
+NPDES_ECHO_PAD_DEGREES = 0.002
 
 
 def digest(value):
@@ -190,6 +194,49 @@ def normalize_gsi(feature, source, crs, kind="system"):
                 "raw_record": deepcopy(p),
             }
         )
+    if kind == "system" and p.get("gsi_system_id") not in (None, ""):
+        # Fix 3: every mapped system is also a management-credit lead. Its footprint is
+        # not a managed area; the PCSMP/as-built records establish IA Managed.
+        from .existing_systems import evidence_needed
+
+        output.append(
+            {
+                "id": "public-" + digest([source, oid, "existing_system_management"])[:28],
+                "category": "existing_system_management",
+                "decision": "candidate",
+                "basis": "public_candidate",
+                "label": "Mapped system "
+                + str(p.get("gsi_system_id"))
+                + " ("
+                + str(p.get("gsi_system_type") or "type not recorded")
+                + ")",
+                "facts": {
+                    "gsi_system_id": str(p.get("gsi_system_id")),
+                    "public_system_type": p.get("gsi_system_type"),
+                    "public_status": p.get("status"),
+                    "public_project_type": p.get("project_type"),
+                    "public_project_number": p.get("project_number"),
+                    "public_year_installed": p.get("year_installed"),
+                    "proposed_only": proposed,
+                    "installed": None,
+                    "documented_managed_ia_sqft": None,
+                },
+                "source": {
+                    "url": source,
+                    "record_id": str(oid),
+                    "crs": crs,
+                    "acquisition_date": None,
+                    "publication_date": None,
+                    "effective_date": None,
+                },
+                "evidence_refs": [{"source_url": source, "record_id": str(oid)}],
+                "public_geometry": deepcopy(feature.get("geometry")),
+                "public_geometry_role": "system footprint, not managed catchment",
+                "managed_area_sqft": None,
+                "missing_evidence": evidence_needed(p.get("project_type"), p.get("project_number")),
+                "raw_record": deepcopy(p),
+            }
+        )
     return output
 
 
@@ -199,8 +246,10 @@ def normalize_permit(row, url, identifiers):
         raise SourceError("Permit result lacks identifier")
     requested = str(identifiers.get("permit_id", "")).strip().upper()
     exact = bool(requested and requested == str(pid).upper())
+    classification = permit_classification(pid)
     # Source search identity, industrial coverage and compliance are distinct facts.
     return {
+        "permit_classification": classification,
         "id": "epa-" + digest(str(pid))[:28],
         "category": "industrial_npdes",
         "decision": "candidate",
@@ -217,6 +266,11 @@ def normalize_permit(row, url, identifiers):
             "active": None,
             "industrial_stormwater": None,
             "compliance_confirmed": None,
+            # The public identifier names the permit program (fix 1): construction
+            # coverage is a known-false industrial prerequisite (manual 4.3.4).
+            "permit_type": (
+                "construction" if classification["class"] == "construction_stormwater" else None
+            ),
         },
         "evidence_refs": [{"source_url": url, "record_id": str(pid)}],
         "source": {
@@ -233,6 +287,104 @@ def normalize_permit(row, url, identifiers):
         ],
         "raw_record": deepcopy(row),
     }
+
+
+def _on_parcel_leads(records, case, parcel):
+    """Keep a system lead only when its footprint lies partly on the parcel (fix 3)."""
+    from drainage_core.geometry import case_area_sqft
+    from shapely.geometry import shape
+
+    kept = []
+    for record in records:
+        if record["category"] != "existing_system_management":
+            kept.append(record)
+            continue
+        if (record.get("source") or {}).get("crs") != case.get("crs"):
+            continue  # an unprojected footprint cannot establish on-parcel position
+        try:
+            footprint = shape(record["public_geometry"])
+            on = case_area_sqft(footprint.intersection(parcel), case)
+            whole = case_area_sqft(footprint, case)
+        except (KeyError, ValueError, TypeError, AttributeError):
+            continue
+        if on > 0.000001:
+            record["facts"]["on_parcel_footprint_sqft"] = on
+            record["facts"]["footprint_sqft"] = whole
+            kept.append(record)
+    return kept
+
+
+def _echo_rows(proxy, url, refresh, sources):
+    """All facility rows of one EPA ECHO query (get_facilities, then get_qid)."""
+    item = proxy.fetch_json(url, refresh)
+    sources.append(item["provenance"])
+    result = item["data"].get("Results", {})
+    if result.get("Error"):
+        raise SourceError(str(result["Error"]))
+    count = int(result.get("QueryRows", "-1"))
+    if count < 0:
+        raise SourceError("EPA response does not establish a result count")
+    if count > 100:
+        raise SourceError(
+            "EPA search has more than 100 ambiguous matches; supply permit/site/operator identifiers"
+        )
+    rows = result.get("Facilities")
+    row_provenance = item["provenance"]
+    row_url = url
+    if count and rows is None:
+        qid = result.get("QueryID")
+        if not qid or not str(qid).isdigit():
+            raise SourceError("EPA response lacks query identifier")
+        row_url = (
+            ECHO
+            + "get_qid?"
+            + urlencode({"output": "JSON", "qid": qid, "pageno": 1, "responseset": 100})
+        )
+        page = proxy.fetch_json(row_url, refresh)
+        sources.append(page["provenance"])
+        rows = page["data"].get("Results", {}).get("Facilities")
+        row_provenance = page["provenance"]
+    rows = rows or []
+    if len(rows) != count:
+        raise SourceError("EPA response incomplete; facility count does not match rows")
+    snapshots = (
+        [deepcopy(item["provenance"]), deepcopy(row_provenance)]
+        if row_url != url
+        else [deepcopy(row_provenance)]
+    )
+    return rows, row_url, snapshots
+
+
+def _pwd_details(case, identifiers, cache, refresh, sources):
+    """(observation or None, status) of the PWD parcel details record."""
+    parcel_id = identifiers.get("pwd_parcel_id") or case.get("parcel_id")
+    if not parcel_id and str(case.get("id", "")).startswith("pwd-"):
+        candidate = str(case["id"])[4:].split("-")[0]
+        if candidate.isdigit():
+            parcel_id = candidate
+    if not (parcel_id and str(parcel_id).isdigit()):
+        return None, {
+            "provider": "PWD account/credit public record",
+            "status": "missing_identifier",
+            "candidate_count": None,
+            "coverage": "Supply PWD parcel identifier; no credit history absence inferred.",
+        }
+    url = f"{PWD}/{int(parcel_id)}/details"
+    proxy = _Fallback(cache)
+    try:
+        item = proxy.fetch_json(url, refresh)
+    except Exception as exc:
+        return None, _status("PWD account/credit public record", url, proxy, error=exc)
+    sources.append(item["provenance"])
+    observation = {
+        "provider": "PWD account/credit public record",
+        "url": url,
+        "source_sha256": item["provenance"].get("sha256"),
+        "retrieved_at": item["provenance"].get("retrieved_at"),
+        "raw_record": deepcopy(item["data"]),
+        "interpretation": "Public flags/totals are observations, not award letters, renewal dates, bills or refund entitlement.",
+    }
+    return observation, _status("PWD account/credit public record", url, proxy, count=None)
 
 
 def discover(case, cache, refresh=True):
@@ -272,7 +424,11 @@ def discover(case, cache, refresh=True):
             sources.extend(response["sources"])
             found = []
             for feature in response["features"]:
-                found.extend(normalize_gsi(feature, layer, response["crs"], kind))
+                found.extend(
+                    _on_parcel_leads(
+                        normalize_gsi(feature, layer, response["crs"], kind), case, parcel
+                    )
+                )
             for record in found:
                 record["source_snapshots"] = deepcopy(response["sources"])
             records.extend(found)
@@ -289,110 +445,85 @@ def discover(case, cache, refresh=True):
         except Exception as exc:
             statuses.append(_status(label, layer, proxy, error=exc))
     identifiers = (case.get("assessment") or {}).get("identifiers", {})
-    params = {"output": "JSON", "responseset": 100, "p_st": "PA"}
+    # The PWD record is read first: its recorded parcel address seeds the EPA
+    # address search (fix 1). Statuses keep their historical order.
+    pwd_observation, pwd_status = _pwd_details(case, identifiers, cache, refresh, sources)
+    view = deepcopy(case)
+    if pwd_observation:
+        view.setdefault("assessment", {}).setdefault("observations", []).append(pwd_observation)
+    addresses = parcel_addresses(view)
+    base = {"output": "JSON", "responseset": 100, "p_st": "PA"}
+    queries = []
     if identifiers.get("permit_id"):
-        params["p_pid"] = str(identifiers["permit_id"])
-    elif identifiers.get("operator_name"):
-        params["p_fn"] = str(identifiers["operator_name"])
-    elif identifiers.get("site_name"):
-        params["p_fn"] = str(identifiers["site_name"])
-    elif identifiers.get("street_address") or case.get("address"):
-        params.update(
-            p_sa=str(identifiers.get("street_address") or case["address"]), p_ct="Philadelphia"
+        queries.append({**base, "p_pid": str(identifiers["permit_id"])})
+    elif identifiers.get("operator_name") or identifiers.get("site_name"):
+        queries.append(
+            {**base, "p_fn": str(identifiers.get("operator_name") or identifiers["site_name"])}
         )
     else:
+        # Fix 1: the parcel's own address (EPA facility addresses are geocoded
+        # loosely, so an on-site facility can fall outside a small box) plus a
+        # surrounding box listing nearby facilities. Matching is local and by
+        # identity (``permits.permit_site_match``); proximity never attaches a permit.
+        if addresses:
+            queries.append({**base, "p_sa": addresses[0], "p_ct": "Philadelphia"})
         ll = transform(Transformer.from_crs(crs, "EPSG:4326", always_xy=True).transform, parcel)
         west, south, east, north = ll.bounds
-        params.update(
-            p_c1lat=south - 0.001, p_c1lon=west - 0.001, p_c2lat=north + 0.001, p_c2lon=east + 0.001
-        )
-    url = ECHO + "get_facilities?" + urlencode(params)
-    proxy = _Fallback(cache)
-    try:
-        item = proxy.fetch_json(url, refresh)
-        sources.append(item["provenance"])
-        result = item["data"].get("Results", {})
-        if result.get("Error"):
-            raise SourceError(str(result["Error"]))
-        count = int(result.get("QueryRows", "-1"))
-        if count < 0:
-            raise SourceError("EPA response does not establish a result count")
-        if count > 100:
-            raise SourceError(
-                "EPA search has more than 100 ambiguous matches; supply permit/site/operator identifiers"
-            )
-        rows = result.get("Facilities")
-        row_provenance = item["provenance"]
-        row_url = url
-        if count and rows is None:
-            qid = result.get("QueryID")
-            if not qid or not str(qid).isdigit():
-                raise SourceError("EPA response lacks query identifier")
-            row_url = (
-                ECHO
-                + "get_qid?"
-                + urlencode({"output": "JSON", "qid": qid, "pageno": 1, "responseset": 100})
-            )
-            page = proxy.fetch_json(row_url, refresh)
-            sources.append(page["provenance"])
-            rows = page["data"].get("Results", {}).get("Facilities")
-            row_provenance = page["provenance"]
-        rows = rows or []
-        if len(rows) != count:
-            raise SourceError("EPA response incomplete; facility count does not match rows")
-        found = [normalize_permit(row, row_url, identifiers) for row in rows]
-        for record in found:
-            record["source_snapshots"] = (
-                [deepcopy(item["provenance"]), deepcopy(row_provenance)]
-                if row_url != url
-                else [deepcopy(row_provenance)]
-            )
-        records.extend(found)
-        observations.append(
+        pad = NPDES_ECHO_PAD_DEGREES
+        queries.append(
             {
-                "provider": "EPA NPDES",
-                "url": url,
-                "records": deepcopy(found),
-                "source_sha256": row_provenance.get("sha256"),
-                "retrieved_at": row_provenance.get("retrieved_at"),
+                **base,
+                "p_c1lat": south - pad,
+                "p_c1lon": west - pad,
+                "p_c2lat": north + pad,
+                "p_c2lon": east + pad,
             }
         )
-        statuses.append(_status("EPA NPDES", url, proxy, count=count))
-    except Exception as exc:
-        statuses.append(_status("EPA NPDES", url, proxy, error=exc))
-    parcel_id = identifiers.get("pwd_parcel_id") or case.get("parcel_id")
-    if not parcel_id and str(case.get("id", "")).startswith("pwd-"):
-        candidate = str(case["id"])[4:].split("-")[0]
-        if candidate.isdigit():
-            parcel_id = candidate
-    if parcel_id and str(parcel_id).isdigit():
-        url = f"{PWD}/{int(parcel_id)}/details"
-        proxy = _Fallback(cache)
+    urls = [ECHO + "get_facilities?" + urlencode(params) for params in queries]
+    proxy = _Fallback(cache)
+    rows_by_id = {}
+    errors = []
+    for url in urls:
         try:
-            item = proxy.fetch_json(url, refresh)
-            sources.append(item["provenance"])
+            rows, row_url, snapshots = _echo_rows(proxy, url, refresh, sources)
+        except Exception as exc:
+            errors.append(exc)
+            continue
+        for row in rows:
+            pid = row.get("SourceID", row.get("NPDESIDs"))
+            rows_by_id.setdefault(str(pid), (row, row_url, snapshots))
+    if len(errors) == len(urls):
+        statuses.append(_status("EPA NPDES", urls[0], proxy, error=errors[0]))
+    else:
+        try:
+            found = []
+            for row, row_url, snapshots in rows_by_id.values():
+                record = normalize_permit(row, row_url, identifiers)
+                record["source_snapshots"] = deepcopy(snapshots)
+                record["site_match_screen"] = permit_site_match(record, view)
+                found.append(record)
+            records.extend(found)
             observations.append(
                 {
-                    "provider": "PWD account/credit public record",
-                    "url": url,
-                    "source_sha256": item["provenance"].get("sha256"),
-                    "retrieved_at": item["provenance"].get("retrieved_at"),
-                    "raw_record": deepcopy(item["data"]),
-                    "interpretation": "Public flags/totals are observations, not award letters, renewal dates, bills or refund entitlement.",
+                    "provider": "EPA NPDES",
+                    "url": urls[0],
+                    "urls": list(urls),
+                    "records": deepcopy(found),
+                    "source_sha256": [s.get("sha256") for _, _, snap in rows_by_id.values() for s in snap],
+                    "retrieved_at": [s.get("retrieved_at") for _, _, snap in rows_by_id.values() for s in snap],
                 }
             )
-            statuses.append(_status("PWD account/credit public record", url, proxy, count=None))
+            status = _status("EPA NPDES", urls[0], proxy, count=len(found))
+            if errors:
+                status["status"] = "partial"
+                status["errors"] = list(status["errors"]) + [str(e) for e in errors]
+            status["urls"] = list(urls)
+            statuses.append(status)
         except Exception as exc:
-            statuses.append(_status("PWD account/credit public record", url, proxy, error=exc))
-    else:
-        statuses.append(
-            {
-                "provider": "PWD account/credit public record",
-                "status": "missing_identifier",
-                "candidate_count": None,
-                "coverage": "Supply PWD parcel identifier; no credit history absence inferred.",
-            }
-        )
+            statuses.append(_status("EPA NPDES", urls[0], proxy, error=exc))
+    if pwd_observation:
+        observations.append(pwd_observation)
+    statuses.append(pwd_status)
     return {
         "records": records,
         "observations": observations,

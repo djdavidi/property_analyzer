@@ -117,6 +117,69 @@ therefore neither proves eligibility nor automatically disqualifies a documented
   bills with a label and blocks only split-dependent scenarios; NPDES is one area
   representation for recorded baselines and permit records.
 
+## Final LIVE-SAVINGS review fixes (2026-11-16, policy interpretation version 5)
+
+- **Industrial permits (fix 1).** Manual §4.3.4: "the parcel is subject to an active
+  NPDES Permit for Industrial Stormwater Discharge Activities" and §4.5.5 (copy of the
+  active industrial stormwater permit plus the previous 12 months of DMRs). Pennsylvania
+  NPDES identifiers name the program (`stormwater/permits.py`): PAC (PAG-02 coverage), PAD,
+  PAI and PAG-02 are stormwater associated with construction activities (25 Pa. Code ch.
+  102) and are listed `not_applicable` — they are not the industrial credit; PAR/PAG-03/PAS
+  are industrial-stormwater candidates; other identifiers are listed until a reviewer
+  confirms industrial coverage. A permit attaches to a parcel only by identity: the EPA
+  facility street address normalized to a recorded parcel address (PWD ranges such as
+  "1001-99" honoured), or a facility point inside the parcel polygon. Nearby facilities
+  are listed `nearby, not matched` and never priced. One industrial what-if is priced per
+  property (reviewed `active` first, then the searched identifier, then permit ID); other
+  matched permits are listed. Discovery now also searches EPA ECHO by the recorded parcel
+  address (on-site facilities can be geocoded outside a small box) besides a ±0.002° box.
+  Live effect: 5300 Whitaker's PAD510200 and every PAC/PAD row lose their dollar rows;
+  3060 S 61st no longer prices 3107 S 61st's PAR900005; 7575 Brewster keeps one
+  (PAG030110, same address).
+- **Mapped systems as leads (fix 3).** Each GSI_SMP_TYPES system on the parcel (acquired
+  footprints and discovered `existing_system_management` records) is a management-credit
+  lead with id, type, status, project type/number, install year, footprint and the
+  records to request: the approved PCSMP (drainage area and 1.5-inch treatment volume,
+  which define IA Managed, manual §4.3.2.2), as-built drawings and the PWD Record Drawing
+  Compliant letter, the recorded O&M agreement and inspection/maintenance logs (manual
+  §4.5.1). Status `lead: request PCSMP` unless a documented managed IA is supplied
+  (`facts.documented_managed_ia_sqft`), which is priced through the ledger at manual
+  §4.3.5.1's 80% IA credit and the same GA credit. `assessment.systems_without_recorded_credit`
+  lists them when the PWD record shows no credit. A lead never takes over the modeled
+  catchment row for the same receiver; its known-false facts still block it.
+- **IA measurement range (fix 2).** The area alternatives use one GA source, the measured
+  parcel polygon on which IA and unknown ground were measured, with IA clipped to it.
+  `surface_scenario.ia_measurement_range` gives both ends (all unknown pervious / all
+  unknown impervious) against the recorded IA; it is labelled a measurement range, not an
+  appeal, and an unavailable end states the ledger's reason.
+- **Canopy cap (fix 6).** Manual §4.3.2.1 credits canopy over ground-level IA. The
+  hidden-ground canopy alternative counts canopy-hidden ground as IA only up to
+  `max(0, recorded IA − identified IA)`, labelled `recorded_ia_cap`.
+- **Image green-roof candidates (fix 7).** RGB greenness on a mapped roof is
+  `basis: image_candidate` (saved records flagged `image_vegetation_candidate` are read the
+  same way). It keeps its own labelled rows and never enters or blocks combined rows.
+- **Route scope (fix 5).** A research scenario's route state comes from the catchments
+  that contribute on-parcel area to its priced region (`route_scope`).
+- **Storage check (fix 8).** Each mapped-GSI management row carries `storage_check`: the
+  saved-DEM surface storage range of a surface rain garden/bioretention
+  (`drainage_core.runoff_capacity`), its status and review flags, and the 1.5-inch volume
+  the dollar figure assumes, labelled "Assumes full 1.5-inch treatment; terrain cannot see
+  engineered storage". The figure is not replaced. Subsurface systems are labelled not
+  applicable.
+- **IA bounds (fix 4).** The former `nominal` bound is `observed_ia_only` (observed IA,
+  including reviewer-drawn pavement, plus modeled roofs; usually empty in a ground
+  catchment). A labelled `developed_on_2018_paved` bound adds 2025 developed-space
+  appearance that the 2018 PhillyLULC land cover marks as road/other paved, only when the
+  parcel's saved reference (`case.landcover_reference`, written by
+  `stormwater.benchmark_landcover --attach`) qualifies by its own agreement: stable
+  building footprints ≥ 85% over ≥ 1,000 ft² (the Anderson et al. 1976 85% land-cover
+  target, applied to agreement) and whole parcel ≥ 50%. 5300 Whitaker (98.4% / 80.0%)
+  qualifies; 8000 Cherokee (72.1% stable) and the rebuilt 3060 S 61st (20.9%, no stable
+  footprint) do not. It is a hypothesis, never observed IA.
+- **Minimum and rounding (fixes 9-10).** See RULES.md: the literal parcel-level minimum,
+  its labelled discontinuity, 0% accounts and PWD's double-precision rounding, reconciled
+  against all 2,325 computable snapshot parcels.
+
 ## Implemented interpretation and explicit limits
 
 Green roofs are impervious area reductions (final review fix 7). Manual Table 1
@@ -135,7 +198,7 @@ remains historical evidence and part of the recorded baseline.
 
 NPDES is applied only as area credits, for recorded baselines and permit records alike
 (manual §4.3.5.2; tariff §4.5(e)). Saved results computed with the former
-charge-percentage baseline are labelled outdated by the policy interpretation version (4)
+charge-percentage baseline are labelled outdated by the policy interpretation version (4; now 5)
 and recompute from saved inputs.
 
 For non-surface NPDES combinations, Table A-2's NPDES column governs credited open-space
@@ -155,7 +218,7 @@ Generic and policy geometry never changes recorded physical IA. Derived GIS area
 are numerically stabilized to 0.000000001 ft² before financial calculations to remove
 binary conversion noise at exact 500-ft² boundaries. This does not round user-supplied
 baseline areas or assert spatial measurement precision. Monetary rounding, allocation,
-minimum-charge and special-rate behavior use the existing billing implementation.
+minimum-charge and special-rate behavior use the billing implementation (parcel-level minimum and PWD rounding, RULES.md).
 Credited multiple-account minima and component rounding still need actual-bill
 reconciliation; the historical baseline limitations remain visible.
 

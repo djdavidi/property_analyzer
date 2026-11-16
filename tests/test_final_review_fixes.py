@@ -402,7 +402,7 @@ class SingleSourceAndWithholdingTests(unittest.TestCase):
         )
 
     def test_policy_version_and_derived_money_keys(self):
-        self.assertEqual(POLICY_INTERPRETATION_VERSION, 4)
+        self.assertEqual(POLICY_INTERPRETATION_VERSION, 5)
         for key in ("in_window_annual_savings_range", "annual_savings_range", "bill"):
             self.assertIn(key, DERIVED_MONEY_KEYS)
 

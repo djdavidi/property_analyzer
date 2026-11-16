@@ -414,7 +414,7 @@ class ManagementEstimateTests(unittest.TestCase):
         self.assertEqual(zero["status"], "calculated")
         self.assertEqual(zero["monthly_savings"], 0)
         self.assertEqual(zero["bill"]["monthly_total"], result["baseline"]["monthly_total"])
-        self.assertEqual(zero["bill"]["minimum_mode"], "per_account")
+        self.assertEqual(zero["bill"]["minimum_mode"], "parcel_then_each_account")
 
     def test_weighted_components_price_fractional_assumption_not_whole_polygon(self):
         c, g, e = fixture()

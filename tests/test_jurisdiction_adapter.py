@@ -129,7 +129,9 @@ class JurisdictionAdapterTests(unittest.TestCase):
             standard = apply(case, gis, policy)
             reduced = apply(case, gis, discounted)
         self.assertEqual(reduced["billing"]["baseline"]["monthly_total"], 122.87)
-        self.assertEqual(reduced["billing"]["credit_only"]["monthly_total"], 117.59)
+        # ($153.97 SWMS + $2.81) x 0.75 = $117.585: in PWD's double rounding (x 100 is the
+        # exact binary tie 11758.5, half to even) -> $117.58 (billing.pwd_cents, fix 10).
+        self.assertEqual(reduced["billing"]["credit_only"]["monthly_total"], 117.58)
         self.assertEqual(standard["gis_analysis_sha256"], reduced["gis_analysis_sha256"])
         self.assertNotEqual(standard["policy_input_sha256"], reduced["policy_input_sha256"])
         self.assertEqual(gis["measurement"]["ia_sqft"], 10000)

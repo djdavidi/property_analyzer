@@ -100,6 +100,47 @@ class OwnershipTests(unittest.TestCase):
             with self.subTest(name=name):
                 self.assertEqual(p.owner_status(name)["status"], "nongovernment_record")
 
+    def test_snapshot_public_body_variants_are_government(self):
+        # Fix 11: owner fields from the 2026-11-16 PWD snapshot that screened as
+        # non-government or review although they name a public body.
+        for owners in [
+            ("FAIRMOUNT PARK COMM", "WISSAHICKON VALLEY"),
+            ("PHILADELPHIA AUTHORTY FOR",),  # PWD misspelling of PAID
+            ("CITY OF PHILA /BLDG #8", "RANSOME AIRLINE INC"),
+            ("CITY OF PHILA FOR PORT", "AUTHORITY"),
+            ("CITY OF PHILA-PARK",),
+            ("CITY OF PHILA WATER", "WORKS PLANT"),
+            ("SCHOOL DISTRICT OF", "PHILADELPHIA"),  # name split across both fields
+            ("REDEVELOPMENT AUTHORITY", "OF PHILADELPHIA"),
+            ("PHILADELPHIA REGIONAL", "PORT AUTHORITY"),
+            ("PHILA AUTH IND DEV", "VMDT PARTNERSHIP"),
+            ("PHILA AUTH F/IND DEV",),
+            ("P A I D",),
+            ("THE GENERAL STATE AUTH",),
+            ("CITY OF PHILA 43.97%", "GENERAL STATE AUTH 56.03%"),
+            ("CITY OF PHLADELPHIA", "DEPARTMENT OF COMMERCE"),
+            ("DEL RIVER PORT AUTH",),
+        ]:
+            with self.subTest(owners=owners):
+                self.assertEqual(p.owner_status(*owners)["status"], "government")
+
+    def test_prefix_only_and_trust_names_stay_review(self):
+        # D8 kept: a public-body prefix with an unexplained suffix is review, not excluded.
+        for owners in [
+            ("CITY OF PHILA T/F U/W", "MARIA DICKINSON LOGAN"),
+            ("PAID E/O UNITANK", "TERMINAL SERVICE"),
+            ("THE TRUSTEES OF THE", "EST OF STEPHEN GIRARD"),
+            ("CITY OF PHILADELPHIA HOUSING PARTNERS",),
+        ]:
+            with self.subTest(owners=owners):
+                self.assertEqual(p.owner_status(*owners)["status"], "review")
+        # A "-" or "/" sub-designation needs a multi-word public body before it.
+        self.assertNotEqual(p.owner_status("US-ASIA TRADING LLC")["status"], "government")
+        self.assertEqual(p.owner_status("DEL MONTE FOODS")["status"], "nongovernment_record")
+        self.assertEqual(
+            p.owner_status("PHILA ELECTRIC COMPANY")["status"], "nongovernment_record"
+        )
+
     def test_missing_or_uncertain_public_bodies_require_review(self):
         self.assertEqual(p.owner_status(None, "")["status"], "unknown")
         self.assertEqual(p.owner_status("TEMPLE UNIVERSITY")["status"], "review")

@@ -19,6 +19,7 @@ from .geometry import (
 from .freshness import freshness
 from .research import analyze_research, feature_inputs, digest
 from .class_interpretation import APP_LABELLED_BOUNDS, MEASUREMENT_SCENARIO, classes as interpreted
+from .benchmark import qualified_paved_geometry
 
 INTERPRETATION_VERSION = "ai-drainage-integration-v2"
 CLASSES = ("canopy", "grass_shrub", "bare_soil", "water", "roof", "road", "developed_space")
@@ -342,9 +343,9 @@ def build(case, observation, conservative, research):
 
 
 def ia_bounds(case, integration, region):
-    """Known-only / AI nominal / unresolved-ground upper, never a confidence interval.
+    """Known-only / observed-IA-only / unresolved-ground upper, never a confidence interval.
 
-    ``road_impervious`` is the shared class table's labelled default (D3): nominal
+    ``road_impervious`` is the shared class table's labelled default (D3): observed IA
     plus road appearance on unresolved ground. It is appended after ``upper`` so
     existing bound order is unchanged.
     """
@@ -377,7 +378,10 @@ def ia_bounds(case, integration, region):
         upper = upper.union(added.buffer(edge).intersection(allowed))
     bounds = {
         "lower": _area_only(lower).intersection(region),
-        "nominal": modeled.intersection(region),
+        # Final LIVE-SAVINGS fix 4a: formerly "nominal". It is observed IA plus modeled
+        # roof outlines only; roofs are excluded from ground routing, so in a ground
+        # catchment it is usually zero. The honest name says so.
+        "observed_ia_only": modeled.intersection(region),
         "upper": _area_only(upper).intersection(region),
     }
     for name, scenario in APP_LABELLED_BOUNDS:
@@ -391,4 +395,14 @@ def ia_bounds(case, integration, region):
         bounds[name] = _area_only(
             modeled.union(_area_only(extra.intersection(unknown)))
         ).intersection(region)
+    # Fix 4b: a labelled hypothesis, only when the parcel's saved reference land cover
+    # qualifies by its own stable-strata agreement (``benchmark.qualified_paved_geometry``).
+    paved, _ = qualified_paved_geometry(case)
+    if paved is not None:
+        developed = shape(ai.get("geometries", {}).get("developed_space", EMPTY))
+        extra = _area_only(developed.intersection(paved).intersection(unknown))
+        bounds[PAVED_BOUND] = _area_only(modeled.union(extra)).intersection(region)
     return bounds
+
+
+PAVED_BOUND = "developed_on_2018_paved"

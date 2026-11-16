@@ -364,6 +364,8 @@ class ImageCandidateIntegrationTests(unittest.TestCase):
         candidates = out["assessment"]["records"]
         self.assertEqual(len(candidates), 1)
         self.assertEqual(candidates[0]["decision"], "candidate")
+        # Fix 7: RGB greenness on a roof is an image candidate, never a public record.
+        self.assertEqual(candidates[0]["basis"], "image_candidate")
         self.assertIsNone(candidates[0]["facts"]["existing_installation"])
         self.assertNotIn("geometry", candidates[0])
         self.assertEqual(len(again["assessment"]["records"]), 1)

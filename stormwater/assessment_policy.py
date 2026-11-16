@@ -28,10 +28,12 @@ from .billing import (
     IAR_SPLIT_BLOCK,
     undeveloped_unknown,
     merge_status_alternatives,
+    minimum_discontinuity,
     STATUS_ALTERNATIVES,
     billed_area_check,
 )
 from .rules import screen, open_space_factor, factor, load_rule_config, MANUAL_URL, TARIFF_URL
+from .existing_systems import existing_system_leads
 from .prerequisites import case_vetoes
 
 _CONFIG = load_rule_config()
@@ -41,6 +43,8 @@ LABELS = {
     "permeable_pavement": "Existing permeable pavement",
     "direct_discharge": "Direct surface-water discharge",
     "industrial_npdes": "Industrial NPDES",
+    # Fix 3: a mapped system on the parcel is a management-credit lead (manual 4.3.2.2).
+    "existing_system_management": "Existing mapped system (management lead)",
 }
 # One source for the verified rule period: config/rules-pwd-2026-09.json (the
 # assessment uses the tariff verification window; docs/ASSESSMENT-RULES.md).
@@ -185,6 +189,7 @@ def _validate_assessment_inputs(assessment):
                     raise ValueError("Invalid candidate decision")
                 if record.get("basis", "manual") not in (
                     "public_candidate",
+                    "image_candidate",
                     "manual",
                     "documented",
                     "modeled",
@@ -534,6 +539,17 @@ def screen_record(record, case, gis, as_of):
                 require(key)
             if facts.get("credit_path") not in (None, "management"):
                 failed.append("unsupported_credit_path")
+        elif category == "existing_system_management":
+            # Manual 4.3.2.2 / 4.5.1: an existing SMP managing IA; the PCSMP/as-built
+            # drainage area is the managed geometry, never the mapped footprint.
+            for key in SMP:
+                require(key)
+            number(
+                "treatment_depth_inches",
+                1 if facts.get("old_standard_renewal_verified") is True else 1.5,
+            )
+            if facts.get("credit_path") not in (None, "management"):
+                failed.append("unsupported_credit_path")
         else:
             for key in DIRECT:
                 require(key)
@@ -557,7 +573,9 @@ def screen_record(record, case, gis, as_of):
     output["rule_applicability"] = "applicable" if applicable else "outside_verified_period"
     if not applicable:
         missing.append("applicable_rule_version")
-    output["basis"] = record.get("basis", "manual")
+    # Fix 7: RGB greenness on a roof is an image candidate even in saved records that
+    # were labelled public candidates before the fix.
+    output["basis"] = "image_candidate" if is_image_candidate(record) else record.get("basis", "manual")
     output["status"] = (
         "rejected"
         if decision == "rejected"
@@ -577,6 +595,13 @@ def screen_record(record, case, gis, as_of):
         else "No supported eligibility conclusion"
     )
     return output
+
+
+def is_image_candidate(record):
+    """Fix 7: an image heuristic (RGB greenness on a mapped roof), not a public record."""
+    return record.get("basis") == "image_candidate" or (
+        (record.get("facts") or {}).get("image_vegetation_candidate") is True
+    )
 
 
 def _blocked(reasons):
@@ -664,6 +689,10 @@ def _legacy_benefits(case, gis):
         facts = r.setdefault("evidence", {})
         if r.get("geometry"):
             r["area_sqft"] = case_area_sqft(shape(r["geometry"]), case)
+            if r.get("area_cap_sqft") is not None:
+                # A labelled cap (fix 6: canopy-hidden IA limited by the recorded IA)
+                # credits less than the reserved geometry, never more.
+                r["area_sqft"] = min(r["area_sqft"], float(r["area_cap_sqft"]))
             target = (
                 "pervious"
                 if r["category"] in ("open_space", "open-space")
@@ -688,7 +717,12 @@ def _legacy_benefits(case, gis):
     return result
 
 
-IA_MANAGED_CATEGORIES = ("management", "direct_discharge", "permeable_pavement")
+IA_MANAGED_CATEGORIES = (
+    "management",
+    "direct_discharge",
+    "permeable_pavement",
+    "existing_system_management",
+)
 OPEN_CATEGORIES = ("open_space", "open_space_direct_discharge")
 # Manual Table 1 IARs; a green roof is "Rooftop Disconnection via Green Roof".
 IAR_CATEGORIES = ("canopy", "roof_disconnection", "pavement_disconnection", "green_roof")
@@ -948,8 +982,9 @@ def _economics(case, gis, records, as_of, tariff, hypothetical=None):
 
 
 ALLOCATION_SENSITIVE = (
-    "A per-account minimum applies under the assumed equal allocation; the unknown actual "
-    "allocation (Form A-1, manual 2.2.6) can change the total."
+    "The parcel minimum binds and each account is billed it under the assumed equal allocation; "
+    "the unknown actual allocation (Form A-1, manual 2.2.6; a 0% account is billed nothing) can "
+    "change the total."
 )
 BASELINE_AREAS = {
     "ga_sqft": "recorded gross area (GrossArea)",
@@ -1338,6 +1373,10 @@ def _economics_once(case, baseline, gis, records, as_of, t, hypothetical=None):
             note = _discontinuity_note(total_ga, total_ia, literal, bill, common)
             if note:
                 notes.append(note)
+        # Fix 9: a credit that pushes a multi-account parcel below the minimum.
+        note = minimum_discontinuity(base, bill)
+        if note:
+            notes.append(note)
         saving = cents(decimal(base["monthly_total"]) - decimal(bill["monthly_total"]))
         basis = (
             "documented"
@@ -1379,6 +1418,8 @@ def _economics_once(case, baseline, gis, records, as_of, t, hypothetical=None):
         }
         if notes:
             out["manual_rule_discontinuity"] = notes[0]
+            if len(notes) > 1:
+                out["manual_rule_discontinuities"] = notes
         return out
 
     output = {
@@ -1489,6 +1530,19 @@ def _research_receiver_vetoes(case, run, gsi_features):
     return out
 
 
+def _contributes_on_parcel(catchment, include_unknown):
+    """Fix 5: does this research catchment add on-parcel area to the priced region?
+    Older artifacts without the on-parcel fields are kept (conservative)."""
+    keys = ["on_parcel_known_ia_sqft"]
+    if include_unknown:
+        keys.append("on_parcel_unknown_surface_sqft")
+    values = [catchment.get(k) for k in keys]
+    if all(v is None for v in values):
+        on = catchment.get("on_parcel_area_sqft")
+        return on is None or on > 0.000001
+    return any((v or 0) > 0.000001 for v in values)
+
+
 def research_economics(case, gis, records, as_of, tariff):
     """Counterfactual management value of frozen modeled catchments, never a fact.
 
@@ -1571,7 +1625,6 @@ def research_economics(case, gis, records, as_of, tariff):
         )
         # D2: one per-catchment rule (app and pilot). Partial catchments are priced
         # in-window and labelled; untestable extent or a failed invariant blocks.
-        route = combine_routes(catchment_route(c, run.get("invariants")) for c in kept)
         known = shape(run["known_ia_union_geometry"])
         unknown = shape(
             run.get("unknown_ground_union_geometry")
@@ -1584,6 +1637,13 @@ def research_economics(case, gis, records, as_of, tariff):
         if not unknown.is_empty:
             hypotheses.append(("unknown_ground_assumed_impervious", known.union(unknown), True))
         for surface_basis, raw_region, assume_unknown in hypotheses:
+            # Fix 5: the route state of the priced figure comes from the catchments
+            # that contribute on-parcel area to it; an off-parcel system's catchment
+            # touching the window edge no longer marks on-parcel figures partial.
+            contributing = [c for c in kept if _contributes_on_parcel(c, assume_unknown)]
+            route = combine_routes(
+                catchment_route(c, run.get("invariants")) for c in (contributing or kept)
+            )
             region = raw_region.difference(occupied)
             bed_area = case_area_sqft(region.intersection(beds), case) if not beds.is_empty else 0.0
             region = region.difference(beds)
@@ -1650,6 +1710,11 @@ def research_economics(case, gis, records, as_of, tariff):
                     "route_state": route["route_state"],
                     "route_state_reason": route["route_state_reason"],
                     "partial_label": route["partial_label"],
+                    "route_scope": (
+                        f"{len(contributing)} of {len(kept)} kept catchments contribute on-parcel area"
+                        if contributing
+                        else "No catchment reports on-parcel contribution; all kept catchments tested"
+                    ),
                     "surface_assumption": surface_basis,
                     "modeled_unallocated_area_sqft": case_area_sqft(region, case),
                     "system_bed_ia_excluded_sqft": bed_area,
@@ -1827,6 +1892,10 @@ def evaluate_assessment(case, gis_result, as_of=None, tariff=None):
         "economics": economics,
         "modeled_integration": modeled,
         "research_drainage_scenarios": research_economics(case, gis_result, records, day, tariff),
+        # Fix 3: on-parcel mapped systems as leads; a list B2's summary can show.
+        "existing_system_management": existing_system_leads(
+            case, gis_result, records, day, tariff
+        ),
         "historical_flags": historical_flags(case, economics),
         "rules": {
             **deepcopy(RULES),
@@ -1839,6 +1908,9 @@ def evaluate_assessment(case, gis_result, as_of=None, tariff=None):
     }
     from .curve_number import worksheet, finance_scenario
 
+    result["systems_without_recorded_credit"] = deepcopy(
+        result["existing_system_management"]["systems_without_recorded_credit"]
+    )
     sheet = result["open_space_curve_number"] = worksheet(case, gis_result)
     if result["rules"]["applicability"] != "applicable":
         sheet["credit_factor"] = None

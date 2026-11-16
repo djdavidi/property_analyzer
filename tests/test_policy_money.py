@@ -182,29 +182,64 @@ class CurveNumberRoundingTests(unittest.TestCase):
 
 
 class PerAccountMinimumTests(unittest.TestCase):
-    def test_canopy_credit_cannot_double_a_three_account_bill(self):
-        # Review B2 (repro policy/minimum2.py). GA 6,000 -> 12 units x $1.003 = $12.036 -> $12.04;
-        # IA 1,000 -> 2 units x $7.048 = $14.096 -> $14.10; parcel SWMS $26.14; each third
-        # $8.71 < $20.89, so each account pays the minimum: 3 x ($20.89 + $2.81) = $71.10.
-        # 1,000 sq ft canopy -> IAR 500 -> IA 500 -> 1 unit -> $7.05; parcel $19.09 -> thirds
-        # still below the minimum -> $71.10. Savings $0.00, never negative. (Live ledger;
-        # billing.calculate_scenarios was deleted, final review fix 9.)
-        for area in (800, 1000):
-            out = ledger({"ga_sqft": 6000, "ia_sqft": 1000, "accounts": THIRDS}, [canopy(area)])
-            self.assertEqual(out["baseline"]["monthly_total"], 71.10)
-            self.assertEqual(out["modeled"]["bill"]["monthly_total"], 71.10)
-            self.assertEqual(out["modeled"]["gross_monthly_reduction"], 0.0)
+    """Fix 9: manual 4.3.5 step 5 read literally (the parcel's SWMS is tested against the
+    $20.89 minimum; then each account is billed it). PWD's published totals follow this
+    reading on all 7 distinguishing multi-account snapshot parcels (docs/RULES.md)."""
 
-    def test_minimum_applies_only_to_accounts_whose_share_is_below_it(self):
-        # PWD billing FAQ / manual 4.3.5 step 5: each account's share, then the minimum.
-        # GA 10,000 -> $20.06; IA 8,000 -> $112.77; parcel $132.83. 90% share $119.547 -> $119.55;
-        # 10% share $13.283 -> $13.28 -> minimum $20.89. ($119.55 + $2.81) + ($20.89 + $2.81) = $146.06.
+    def test_canopy_credit_below_the_minimum_raises_a_three_account_bill_with_a_note(self):
+        # GA 6,000 -> 12 units x $1.003 = $12.036 -> $12.04; IA 1,000 -> 2 units x $7.048 =
+        # $14.096 -> $14.10; parcel SWMS $26.14 >= $20.89, so no minimum: each third
+        # $26.14 / 3 = $8.7133 -> $8.71, + $2.81 = $11.52; 3 x $11.52 = $34.56.
+        # 1,000 sq ft canopy -> IAR 500 -> IA 500 -> 1 unit -> $7.048 -> $7.05; parcel
+        # $12.04 + $7.05 = $19.09 < $20.89 -> each account $20.89 + $2.81 = $23.70;
+        # 3 x $23.70 = $71.10. The credit raises the bill by $36.54: a labelled discontinuity.
+        out = ledger({"ga_sqft": 6000, "ia_sqft": 1000, "accounts": THIRDS}, [canopy(1000)])
+        self.assertEqual(out["baseline"]["monthly_total"], 34.56)
+        self.assertFalse(out["baseline"]["minimum_applied"])
+        self.assertEqual(out["modeled"]["bill"]["monthly_total"], 71.10)
+        self.assertEqual(out["modeled"]["gross_monthly_reduction"], -36.54)
+        note = out["modeled"]["manual_rule_discontinuity"]
+        self.assertEqual(note["kind"], "manual_rule_discontinuity")
+        self.assertEqual(note["rule"], "manual 4.3.5 step 5; tariff 4.3(a)(6)")
+        self.assertEqual(
+            (note["baseline_monthly_total"], note["scenario_monthly_total"]), (34.56, 71.10)
+        )
+        self.assertEqual(note["accounts_billed_minimum"], 3)
+        # 800 sq ft canopy -> IAR 400 -> IA 600 -> still 2 units: $34.56, saving $0.00, no note.
+        out = ledger({"ga_sqft": 6000, "ia_sqft": 1000, "accounts": THIRDS}, [canopy(800)])
+        self.assertEqual(out["modeled"]["bill"]["monthly_total"], 34.56)
+        self.assertEqual(out["modeled"]["gross_monthly_reduction"], 0.0)
+        self.assertNotIn("manual_rule_discontinuity", out["modeled"])
+
+    def test_share_below_minimum_is_billed_when_the_parcel_is_above_it(self):
+        # GA 10,000 -> $20.06; IA 8,000 -> 16 x $7.048 = $112.768 -> $112.77; parcel $132.83.
+        # 90% share $119.547 -> $119.55; 10% share $13.283 -> $13.28 (below $20.89 but the
+        # parcel is above it, so no minimum). ($119.55 + $2.81) + ($13.28 + $2.81) = $138.45.
         b = monthly_bill(10000, 8000, accounts=[{"allocation": 0.9}, {"allocation": 0.1}])
-        self.assertEqual([a["swms"] for a in b["accounts"]], [119.55, 20.89])
-        self.assertEqual(b["monthly_total"], 146.06)
+        self.assertEqual([a["swms"] for a in b["accounts"]], [119.55, 13.28])
+        self.assertEqual([a["below_minimum_share_billed"] for a in b["accounts"]], [False, True])
+        self.assertFalse(b["minimum_applied"])
+        self.assertEqual(b["monthly_total"], 138.45)
 
-    def test_savings_are_monotone_in_credit_area(self):
+    def test_parcel_below_minimum_bills_each_account_the_minimum(self):
+        # GA 6,000, IA 0 -> $12.04 parcel SWMS < $20.89: each of two accounts $20.89 + $2.81.
+        b = monthly_bill(6000, 0, accounts=[{"allocation": 0.5}, {"allocation": 0.5}])
+        self.assertTrue(b["minimum_applied"])
+        self.assertEqual([a["swms"] for a in b["accounts"]], [20.89, 20.89])
+        self.assertEqual(b["monthly_total"], 47.40)
+        self.assertTrue(any("unverified" in n for n in b["billing_notes"]))
+
+    def test_zero_allocation_account_is_billed_nothing(self):
+        # Form A-1 reallocation 100% / 0% (PWD snapshot: 60 of 60 such accounts billed $0).
+        # GA 10,000 / IA 8,000 -> $132.83 + $2.81 = $135.64 on the first account; $0.00 on the second.
+        b = monthly_bill(10000, 8000, accounts=[{"allocation": 1}, {"allocation": 0}])
+        self.assertEqual([a["total"] for a in b["accounts"]], [135.64, 0.0])
+        self.assertEqual(b["accounts"][1]["collection_charge"], 0.0)
+        self.assertEqual(b["monthly_total"], 135.64)
+
+    def test_every_bill_increase_with_credit_area_is_a_labelled_minimum_discontinuity(self):
         previous = None
+        rises = 0
         for area in range(0, 1001, 50):  # canopy cannot exceed the 1,000 sq ft IA
             out = ledger(
                 {"ga_sqft": 6000, "ia_sqft": 1000, "accounts": THIRDS},
@@ -215,9 +250,11 @@ class PerAccountMinimumTests(unittest.TestCase):
                 if area
                 else out["baseline"]["monthly_total"]
             )
-            if previous is not None:
-                self.assertLessEqual(total, previous)
+            if previous is not None and total > previous:
+                rises += 1
+                self.assertIn("manual_rule_discontinuity", out["modeled"])
             previous = total
+        self.assertEqual(rises, 1)
 
     def test_management_adapter_has_no_negative_minimum_savings(self):
         # Review H11 (repro new-policy/r4_inherit.py), developed status explicit.
@@ -547,7 +584,13 @@ class NpdesDatesTests(unittest.TestCase):
             m_record(
                 "permit",
                 "industrial_npdes",
-                facts={"permit_id": "SYNTHETIC-ONLY", "compliance_through": "2026-09-30"},
+                facts={
+                    "permit_id": "SYNTHETIC-ONLY",
+                    "compliance_through": "2026-09-30",
+                    # Fix 1: only a site-matched industrial permit is priced.
+                    "site_match": True,
+                    "industrial_stormwater": True,
+                },
             )
         ]
         s = assess(c)["modeled_integration"]["permit_scenarios"][0]
@@ -678,27 +721,22 @@ class UnknownStatusAndAllocationTests(unittest.TestCase):
         self.assertIn("partial", " ".join(partial["documented"]["reasons"]))
 
     def test_unknown_allocation_flags_minimum_sensitivity(self):
-        # $26.14 / 2 = $13.07 per account < $20.89: 2 x $23.70 = $47.40, allocation-sensitive
-        # (ported from calculate_scenarios into the live ledger, fix 9).
-        out = ledger(
-            {
-                "ga_sqft": 6000,
-                "ia_sqft": 1000,
-                "accounts": [{"allocation": None}, {"allocation": None}],
-            }
+        # Above the parcel minimum: GA 6,000 / IA 1,000 -> $26.14; halves $13.07 + $2.81 =
+        # $15.88; 2 x $15.88 = $31.76. The minimum does not bind, so no sensitivity flag.
+        above = ledger(
+            {"ga_sqft": 6000, "ia_sqft": 1000, "accounts": [{"allocation": None}] * 2}
         )
+        self.assertEqual(above["baseline"]["monthly_total"], 31.76)
+        self.assertNotIn("allocation_sensitive", above)
+        # Below it: GA 6,000 / IA 0 -> $12.04 < $20.89; each account $23.70 -> $47.40. A Form
+        # A-1 reallocation (a 0% account is billed nothing) could change it: flagged.
+        out = ledger({"ga_sqft": 6000, "ia_sqft": 0, "accounts": [{"allocation": None}] * 2})
         self.assertEqual(out["baseline"]["monthly_total"], 47.40)
         self.assertTrue(out["allocation_sensitive"])
         self.assertTrue(out["baseline"]["allocation_sensitive"])
-        self.assertTrue(any("per-account minimum" in a for a in out["baseline"]["assumptions"]))
+        self.assertTrue(any("parcel minimum" in a for a in out["baseline"]["assumptions"]))
         # A known allocation is not flagged: 0.5 / 0.5 recorded.
-        known = ledger(
-            {
-                "ga_sqft": 6000,
-                "ia_sqft": 1000,
-                "accounts": [{"allocation": 0.5}, {"allocation": 0.5}],
-            }
-        )
+        known = ledger({"ga_sqft": 6000, "ia_sqft": 0, "accounts": [{"allocation": 0.5}] * 2})
         self.assertNotIn("allocation_sensitive", known)
 
 

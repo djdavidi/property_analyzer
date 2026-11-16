@@ -1,0 +1,152 @@
+{
+ "description": "EPA ECHO CWA facility rows returned for four live PWD cases on 2026-11-16 (bounding-box searches), trimmed to identity/address fields; values copied unchanged. The PAR900005 row is the one the 3060 S 61st St box returned (facility at 3107 S 61st St). Offline tests only (final LIVE-SAVINGS fix 1).",
+ "parcel_addresses": {
+  "pwd-124343": "3107 S 61ST ST",
+  "pwd-190490": "7575 BREWSTER AVE",
+  "pwd-538963": "3060 S 61ST ST",
+  "pwd-98627": "5300 WHITAKER AVE"
+ },
+ "rows": {
+  "pwd-124343": [
+   {
+    "CWPCity": "PHILADELPHIA",
+    "CWPName": "CLEAN EARTH OF PHILA S 61ST ST FAC",
+    "CWPState": "PA",
+    "CWPStreet": "3201 S 61ST ST",
+    "CWPZip": "19153-3502",
+    "FacLong": "-75.21425",
+    "MasterExternalPermitNmbr": "PAG030000",
+    "NPDESIDs": "PAG030177 PAR900017",
+    "SourceID": "PAR900017",
+    "Statute": "CWA"
+   },
+   {
+    "CWPCity": "PHILADELPHIA",
+    "CWPName": "CLEAN EARTH OF PHILA S 61ST ST FAC",
+    "CWPState": "PA",
+    "CWPStreet": "3201 S 61ST ST",
+    "CWPZip": "19153-3502",
+    "FacLong": "-75.21425",
+    "MasterExternalPermitNmbr": "PAG030000",
+    "NPDESIDs": "PAG030177 PAR900017",
+    "SourceID": "PAG030177",
+    "Statute": "CWA"
+   },
+   {
+    "CWPCity": "PHILADELPHIA",
+    "CWPName": "LKQ PENN MAR W PASSYUNK AVE FAC",
+    "CWPState": "PA",
+    "CWPStreet": "3350 S. 61 ST",
+    "CWPZip": "19153",
+    "FacLong": "-75.213353",
+    "MasterExternalPermitNmbr": "PAG030000",
+    "NPDESIDs": "PAG030173 PAR600066",
+    "SourceID": "PAR600066",
+    "Statute": "CWA"
+   },
+   {
+    "CWPCity": "PHILADELPHIA",
+    "CWPName": "LKQ VENICE AUTO PARTS FAC",
+    "CWPState": "PA",
+    "CWPStreet": "3350 S. 61 ST",
+    "CWPZip": "19153",
+    "FacLong": "-75.213353",
+    "MasterExternalPermitNmbr": "PAG030000",
+    "NPDESIDs": "PAG030173 PAR600066",
+    "SourceID": "PAG030173",
+    "Statute": "CWA"
+   },
+   {
+    "CWPCity": "PHILADELPHIA",
+    "CWPName": "SCHUYLKILL RIVER TRAIL 56TH TO 61ST",
+    "CWPState": "PA",
+    "CWPStreet": "3000 SOUTH 56TH STREET",
+    "CWPZip": "19103-4223",
+    "FacLong": "-75.213458",
+    "MasterExternalPermitNmbr": null,
+    "NPDESIDs": "PAD510059",
+    "SourceID": "PAD510059",
+    "Statute": "CWA"
+   }
+  ],
+  "pwd-190490": [
+   {
+    "CWPCity": "PHILADELPHIA",
+    "CWPName": "7575 BREWSTER AVENUE",
+    "CWPState": "PA",
+    "CWPStreet": "7575 BREWSTER AVENUE",
+    "CWPZip": "19153-3206",
+    "FacLong": "-75.23174",
+    "MasterExternalPermitNmbr": "PAC000000",
+    "NPDESIDs": "PAC510165",
+    "SourceID": "PAC510165",
+    "Statute": "CWA"
+   },
+   {
+    "CWPCity": "PHILADELPHIA",
+    "CWPName": "AMAZON.COM SERVICES - BREWSTER",
+    "CWPState": "PA",
+    "CWPStreet": "7575 BREWSTER AVE",
+    "CWPZip": "19153-3206",
+    "FacLong": "-75.232778",
+    "MasterExternalPermitNmbr": "PAG030000",
+    "NPDESIDs": "PAG030110",
+    "SourceID": "PAG030110",
+    "Statute": "CWA"
+   },
+   {
+    "CWPCity": "PHILADELPHIA",
+    "CWPName": "NEW CORPORATE HEADQUARTERS PHILLIP PIO CONSTRUCTION INC & ROMA CONCRETE INC.",
+    "CWPState": "PA",
+    "CWPStreet": "3227 S 76TH STREET",
+    "CWPZip": "19153-3215",
+    "FacLong": "-75.232045",
+    "MasterExternalPermitNmbr": "PAC000000",
+    "NPDESIDs": "PAC510133",
+    "SourceID": "PAC510133",
+    "Statute": "CWA"
+   }
+  ],
+  "pwd-538963": [
+   {
+    "CWPCity": "PHILADELPHIA",
+    "CWPName": "DELAWARE VALLEY RECYCLING",
+    "CWPState": "PA",
+    "CWPStreet": "3107 SOUTH 61ST STREET",
+    "CWPZip": "19153",
+    "FacLong": "-75.21748",
+    "MasterExternalPermitNmbr": null,
+    "NPDESIDs": "PAD510018 PAR900005",
+    "SourceID": "PAD510018",
+    "Statute": "CWA"
+   },
+   {
+    "CWPCity": "PHILADELPHIA",
+    "CWPName": "DELAWARE VALLEY RECYCLING INC",
+    "CWPState": "PA",
+    "CWPStreet": "3107 S 61ST ST",
+    "CWPZip": "19153",
+    "FacLong": "-75.21748",
+    "MasterExternalPermitNmbr": "PAG030000",
+    "NPDESIDs": "PAD510018 PAR900005",
+    "SourceID": "PAR900005",
+    "Statute": "CWA"
+   }
+  ],
+  "pwd-98627": [
+   {
+    "CWPCity": "PHILADELPHIA",
+    "CWPName": "5300 WHITAKER AVE",
+    "CWPState": "PA",
+    "CWPStreet": "5300 WHITAKER AVE",
+    "CWPZip": "19124-2452",
+    "FacLong": "-75.102537",
+    "MasterExternalPermitNmbr": null,
+    "NPDESIDs": "PAD510200",
+    "SourceID": "PAD510200",
+    "Statute": "CWA"
+   }
+  ]
+ },
+ "source": "https://echodata.epa.gov/echo/cwa_rest_services.get_qid (2026-11-16)"
+}

@@ -168,4 +168,5 @@ class AutomaticHTTPTests(unittest.TestCase):
                 for s in response["analysis"]["automatic"]["source_status"]
             )
         )
-        self.assertEqual(len(response["analysis"]["assessment"]["categories"]), 5)
+        # Five record categories (fix 3 adds existing_system_management) plus prior credits.
+        self.assertEqual(len(response["analysis"]["assessment"]["categories"]), 6)

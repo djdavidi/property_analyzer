@@ -82,7 +82,8 @@ class AssessmentHTTPTests(unittest.TestCase):
         self.assertEqual(case["assessment"]["records"][0]["decision"], "rejected")
         self.assertEqual(len(case["assessment"]["reviews"]), 2)
         self.assertEqual(len(case["assessment"]["snapshots"]), 1)
-        self.assertEqual(len(response["analysis"]["assessment"]["categories"]), 5)
+        # Five record categories (fix 3 adds existing_system_management) plus prior credits.
+        self.assertEqual(len(response["analysis"]["assessment"]["categories"]), 6)
         code, _, response = self.json_request("/api/renewals")
         self.assertEqual(code, 200, response)
         self.assertIn(case["id"], [p["id"] for p in response["properties"]])

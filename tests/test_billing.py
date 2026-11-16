@@ -4,12 +4,16 @@
 fix 9); its scenario checks now exercise ``assessment_policy._economics``, the ledger
 every app, report and adapter dollar comes from. Expected dollars are derived by hand
 from the tariff effective 2026-09-01: GA $1.003 and IA $7.048 per 500 sq ft unit (units
-rounded up), charges rounded half-up to cents, Billing & Collection $2.81 per account.
+rounded up), each money step rounded as PWD rounds it (binary double x 100, half to even;
+``billing.pwd_cents``, final LIVE-SAVINGS fix 10), Billing & Collection $2.81 per account.
 """
 
 from copy import deepcopy
 from datetime import date
 import unittest
+
+import json
+from pathlib import Path
 
 from shapely.geometry import box, mapping
 
@@ -260,6 +264,75 @@ class LedgerScenarioTests(unittest.TestCase):
         x["evidence"] = {**MANAGED, "npdes": True}
         s = ledger(BASE, [x])
         self.assertEqual(s["modeled"]["ledger"]["new_ia_credit_sqft"], 800)
+
+
+SNAPSHOT_FIXTURE = (
+    Path(__file__).resolve().parent
+    / "fixtures"
+    / "billing"
+    / "pwd-snapshot-rounding-minimum-2026-11-16.json"
+)
+
+
+class PublishedSnapshotReconciliationTests(unittest.TestCase):
+    """Fixes 9-10: frozen excerpts of six real PWD parcels (2026-11-16 snapshot)."""
+
+    def setUp(self):
+        from stormwater.acquisition import normalize_billing
+        from stormwater.billing import bill_terms, default_tariff, recorded_credits
+
+        self.rows = {}
+        for raw in json.loads(SNAPSHOT_FIXTURE.read_text())["parcels"]:
+            b = normalize_billing(raw)
+            common, _ = bill_terms(b, default_tariff())
+            terms = recorded_credits(b, b["ga_sqft"], b["ia_sqft"], b.get("undeveloped"))
+            bill = monthly_bill(
+                b["ga_sqft"],
+                b["ia_sqft"],
+                ga_credit_sqft=terms["ga_credit_sqft"],
+                ia_credit_sqft=terms["ia_credit_sqft"],
+                iar_sqft=terms["iar_sqft"],
+                **common,
+            )
+            self.rows[raw["Parcel"]["ParcelID"]] = (raw, b, bill)
+
+    def test_every_fixture_total_matches_the_published_total(self):
+        for pid, (_, b, bill) in self.rows.items():
+            with self.subTest(parcel=pid):
+                self.assertAlmostEqual(bill["monthly_total"], b["published_monthly_total"], places=6)
+
+    def test_ga_charge_tie_rounds_half_even_in_binary(self):
+        # 3060 S 61st St: GA 657,500 -> 1,315 units x $1.003 = $1,318.945 (x 100 is the exact
+        # binary tie 131,894.5 -> even) -> $1,318.94, as PWD publishes; half-up gave $1,318.95.
+        # IA 554,500 -> 1,109 x $7.048 = $7,816.232 -> $7,816.23; SWMS $9,135.17 + $2.81 = $9,137.98.
+        raw, _, bill = self.rows[538963]
+        row = raw["ChargeSummary"]["ParcelAccounts"][0]["YearlyAccountCharges"][0]
+        self.assertEqual(bill["ga_charge"], row["GrossCharge"])
+        self.assertEqual((bill["ga_charge"], bill["monthly_total"]), (1318.94, 9137.98))
+
+    def test_account_share_rounds_like_pwd(self):
+        # 3000 Walnut St: $1,922.75 + $7,470.88 = $9,393.63; half $4,696.815 is 4,696.81499...
+        # in binary -> $4,696.81 per account (+ $2.81) x 2 = $9,399.24, as published.
+        _, _, bill = self.rows[328676]
+        self.assertEqual([a["swms"] for a in bill["accounts"]], [4696.81, 4696.81])
+        self.assertEqual(bill["monthly_total"], 9399.24)
+
+    def test_published_minimum_is_the_parcel_reading(self):
+        # 9414 Meadowbrook Ave: parcel SWMS $71.35 >= $20.89; each quarter $17.8375 -> $17.84
+        # is billed below the minimum: 4 x ($17.84 + $2.81) = $82.60 (per-account reading: $94.80).
+        _, _, bill = self.rows[206992]
+        self.assertFalse(bill["minimum_applied"])
+        self.assertEqual([a["swms"] for a in bill["accounts"]], [17.84] * 4)
+        self.assertEqual(bill["monthly_total"], 82.60)
+        # 11350 Norcom Rd: parcel SWMS $0.00 < $20.89 -> $20.89 + $2.81 = $23.70.
+        _, _, bill = self.rows[537400]
+        self.assertTrue(bill["minimum_applied"])
+        self.assertEqual(bill["monthly_total"], 23.70)
+
+    def test_zero_allocation_accounts_pay_nothing(self):
+        # 84 S Pier: one account at 100% ($4,910.08 + $2.81) and three at 0% ($0.00 each).
+        _, _, bill = self.rows[133710]
+        self.assertEqual([a["total"] for a in bill["accounts"]], [4912.89, 0.0, 0.0, 0.0])
 
 
 if __name__ == "__main__":

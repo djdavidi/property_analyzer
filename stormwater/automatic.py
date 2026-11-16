@@ -707,7 +707,8 @@ def enrich_candidates(case):
                             "id": identity,
                             "category": "green_roof",
                             "decision": "candidate",
-                            "basis": "public_candidate",
+                            # Fix 7: an image heuristic, never a public record.
+                            "basis": "image_candidate",
                             "facts": {
                                 "existing_installation": None,
                                 "image_vegetation_candidate": True,
