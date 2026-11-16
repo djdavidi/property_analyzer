@@ -4,6 +4,38 @@ Newest entries first. Current truth belongs in STATE; the active bounded task be
 in TASK. These records preserve changes, decisions, evidence, unresolved issues and
 handoffs. Do not rewrite past results to match later runs.
 
+## 2026-11-16 — Fix plan Phase 3 merged: geometry and routing robustness
+
+Commit `203c8ff`, merged in `1b88d71`. Full suite after merge: Ran 645, OK
+(skipped=1), no `data/`.
+
+**Changes.**
+- **C1:** polygon-only overlays, so a touching neighbour roof no longer crashes.
+- **C2:** overlap precedence and "not represented" features instead of aborts.
+- **C3:** corner blocking for raised walls and berms.
+- **C4:** an inlet inside a GSI joins that GSI.
+- **C5:** touched-cell rasterization and grid-representation warnings.
+- **C6:** canopy coverage status and outline are honoured.
+- **C7:** no flat-tolerance cycles.
+- **C8:** validation can target research and integration receivers.
+- **C9:** no roof slivers in ground catchments.
+- **C10:** invariants are relabelled (`invariants.terminal_accumulation_equals_routed_cells`),
+  and roof connections come from features.
+- **A2 (GIS core):** run-level extent is the reviewer setting AND measured coverage.
+  Per-catchment `touches_window_edge`, `touches_nodata` and `extent_complete` are
+  added. The policy gates are not yet switched (Phase 4).
+- **Review D1:** erosion happens before clipping, only against other classes.
+- **Review D2:** installation status uses an allowlist ("Construction"/"Bid" are
+  proposed-only; unknown statuses stay unknown).
+- `PHYSICAL_INTERPRETATION_VERSION` 1→2, so saved results show as outdated with a
+  recompute action.
+
+**Limits.**
+- The metres-versus-US-foot comparison in `stormwater/whitaker_dem.py` is not
+  relabelled.
+- Conservative-engine catchments have no per-catchment extent fields.
+- Synthetic terrain only.
+
 ## 2026-11-16 — Fix plan Phase 1 complete: saved-result lifecycle
 
 **Changes (D1).** Byte-hash fingerprints are replaced by explicit
