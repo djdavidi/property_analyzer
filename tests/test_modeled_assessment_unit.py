@@ -341,7 +341,7 @@ class ModeledSavingsUnitTests(unittest.TestCase):
         r=assess(c);scenarios=r['modeled_integration']['canopy_scenarios']
         self.assertEqual(scenarios[0]['status'],'blocked');self.assertEqual(scenarios[1]['status'],'calculated')
         self.assertAlmostEqual(scenarios[1]['area_sqft'],10000)
-        self.assertAlmostEqual(scenarios[1]['bill']['ledger']['new_iar_sqft'],5000)
+        self.assertAlmostEqual(scenarios[1]['ledger']['new_iar_sqft'],5000)
 
     def test_known_pervious_cannot_be_reassigned_by_upper_record_bound(self):
         c=fixture();c['features']['features'].append({'id':'known-lawn','geometry':mapping(box(0,0,3.048,30.48)),

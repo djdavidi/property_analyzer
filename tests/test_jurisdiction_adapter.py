@@ -55,7 +55,9 @@ class JurisdictionAdapterTests(unittest.TestCase):
         self.assertEqual(first['gis_input_sha256'],second['gis_input_sha256'])
         self.assertEqual(first['gis_artifact_sha256'],second['gis_artifact_sha256'])
         self.assertNotEqual(first['policy_input_sha256'],second['policy_input_sha256'])
-        self.assertEqual(second['billing']['credit_only']['monthly_savings'],0)
+        # No benefit: the single ledger reports no credit scenario, not $0 savings.
+        self.assertEqual(second['billing']['credit_only']['status'],'blocked')
+        self.assertIsNone(second['billing']['credit_only']['monthly_savings'])
 
     def test_changed_physical_case_is_rejected_as_stale(self):
         case,gis,policy=fixture();case['parcel']=mapping(box(0,0,20,20))

@@ -111,10 +111,10 @@ def sections(case, result):
                       '</td><td>'+e('; '.join(value.get('reasons',[])+value.get('assumptions',[])))+'</td></tr>')
     output.append('</table><details><summary>Reconciled benefit ledgers, rounded areas and account bills</summary>'+data(economics)+'</details>')
     output.append(modeled_combined_section(assessment.get('modeled_integration')))
-    output.append('<h3>Credit history and renewal reminders</h3><p>Reminder lead time is '+e(case.get('assessment',{}).get('renewal_lead_days',90))+ ' days, a configurable product preference rather than a legal deadline. Unknown dates are never inferred from a maximum term.</p>')
-    output.append('<table><tr><th>Credit</th><th>Reminder state</th><th>Recorded deadline</th><th>Days remaining</th><th>Evidence gaps</th></tr>')
+    output.append('<h3>Credit history and renewal reminders</h3><p>Reminder lead time is '+e(case.get('assessment',{}).get('renewal_lead_days',90))+ ' days, a configurable product preference rather than a legal deadline. Where only an effective date is recorded, the deadline shown is the no-later-than four-year credit term (tariff 4.5(f)(4)), labelled as such, not a recorded expiry.</p>')
+    output.append('<table><tr><th>Credit</th><th>Reminder state</th><th>Deadline (basis)</th><th>Days remaining</th><th>Evidence gaps</th></tr>')
     for row in assessment.get('renewals',[]):
-        output.append('<tr><td>'+e(row['credit_id'])+'</td><td>'+e(row['status'])+'</td><td>'+e(row['deadline'])+
+        output.append('<tr><td>'+e(row['credit_id'])+'</td><td>'+e(row['status'])+'</td><td>'+e(row['deadline'])+(' ('+e(row['deadline_basis'])+')' if row.get('deadline_basis') else '')+
                       '</td><td>'+e(row['days_remaining'])+'</td><td>'+e('; '.join(row['missing']+row['warnings']))+'</td></tr>')
     output.append('</table>'+data(assessment.get('credit_history',[])))
     output.append('<h4>Public credit-status observations</h4><p>Counts and flags are source observations. They do not establish an award, lapse, renewal deadline, denial or refund.</p>'+data(assessment.get('public_credit_observations',[])))

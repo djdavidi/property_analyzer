@@ -168,8 +168,10 @@ class QuarantineTests(IsolatedUnitTests):
 
 class ScenarioTests(IsolatedUnitTests):
     def test_expiry_effective_compliance_and_termination_failures_survive_what_if(self):
-        for key,value in (('expires_on','2026-11-14'),('effective_from','2026-11-16'),
-                          ('compliance_from','2026-01-01'),('compliance_through','2026-11-14'),('terminated_on','2026-11-14')):
+        # Lagging compliance_through / expiry without continuation evidence are now
+        # missing evidence (assumed in the what-if), not failures (review B7).
+        for key,value in (('effective_from','2026-11-16'),
+                          ('compliance_from','2026-01-01'),('terminated_on','2026-11-14')):
             c=fixture();r=supported_record('industrial_npdes');r['decision']='candidate';r['facts'][key]=value
             c['assessment']['records']=[r];s=assess(c)['modeled_integration']['permit_scenarios'][0]
             self.assertEqual(s['status'],'blocked');self.assertIn(key,s['reasons'])

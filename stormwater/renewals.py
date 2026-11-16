@@ -22,11 +22,28 @@ def parse_date(value):
     return parsed
 
 
+def term_bound(effective_from):
+    """No-later-than expiry: tariff 2026-09-01 section 4.5(f)(4) ("All credits shall
+    expire four (4) years from the effective date of the credit") and manual 4.4.1;
+    a renewal is effective on the original expiry (manual 4.4.2), so the same term
+    applies to it. PWD may set a different date (manual 4.6.3), so the award letter
+    still governs."""
+    from .rules import load_rule_config
+    years = int(load_rule_config()['credit_term_years'])
+    try:
+        return effective_from.replace(year=effective_from.year+years)
+    except ValueError:
+        return effective_from.replace(year=effective_from.year+years, day=28)
+
+
 def credit_renewals(history, as_of=None, lead_days=DEFAULT_LEAD_DAYS):
     """Reconcile explicit event chains; competing unsuperseded records stay disputed.
 
-    Expiry/deadline is inclusive. A renewal does not erase earlier evidence or
-    imply a new expiration. No period is derived from a program's maximum term.
+    Expiry/deadline is inclusive. A renewal does not erase earlier evidence. When
+    only an effective date is recorded, the four-year credit term gives a labelled
+    no-later-than deadline, never a recorded expiration. A recorded future
+    termination is scheduled, not unknown; an expired event with its recorded
+    expiry date is an explained lapse.
     """
     current = parse_date(as_of) if isinstance(as_of, str) else as_of or today()
     if isinstance(lead_days, bool) or not isinstance(lead_days, int) or not 0 <= lead_days <= 730:
@@ -72,10 +89,23 @@ def credit_renewals(history, as_of=None, lead_days=DEFAULT_LEAD_DAYS):
             contradictions.append('Termination precedes effective date')
         if event.get('source_contradiction'):
             contradictions.append('Source records contradict one another')
+        sourced = bool(event.get('evidence_refs') or event.get('source_url'))
         if contradictions:
             row.update(status='contradictory', warnings=list(dict.fromkeys(contradictions)))
         elif state == 'terminated' and dates['terminated_on'] and dates['terminated_on'] <= current:
             row['status'] = 'terminated'
+        elif state == 'terminated' and dates['terminated_on']:
+            remaining = (dates['terminated_on']-current).days
+            row.update(status='termination_scheduled', deadline=dates['terminated_on'].isoformat(),
+                       days_remaining=remaining, deadline_basis='recorded terminated_on')
+            if not sourced:
+                row['warnings'].append('Termination supporting record is missing; recorded history is unverified')
+        elif state == 'expired' and dates['expires_on'] and dates['expires_on'] < current:
+            row.update(status='expired', deadline=dates['expires_on'].isoformat(),
+                       days_remaining=(dates['expires_on']-current).days, deadline_basis='recorded expires_on')
+            if not sourced:
+                row['warnings'].append('Expiry supporting record is missing; recorded history is unverified')
+            row['warnings'].append('A lapse does not establish a refund or a denial of renewal')
         elif state in ('applied','denied','unknown','expired'):
             row['status'] = 'not_awarded' if state in ('applied','denied') else 'unknown_dates'
             row['warnings'].append('An application, denial or unexplained expired flag does not establish an award or refund')
@@ -84,16 +114,22 @@ def credit_renewals(history, as_of=None, lead_days=DEFAULT_LEAD_DAYS):
             row['missing'].append('effective termination date')
         else:
             deadline = dates['renewal_due'] or dates['expires_on']
-            if not event.get('evidence_refs') and not event.get('source_url'):
+            basis = 'recorded renewal_due' if dates['renewal_due'] else 'recorded expires_on' if dates['expires_on'] else None
+            if not sourced:
                 row['warnings'].append('Award/renewal supporting record is missing; recorded history is unverified')
             if dates['effective_from'] is None:
                 row['missing'].append('effective_from')
+            if not deadline and dates['effective_from']:
+                deadline = term_bound(dates['effective_from'])
+                basis = 'no_later_than: four-year credit term from effective_from (tariff 4.5(f)(4); manual 4.4.1)'
+                row['missing'].append('recorded expires_on (award letter)')
+                row['warnings'].append('Expiry not recorded; deadline is the no-later-than four-year term bound, not a recorded date')
             if not deadline:
                 row['status'] = 'unknown_dates'
                 row['missing'].append('renewal_due or expires_on')
             else:
                 remaining = (deadline-current).days
-                row.update(deadline=deadline.isoformat(), days_remaining=remaining,
+                row.update(deadline=deadline.isoformat(), days_remaining=remaining, deadline_basis=basis,
                            status='overdue' if remaining < 0 else 'upcoming' if remaining <= lead_days else 'current')
                 if dates['effective_from'] and dates['effective_from'] > current:
                     row['warnings'].append('Recorded award/renewal is not effective yet')

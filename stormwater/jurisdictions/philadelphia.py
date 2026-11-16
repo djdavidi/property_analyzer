@@ -6,12 +6,13 @@ measured physical geometry. Missing evidence and unsupported combinations remain
 blocked by the existing versioned PWD rules.
 """
 from copy import deepcopy
+from datetime import date
 from hashlib import sha256
 import json
 
 from shapely.geometry import shape
 
-from ..billing import calculate_scenarios, default_tariff
+from ..billing import default_tariff
 from ..rules import RULE_VERSION, screen
 
 PROFILE_ID = 'philadelphia-pwd'
@@ -66,7 +67,7 @@ def apply(case, gis_result, policy_inputs=None, tariff=None, as_of=None):
         raise ValueError('Supply tariff once, in policy inputs or as an argument')
     selected_tariff=deepcopy(tariff if tariff is not None else overlay.get('tariff') or default_tariff())
     measurement=deepcopy(gis_result['measurement'])
-    screens=[];spatial_benefits=[];allocated=[]
+    screens=[];allocated=[]
     all_benefits=[b for b in working.get('benefits',[]) if not b.get('geometry')]
     all_benefits.extend({**f['properties']['benefit'],'geometry':f['geometry']}
                         for f in effective_features(working) if f['properties'].get('layer')=='benefit')
@@ -91,28 +92,36 @@ def apply(case, gis_result, policy_inputs=None, tariff=None, as_of=None):
             # Scalar hypotheses are not spatially reconciled credits.
             evidence['physical_area_confirmed']=None
         screens.append({'id':benefit['id'],**screen(benefit['category'],benefit['area_sqft'],evidence)})
-        spatial_benefits.append(benefit)
 
+    from ..assessment_policy import evaluate_assessment, ledger_billing_view, _economics
+    from ..renewals import history_assessment, today
+    assessment=evaluate_assessment(working,gis_result,as_of=as_of or today().isoformat(),tariff=selected_tariff)
+    day=date.fromisoformat(assessment['as_of'])
+
+    # Decision D7: one savings path. The billing table is a relabelled view of the
+    # assessment ledger (assessment_policy._economics), never a second engine.
     warnings=[]
     if working.get('baseline'):
-        try:
-            billing=calculate_scenarios(working['baseline'],measurement,spatial_benefits,tariff=selected_tariff)
-        except ValueError as exc:
-            billing={'status':'blocked','reason':str(exc)}
+        billing=ledger_billing_view(assessment['economics'])
     else:
         billing={'status':'blocked','reason':'No public billing baseline or actual bill supplied'}
     if billing.get('status')=='blocked':
         warnings.append(billing['reason'])
+    check=billing.get('billed_area_check') or {}
+    if check.get('warning'):warnings.append(check['warning'])
+    if (billing.get('undeveloped_status') or {}).get('status')=='unknown_alternatives':
+        warnings.append(billing['undeveloped_status']['note'])
     surface_scenarios={}
     if working.get('baseline') and not measurement['complete']:
         for name,key in [('unknown_assumed_pervious','ia_min_sqft'),('unknown_assumed_impervious','ia_max_sqft')]:
-            try:
-                scenarios=calculate_scenarios(working['baseline'],{**measurement,'complete':True,'ia_sqft':measurement[key]},[],tariff=selected_tariff)
+            view={**gis_result,'measurement':{**measurement,'complete':True,'ia_sqft':measurement[key]}}
+            appeal=ledger_billing_view(_economics(working,view,[],day,selected_tariff))
+            if appeal.get('status')=='blocked':
+                surface_scenarios[name]={'status':'blocked','reason':appeal['reason']}
+            else:
                 surface_scenarios[name]={
                     'assumption':'All unknown surfaces assigned as stated; extreme assumption, not a confidence interval',
-                    'ia_sqft':measurement[key],'appeal':scenarios['appeal_only']}
-            except ValueError as exc:
-                surface_scenarios[name]={'status':'blocked','reason':str(exc)}
+                    'ia_sqft':measurement[key],'appeal':appeal['appeal_only']}
     if working.get('assessment',{}).get('baseline_refresh',{}).get('status')=='pending_review':
         billing={'status':'blocked','reason':'Public billing baseline changed; review the pending comparison before savings calculations'}
         surface_scenarios={};warnings.append(billing['reason'])
@@ -120,10 +129,6 @@ def apply(case, gis_result, policy_inputs=None, tariff=None, as_of=None):
         warnings.append('Actual billing baseline unavailable')
     if not (working.get('baseline') or {}).get('actual_bill_verified'):
         warnings.append('Actual account bill, special-rate enrollment and payer responsibility are unverified')
-
-    from ..assessment_policy import evaluate_assessment
-    from ..renewals import history_assessment, today
-    assessment=evaluate_assessment(working,gis_result,as_of=as_of or today().isoformat(),tariff=selected_tariff)
     history=history_assessment(working,assessment.get('as_of'))
     assessment['categories'].append(history)
     assessment['renewals']=history['renewals']

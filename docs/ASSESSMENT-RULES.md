@@ -20,7 +20,8 @@ The [September 2026 Credits and Appeals Manual](https://water.phila.gov/wp-conte
 - Direct discharge: a documented route to surface water, no City infrastructure,
   no erosion/detriment; upstream SMPs must remain compliant and functional.
 - Industrial NPDES: active site coverage plus twelve months of operator compliance
-  and supporting permit/DMR records.
+  and supporting permit/DMR records (lagging DMR periods and administrative
+  continuation: see Phase 2 interpretations below).
 - Management factors: 80%; direct discharge: 90%. With NPDES these become
   87%/97%; residual unmanaged IA gets 7% toward IA and underlying GA.
   Open-space factors use Table A-2. No second seven-percent multiplier is applied.
@@ -28,9 +29,14 @@ The [September 2026 Credits and Appeals Manual](https://water.phila.gov/wp-conte
 The [effective September 1, 2026 tariff](https://water.phila.gov/wp-content/uploads/files/rates-and-charges-2026-09-01.pdf)
 §§4.3–4.5 (printed pages 9–15) establishes GA $1.003/500 ft², IA $7.048/500 ft²,
 500-ft² ceilings, $20.89 minimum SWMS and $2.81/account collection charge.
-§4.5(f) specifies four-year expiry. The tariff and manual disagree on the renewal
-fee ($780 versus $555); fees are outside this release and neither is modeled.
-Explicit expiry evidence is retained rather than silently deriving unknown dates.
+§4.5(f)(4) specifies four-year expiry ("All credits shall expire four (4) years from the
+effective date of the credit"; manual §4.4.1 agrees, and §4.4.2 makes a renewal effective
+on the original expiry). The tariff and manual disagree on the renewal fee ($780 versus
+$555); fees are outside this release and neither is modeled. Explicit expiry evidence is
+preferred; with only `effective_from`, renewal reminders show the four-year date as a
+labelled `no_later_than` bound (PWD may set another date, manual §4.6.3), never as a
+recorded expiry. A recorded future `terminated_on` is `termination_scheduled`; an
+`expired` event with a recorded past `expires_on` is an explained `expired` lapse.
 
 [PA DEP industrial stormwater](https://www.pa.gov/agencies/dep/programs-and-services/water/clean-water/stormwater-management/industrial-stormwater)
 and its [industrial permit FAQ](https://files.dep.state.pa.us/Water/BPNPSM/StormwaterManagement/IndustrialStormwater/Industrial_Stormwater_FAQ.pdf)
@@ -43,6 +49,50 @@ distinguishes direct-rainfall DIC from structural SMPs and prohibits new porous
 asphalt/concrete/resin-bound systems. [Maintenance guidance](https://water.phila.gov/development/stormwater-plan-review/maintenance/)
 explicitly discusses existing systems of these types. Existing material appearance
 therefore neither proves eligibility nor automatically disqualifies a documented award.
+
+## Phase 2 interpretations (rechecked 2026-11-16 against the original PDFs)
+
+- **Managed drainage areas (review B3, R17).** IA credit is for IA Managed (manual
+  §4.3.2.2) with equivalent GA underneath (§4.3.3.2). A record's managed geometry may
+  include open space; it is split against the frozen GIS into managed IA, open space and
+  unresolved ground. IA credit uses managed ∩ physical IA only. Open space inside the
+  area is credited only as manual §4.3.3.1 allows: direct discharge to a water body
+  without PWD infrastructure, 90% GA "regardless of cover type or hydrologic soil group"
+  (97% with NPDES, §4.3.5.4), under the record's full direct-discharge prerequisites; or
+  an approved SMP "sized to account for the area" with PWD design-phase pre-approval,
+  80% (87% with NPDES), requiring `open_space_smp_sizing_confirmed` and
+  `open_space_design_preapproval`. Missing open-space facts leave that part uncredited
+  without failing the IA credit. A direct-discharge record whose area is all open space
+  is the GA-only open-space credit; approved ledgers may also use the existing
+  allocation category `open_space_direct_discharge`. Unresolved ground is never credited.
+- **NPDES residual (review B1).** Manual §4.3.5.2 gives 7% of IA and GA when no other
+  credit applies, and 7% to "remaining uncredited IA area" otherwise. Read literally, the
+  second sentence drops the 7% on uncredited open space, so a 100 sq ft SMP lowered a
+  100,000 sq ft parcel's GA credit from 7,000 to 1,480. One base is now used in both
+  cases: residual IA = 7% × (IA − IAR − managed IA); residual GA = 7% × (GA − managed IA
+  − credited open space). Table A-2's NPDES factor for CN 74 (4.35%) is below 7%, so that
+  open space stays in the residual instead of lowering the credit. Adding a qualifying
+  credit can no longer reduce the total. This reading needs PWD confirmation.
+- **NPDES dates (review B7).** Manual §4.3.4 requires compliance "during the preceding
+  twelve months" and §4.5.5 the required DMRs "from the previous 12 months". A
+  `compliance_through` before the assessment date is accepted only while the next
+  required DMR is not yet due (`next_dmr_due`, a sourced fact); otherwise the record is
+  missing evidence and `needs_update`, not a failed permit. An expired permit is missing
+  evidence unless `administratively_continued` is reviewed: 25 Pa. Code §92a.7(b)–(c)
+  continues an expiring permit when a timely reissuance application was filed and DEP has
+  not acted; §92a.75(a) makes "timely" at least 180 days before expiry unless DEP allowed
+  later. A recorded `renewal_application_submitted_on` later than that fails, and
+  `administratively_continued: false` fails `expires_on`.
+- **Known-false prerequisites (review R1) and receiver identity (R2).** One shared veto
+  (`stormwater/prerequisites.py`) blocks every credit alternative (documented, modeled,
+  research, catchment, canopy, permit, record counterfactuals) when `account_current` is
+  recorded false on the baseline, any record or benefit (tariff §4.5(a)(1); manual §§4.2,
+  4.6.3). Receiver identity is resolved from all source records, whatever their decision,
+  before scenarios exist, so a rejected record's receiver is blocked with the rejection
+  rather than re-priced as an unassigned system.
+- **One savings path (review B6, decision D7).** The report billing table is a relabelled
+  view of the assessment ledger; canopy and AI surface alternatives also price through
+  it. It checks the assessment date, not `bill_date`, against the verified tariff period.
 
 ## Implemented interpretation and explicit limits
 
@@ -60,11 +110,10 @@ new management combinations with that charge-based baseline are blocked pending 
 approved area-based reconciliation. This avoids changing old billing results by
 silently switching from charge discounts to area credits.
 
-For non-surface NPDES combinations, Table A-2 governs open-space GA and the remaining
-unmanaged IA gets seven percent on both IA and its underlying GA. With no other
-credit allocation the standalone NPDES scenario applies seven percent to full GA and
-remaining IA. These are explicit alternative configurations; independently calculated
-savings are never added.
+For non-surface NPDES combinations, Table A-2 governs credited open-space GA; IA not
+otherwise credited gets seven percent, and GA not otherwise credited (including
+uncredited open space) gets seven percent, the same base as the standalone NPDES
+scenario. Independently calculated savings are never added.
 
 All new-benefit and measurement scenarios with existing area awards require a validated
 `assessment.existing_credit_allocations` ledger, even if reconciliation booleans are true. Every item requires `id`, supported
@@ -97,6 +146,9 @@ permit categories, missing prerequisites, candidate decisions, route/ownership g
 permit mismatches and periods, overlap, existing ledgers and legacy benefits.
 Examples include $163.83 baseline and $139.68 final bill for 10,000 ft² GA/IA with
 1,000 ft² managed plus qualifying NPDES; uplift and residual total 1,500 ft² credits.
+`tests/test_policy_money.py` holds the Phase 2 hand-derived cases (per-account minimum,
+NPDES monotonicity, managed drainage areas with lawn, GA-only direct discharge, lagging
+DMRs, administrative continuation, undeveloped alternatives, billed-area mismatch).
 A mixed 10,000 ft² GA/8,000 ft² IA site with CN55 over 2,000 ft² open space and NPDES
 has 2,300 ft² GA credit and 560 ft² IA credit, giving $124.58/month. These invented
 fixtures validate implementation logic, not real-site accuracy or actual awards.
