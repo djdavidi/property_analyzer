@@ -25,7 +25,9 @@ from hashlib import sha256
 from pathlib import Path
 from urllib.parse import urlencode
 
-from drainage_core.benchmark import CORRESPONDENCE, benchmark
+from copy import deepcopy
+
+from drainage_core.benchmark import CORRESPONDENCE, benchmark, paved_reference_input
 from drainage_core.geometry import reproject
 from drainage_core.remote_sensing import classified_features, decode_classification, legend_palette
 from drainage_core.sources import Cache, SourceError, canonical, crs_from_declaration, now
@@ -345,6 +347,23 @@ def run(
         "caveats": caveats(model_info, reference, settings),
         "claim": CLAIM,
     }
+    # Final LIVE-SAVINGS fix 4b: the parcel-clipped 2018 paved classes and the agreement
+    # that decides whether a labelled developed-on-paved IA hypothesis may use them.
+    out["paved_reference_input"] = paved_reference_input(
+        case,
+        ref_features,
+        table["strata"],
+        {
+            "product": REFERENCE_PRODUCT,
+            "vintage": "2018",
+            "layer": LANDCOVER + f"/{LAYER}",
+            "image_sha256": reference["image_sha256"],
+            "sources": deepcopy(reference["sources"]),
+            "benchmark_version": table["version"],
+            "settings": deepcopy(settings),
+            "modeled_prediction_sha256": model_info.get("prediction_sha256"),
+        },
+    )
     # Content hash: excludes the run time and the local path the case was read from.
     hashed = {
         **{k: v for k, v in out.items() if k != "generated_at"},
@@ -382,6 +401,14 @@ def main(argv=None):
     parser.add_argument("--edge-buffer-m", type=float, default=0.5)
     parser.add_argument("--reference-cell-ft", type=float, default=1.0)
     parser.add_argument("--reference-pad-cells", type=int, default=2)
+    parser.add_argument(
+        "--attach",
+        action="store_true",
+        help=(
+            "Save the paved reference input into the case (a new case revision) so the "
+            "assessment can offer the labelled developed-on-2018-paved IA hypothesis"
+        ),
+    )
     args = parser.parse_args(argv)
     case, ref = load_case(args.case)
     from .record_cache import ROOT
@@ -398,6 +425,15 @@ def main(argv=None):
         case_ref=ref,
     )
     args.output.write_text(json.dumps(result, indent=1, sort_keys=True, default=str) + "\n")
+    if args.attach:
+        from .cases import CaseStore
+
+        folder = args.case if args.case.is_dir() else args.case.parent
+        store = CaseStore(folder.parent)
+        revision = store.revision(folder.name)
+        current = store.load(folder.name)
+        current["landcover_reference"] = result["paved_reference_input"]
+        store.save(current, expected_revision=revision)
     return 0
 
 

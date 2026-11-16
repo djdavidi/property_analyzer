@@ -326,3 +326,106 @@ def _parts(geometry, stratum, region):
     area = shape(stratum["geometry"]) if "geometry" in stratum else region
     g = area_only(geometry.intersection(area))
     return 0 if g.is_empty else len(getattr(g, "geoms", [g]))
+
+
+# Final LIVE-SAVINGS fix 4: when may the reference's paved classes support a labelled
+# impervious-area HYPOTHESIS for modeled developed-space appearance? Only when this
+# parcel's own agreement shows the two products still describe the same site:
+# - stable building footprints (where change since the reference is least likely)
+#   agree at least 85% over at least 1,000 sq ft. 85% is the classic minimum
+#   land-use/land-cover map accuracy target (Anderson et al. 1976, USGS Professional
+#   Paper 964); here it is applied to agreement, not accuracy;
+# - and the whole compared parcel agrees at least 50%, which rejects rebuilt sites
+#   (3060 S 61st St, Philadelphia: 20.9% overall, no stable footprint, rebuilt
+#   after 2018).
+PAVED_REFERENCE_CLASSES = ("road", "other_pavement")
+QUALIFY_MIN_STABLE_BUILDING_AGREEMENT = 0.85
+QUALIFY_MIN_STABLE_BUILDING_COMPARED_SQFT = 1000.0
+QUALIFY_MIN_OVERALL_AGREEMENT = 0.50
+PAVED_HYPOTHESIS_LABEL = (
+    "Labelled hypothesis: observed IA plus modeled developed-space appearance that the 2018 "
+    "land cover marks as paved (road/other paved); not observed IA"
+)
+PAVED_HYPOTHESIS_ASSUMPTIONS = [
+    "Developed-space pixels inside 2018 paved areas are still impervious pavement; permeability is not observed",
+    "The 2018 reference qualified for this parcel by its own stable-strata agreement; agreement is not accuracy",
+]
+
+
+def reference_qualification(strata):
+    """Whether one parcel's agreement tables qualify its reference paved classes."""
+    overall = (strata or {}).get("all_compared_area") or {}
+    stable = (strata or {}).get("stable_building_footprints") or {}
+    o = overall.get("overall_agreement")
+    s = stable.get("overall_agreement")
+    n = float(stable.get("compared_sqft") or 0.0)
+    reasons = []
+    if o is None or o < QUALIFY_MIN_OVERALL_AGREEMENT:
+        reasons.append(
+            f"Whole-parcel agreement {o if o is None else round(o, 3)} is below "
+            f"{QUALIFY_MIN_OVERALL_AGREEMENT}; the site may have changed since the reference"
+        )
+    if n < QUALIFY_MIN_STABLE_BUILDING_COMPARED_SQFT:
+        reasons.append(
+            f"Stable building footprints cover {n:,.0f} sq ft (< "
+            f"{QUALIFY_MIN_STABLE_BUILDING_COMPARED_SQFT:,.0f}); registration cannot be checked"
+        )
+    elif s is None or s < QUALIFY_MIN_STABLE_BUILDING_AGREEMENT:
+        reasons.append(
+            f"Stable-building agreement {s if s is None else round(s, 3)} is below "
+            f"{QUALIFY_MIN_STABLE_BUILDING_AGREEMENT}"
+        )
+    return {
+        "qualifies": not reasons,
+        "overall_agreement": o,
+        "stable_building_agreement": s,
+        "stable_building_compared_sqft": n,
+        "thresholds": {
+            "min_overall_agreement": QUALIFY_MIN_OVERALL_AGREEMENT,
+            "min_stable_building_agreement": QUALIFY_MIN_STABLE_BUILDING_AGREEMENT,
+            "min_stable_building_compared_sqft": QUALIFY_MIN_STABLE_BUILDING_COMPARED_SQFT,
+        },
+        "reasons": reasons,
+    }
+
+
+def paved_reference_input(case, reference_features, strata, lineage=None):
+    """A saved, parcel-clipped input snapshot: the reference paved classes plus the
+    agreement summary that decides (at policy time) whether they may be used."""
+    region = area_only(shape(case["parcel"]))
+    reference, _, _ = class_geometries(reference_features, region=region)
+    paved = union([reference[k] for k in PAVED_REFERENCE_CLASSES if k in reference])
+    summary = {
+        name: {
+            k: (strata.get(name) or {}).get(k)
+            for k in ("overall_agreement", "compared_sqft", "agreeing_sqft")
+        }
+        for name in ("all_compared_area", "stable_building_footprints", "stable_roads")
+    }
+    return {
+        "kind": "reference land-cover paved classes",
+        "version": VERSION,
+        "classes": list(PAVED_REFERENCE_CLASSES),
+        "paved_geometry": mapping(paved),
+        "paved_sqft": case_area_sqft(paved, case) if not paved.is_empty else 0.0,
+        "agreement": summary,
+        "qualification": reference_qualification(summary),
+        "lineage": deepcopy(lineage or {}),
+        "claim": "Older independent classification; a labelled hypothesis input, never observed IA",
+    }
+
+
+def qualified_paved_geometry(case):
+    """(geometry or None, qualification) from ``case['landcover_reference']``; the
+    qualification is recomputed from the saved agreement, never trusted as stored."""
+    saved = case.get("landcover_reference")
+    if not isinstance(saved, dict):
+        return None, {"qualifies": False, "reasons": ["No reference land-cover input saved"]}
+    q = reference_qualification(saved.get("agreement") or {})
+    if not q["qualifies"]:
+        return None, q
+    try:
+        paved = area_only(shape(saved["paved_geometry"]))
+    except (KeyError, ValueError, TypeError, AttributeError):
+        return None, {**q, "qualifies": False, "reasons": ["Saved paved geometry is unusable"]}
+    return paved, q

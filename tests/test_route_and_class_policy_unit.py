@@ -116,9 +116,9 @@ class SharedClassTableTests(unittest.TestCase):
         ]
         g = frozen_gis(c, fake_research(c))
         bounds = ia_bounds(c, g["modeled_integration"], shape(c["parcel"]))
-        self.assertAlmostEqual(bounds["nominal"].area * SQFT_PER_M2, 0)
+        self.assertAlmostEqual(bounds["observed_ia_only"].area * SQFT_PER_M2, 0)
         self.assertAlmostEqual(bounds["road_impervious"].area * SQFT_PER_M2, 5000)
-        self.assertEqual(list(bounds)[:3], ["lower", "nominal", "upper"])
+        self.assertEqual(list(bounds)[:3], ["lower", "observed_ia_only", "upper"])
         rows = assess(c, g)["modeled_integration"]["catchment_scenarios"]
         road = next(r for r in rows if r["receiver_id"] == "G1" and r["bound"] == "road_impervious")
         self.assertIn(SCENARIOS["road_impervious"]["label"], road["assumptions"])

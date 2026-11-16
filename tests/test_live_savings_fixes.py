@@ -454,6 +454,109 @@ class CatchmentStorageCheckTests(unittest.TestCase):
         cap.assert_not_called()
 
 
+AGREEMENT = {
+    # Frozen from the 2026-11-16 benchmark runs (stormwater.benchmark_landcover).
+    "5300 Whitaker": {
+        "all_compared_area": {"overall_agreement": 0.8004623058448573, "compared_sqft": 232993.75},
+        "stable_building_footprints": {"overall_agreement": 0.9840332945685185, "compared_sqft": 91913.18},
+    },
+    "3060 S 61st (rebuilt)": {
+        "all_compared_area": {"overall_agreement": 0.20889645, "compared_sqft": 629334.47},
+        "stable_building_footprints": {"overall_agreement": None, "compared_sqft": 0.0},
+    },
+    "8000 Cherokee": {
+        "all_compared_area": {"overall_agreement": 0.65740, "compared_sqft": 876187.69},
+        "stable_building_footprints": {"overall_agreement": 0.72126, "compared_sqft": 137666.27},
+    },
+}
+
+
+class PavedReferenceBasisTests(unittest.TestCase):
+    def test_qualification_threshold_on_live_agreement(self):
+        from drainage_core.benchmark import reference_qualification
+
+        verdict = {k: reference_qualification(v)["qualifies"] for k, v in AGREEMENT.items()}
+        self.assertEqual(
+            verdict,
+            {"5300 Whitaker": True, "3060 S 61st (rebuilt)": False, "8000 Cherokee": False},
+        )
+        reasons = reference_qualification(AGREEMENT["3060 S 61st (rebuilt)"])["reasons"]
+        self.assertTrue(any("site may have changed" in r for r in reasons))
+
+    def reference(self, agreement):
+        return {
+            "kind": "reference land-cover paved classes",
+            "paved_geometry": mapping(box(0, 0, 15.24, 30.48)),
+            "agreement": agreement,
+        }
+
+    def test_developed_on_paved_bound_prices_a_ground_catchment(self):
+        # The observed-IA-only bound (formerly "nominal") is empty in a ground catchment.
+        # With a qualifying reference, developed-space appearance (x 0-15.24 m) inside 2018
+        # paved area becomes a labelled hypothesis: 5,000 sq ft minus the receiver bed
+        # (1,000) = 4,000 sq ft managed. IA/GA credit 80% = 3,200 -> GA 6,800 = 14 x
+        # $1.003 = $14.042 -> $14.04; IA 6,800 = 14 x $7.048 = $98.672 -> $98.67;
+        # $112.71 + $2.81 = $115.52 vs $163.83 -> $48.31/month, $579.72/year.
+        from test_modeled_assessment_unit import fake_research, frozen_gis
+
+        c = fixture()
+        c["landcover_reference"] = self.reference(AGREEMENT["5300 Whitaker"])
+        r = assess(c, frozen_gis(c, fake_research(c)))["modeled_integration"]
+        rows = {v["bound"]: v for v in r["catchment_scenarios"] if v["receiver_id"] == "G1"}
+        self.assertEqual(rows["observed_ia_only"]["status"], "blocked")
+        paved = rows["developed_on_2018_paved"]
+        self.assertAlmostEqual(paved["area_sqft"], 4000)
+        self.assertEqual(paved["status"], "calculated")
+        self.assertEqual(paved["bill"]["monthly_total"], 115.52)
+        self.assertEqual(paved["gross_annual_reduction"], 579.72)
+        self.assertTrue(any("Labelled hypothesis" in a for a in paved["assumptions"]))
+        self.assertEqual(r["paved_reference_basis"]["status"], "offered")
+
+    def test_rebuilt_site_reference_is_not_offered(self):
+        from test_modeled_assessment_unit import fake_research, frozen_gis
+
+        c = fixture()
+        c["landcover_reference"] = self.reference(AGREEMENT["3060 S 61st (rebuilt)"])
+        r = assess(c, frozen_gis(c, fake_research(c)))["modeled_integration"]
+        bounds = {v["bound"] for v in r["catchment_scenarios"]}
+        self.assertNotIn("developed_on_2018_paved", bounds)
+        self.assertEqual(r["paved_reference_basis"]["status"], "not_offered")
+        self.assertTrue(r["paved_reference_basis"]["qualification"]["reasons"])
+
+
+class PavedReferenceAttachTests(unittest.TestCase):
+    def test_attach_saves_the_input_as_a_new_case_revision(self):
+        import tempfile
+
+        from stormwater.benchmark_landcover import fetch_reference, main, reference_features
+        from test_benchmark_landcover import frozen_library_cache, library_case, oem_from
+
+        with tempfile.TemporaryDirectory() as root:
+            cache, _ = frozen_library_cache(Path(root) / "cache")
+            c = library_case()
+            refs, _ = reference_features(fetch_reference(c, cache, cell_ft=3.28, pad_cells=0), c)
+            c["features"]["features"] = oem_from(refs)
+            folder = Path(root) / "cases" / "library"
+            folder.mkdir(parents=True)
+            (folder / "case.json").write_text(json.dumps({**c, "id": "library"}))
+            with patch("stormwater.cases.CaseStore.save") as save:
+                code = main(
+                    [
+                        "--case", str(folder),
+                        "--output", str(Path(root) / "agreement.json"),
+                        "--cache", str(Path(root) / "cache"),
+                        "--reference-cell-ft", "3.28",
+                        "--reference-pad-cells", "0",
+                        "--edge-buffer-m", "0",
+                        "--attach",
+                    ]
+                )
+        self.assertEqual(code, 0)
+        saved_case = save.call_args.args[0]
+        self.assertEqual(saved_case["landcover_reference"]["classes"], ["road", "other_pavement"])
+        self.assertIsNotNone(save.call_args.kwargs["expected_revision"])
+
+
 class ResearchRouteScopeTests(unittest.TestCase):
     def test_off_parcel_catchment_edge_contact_does_not_mark_on_parcel_figure_partial(self):
         from datetime import date

@@ -150,7 +150,7 @@ class ModeledGeometryUnitTests(unittest.TestCase):
         result = composition(c, g["ai"], m, c["parcel"])
         bounds = ia_bounds(c, g, shape(c["parcel"]))
         self.assertAlmostEqual(result["modeled_ia_sqft"], 0)
-        self.assertAlmostEqual(bounds["nominal"].area * SQFT_PER_M2, 0)
+        self.assertAlmostEqual(bounds["observed_ia_only"].area * SQFT_PER_M2, 0)
         self.assertEqual(canonical(g), before)
 
     def test_ai_fills_only_modeled_unknowns_and_leaves_source_intact(self):
@@ -237,8 +237,8 @@ class ModeledGeometryUnitTests(unittest.TestCase):
         )
         r = build(c, measure(c), {}, {})
         bs = ia_bounds(c, r, box(0, 0, 30.48, 30.48))
-        self.assertEqual(bs["lower"].area, bs["nominal"].area)
-        self.assertGreater(bs["upper"].area, bs["nominal"].area)
+        self.assertEqual(bs["lower"].area, bs["observed_ia_only"].area)
+        self.assertGreater(bs["upper"].area, bs["observed_ia_only"].area)
         self.assertAlmostEqual(bs["upper"].area, 15.24 * 30.48)
 
     def test_absent_pixel_size_has_no_invented_boundary_range(self):

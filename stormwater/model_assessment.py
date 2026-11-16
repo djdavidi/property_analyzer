@@ -538,6 +538,21 @@ def catchment_alternatives(case, gis, screened, as_of, tariff, occupied, record_
     return out
 
 
+def _paved_reference_basis(case):
+    """Fix 4b: whether the labelled developed-on-2018-paved IA bound is offered, and why."""
+    from drainage_core.benchmark import PAVED_HYPOTHESIS_LABEL, qualified_paved_geometry
+    from drainage_core.model_integration import PAVED_BOUND
+
+    paved, q = qualified_paved_geometry(case)
+    return {
+        "bound": PAVED_BOUND,
+        "status": "offered" if paved is not None else "not_offered",
+        "label": PAVED_HYPOTHESIS_LABEL,
+        "qualification": deepcopy(q),
+        "claim": "A labelled hypothesis next to observed IA, never observed IA or a measurement",
+    }
+
+
 STORAGE_LABEL = "Assumes full 1.5-inch treatment; terrain cannot see engineered storage"
 TREATMENT_DEPTH_FT = 1.5 / 12
 
@@ -741,7 +756,16 @@ def _route_fields(route):
 def _bound_assumptions(bound):
     """Labels of the shared class table's extra app bound (D3)."""
     from drainage_core.class_interpretation import APP_LABELLED_BOUNDS, SCENARIOS
+    from drainage_core.benchmark import PAVED_HYPOTHESIS_LABEL, PAVED_HYPOTHESIS_ASSUMPTIONS
+    from drainage_core.model_integration import PAVED_BOUND
 
+    if bound == PAVED_BOUND:
+        return [PAVED_HYPOTHESIS_LABEL] + list(PAVED_HYPOTHESIS_ASSUMPTIONS)
+    if bound == "observed_ia_only":
+        return [
+            "Observed IA (including reviewer-drawn pavement) plus modeled roof outlines only; "
+            "roofs are excluded from ground routing, so a ground catchment often has none"
+        ]
     labelled = dict(APP_LABELLED_BOUNDS)
     if bound not in labelled:
         return []
@@ -1239,6 +1263,7 @@ def integrate(case, gis, screened, as_of, tariff):
         "permit_scenarios": permit_alternatives(case, gis, screened, as_of, tariff),
         "category_context": categories,
         "canopy_scenarios": canopy_scenarios,
+        "paved_reference_basis": _paved_reference_basis(case),
         "image_context": {
             "possible_roof_vegetation_geometry": mapping(roof_vegetation),
             "possible_roof_vegetation_sqft": (

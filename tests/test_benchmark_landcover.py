@@ -359,6 +359,16 @@ class FrozenReferenceTests(unittest.TestCase):
         )
         self.assertEqual(result["modeled"]["model_sha256"], "b" * 64)
         self.assertEqual(len(result["reference"]["sources"]), 4)
+        # Final LIVE-SAVINGS fix 4b: the saved paved-reference input for the assessment.
+        paved = result["paved_reference_input"]
+        self.assertEqual(paved["classes"], ["road", "other_pavement"])
+        self.assertGreaterEqual(paved["paved_sqft"], road - 1)
+        self.assertEqual(
+            paved["agreement"]["stable_building_footprints"]["overall_agreement"],
+            footprints["overall_agreement"],
+        )
+        self.assertIn("qualifies", paved["qualification"])
+        self.assertEqual(saved["paved_reference_input"]["paved_sqft"], paved["paved_sqft"])
 
     def test_rgb_fallback_or_missing_model_output_is_refused(self):
         from stormwater.benchmark_landcover import modeled_features
