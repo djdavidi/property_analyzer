@@ -26,8 +26,8 @@ This is a short current snapshot (decision D9, ≤80 lines): replace stale lines
 - "Verified" means `.venv/bin/python -m unittest discover -s tests` passes from the
   repository root with no network. The suite blocks outbound connections and does not
   create `data/`.
-- Latest recorded full-suite result: **Ran 823, OK (skipped=1)**, hermetic, after the
-  Phase 4b merge. The skip is a test that needs the Git-ignored `data/`. All three
+- Latest recorded full-suite result: **Ran 907, OK (skipped=1)**, hermetic, after the
+  final-review fix batches A, B1 and B2. The skip is a test that needs the Git-ignored `data/`. All three
   Node UI harnesses pass, and the link check reports 0 missing.
   Each run is one summary line in [CHECKPOINTS](CHECKPOINTS.md).
 - This is software behavior on synthetic and frozen inputs, not real-site accuracy.
@@ -41,13 +41,14 @@ This is a short current snapshot (decision D9, ≤80 lines): replace stale lines
 | 4a | Physical capacity layer | merged |
 | 4b | Pricing adapters, pilot/portfolio, policy extent gates | merged |
 | 6 | Inlets, billed-area reconciliation, UB choice, land-cover benchmark tool | merged |
-| 7 | Docs and process cleanup (D9, A6); formatting pass (D10) | docs merged; D10 next |
-| 8 | Live reruns of Whitaker, the top ten and 01073 (saved data is not in this container; fresh public acquisition approved for the final review) | next |
+| 7 | Docs and process cleanup (D9, A6); formatting pass (D10) | merged |
+| 8 | Live runs of Whitaker and the top ten (11 properties, fresh public data) and a final review | done |
+| A/B1/B2 | Final-review fixes: credits baseline, NPDES/green-roof rules, permit matching, system leads, IA range, PWD rounding and minimum (2,325/2,325 bills match), lookup, terrain mosaics, compact responses, owner summary | merged |
 
 ## Interpretation versions and saved results
 
 - `PHYSICAL_INTERPRETATION_VERSION = 3` (`drainage_core/quality.py`) and
-  `POLICY_INTERPRETATION_VERSION = 3` (`stormwater/quality.py`).
+  `POLICY_INTERPRETATION_VERSION = 5` (`stormwater/quality.py`).
 - Consequence: every saved case made before these versions (Whitaker, the top ten,
   01073) opens as **outdated**, with a "Recompute from saved inputs" action. The
   recorded public bill stays visible. The management pilot refuses legacy GIS until
@@ -75,5 +76,7 @@ This is a short current snapshot (decision D9, ≤80 lines): replace stale lines
   fixes (UI checked by Node DOM harnesses only). Branch coverage was not measured.
 - The City 2025 DEM vertical metadata is unresolved; the USGS 1 m DEM is used instead.
 
-Next: the D10 formatting-only pass, then Phase 8 live reruns and a final review of code, logic and savings presentation.
+PWD reference data: [reference/pwd](../reference/pwd/README.md), with 2,590 parcels ≥100k sq ft,
+9,159 mapped systems and a non-government top 50 (24 flagged leads).
+Next: re-run the 11 live properties on the final code; obtain PCSMPs for the flagged leads.
 Current task: [TASK](TASK.md).

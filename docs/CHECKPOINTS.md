@@ -4,6 +4,45 @@ Newest entries first. Current truth belongs in STATE; the active bounded task be
 in TASK. These records preserve changes, decisions, evidence, unresolved issues and
 handoffs. Do not rewrite past results to match later runs.
 
+## 2026-11-16 — Final-review fix batch B2 merged; reference snapshot re-screened
+
+Commits `d010624` and `d953a43`. Full suite after merge with B1: Ran 907, OK
+(skipped=1). Node harnesses pass and the link check is clean.
+
+**Changes.**
+- **Address lookup.** Range addresses are accepted: "1001 N Delaware Ave" now
+  finds "1001-99 N DELAWARE AVE". Each match is labelled with how it matched.
+- **Failed sources.** A re-run retries imagery, land cover and terrain that failed
+  before, keeps successful saved sources, and records each retry.
+  `refresh_physical` forces a full refresh.
+- **Terrain.**
+  - Adjacent same-project USGS tiles are mosaicked: units and datum verified, grid
+    alignment checked, no resampling. Live: 5600 City Ave 467,376 cells.
+  - The cell cap rises from 250,000 to 1,000,000.
+  - Routing is vectorized with outputs unchanged (equivalence tests). Whitaker
+    analysis takes 41.3 s → 13.2 s with an identical digest.
+- **Response size.** Compact by default (Whitaker assess response 32.05 → 3.49 MB;
+  report.html 11.73 → 1.36 MB). `full=1` returns everything, and exports stay
+  complete.
+- **Owner summary.** A plain-language summary opens the report and the app panel:
+  published bill and check, supported savings, a labelled hypothetical range, the
+  next evidence to request with project numbers, and systems without a recorded
+  credit.
+- **Timings.** Each stage's timing is recorded in the result.
+
+**Reference snapshot re-screened with the B1 owner screen.**
+- 97 `owner_screen` values changed.
+- The non-government top 50 gains CH Village LP (7715 Crittenden St) and Delaware
+  Valley Recycling (3107 S 61st St), and drops 2035 S College Ave (Girard Estate →
+  review) and "PAID E/O UNITANK" (PAID title; the equitable owner is private and is
+  worth manual review).
+- The 50th charge is $106,254/yr, and 24 of the top 50 are flagged.
+
+**Limits.**
+- The generic GIS-mode report still has JSON blocks.
+- Only terrain acquisition was checked live for the other parcels; there was no
+  full live re-assessment.
+
 ## 2026-11-16 — Final-review fix batch B1 merged (finding and policy)
 
 Head `c03baf3`. Full suite after merge: Ran 881, OK (skipped=1). Node harnesses pass
