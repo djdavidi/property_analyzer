@@ -584,7 +584,13 @@ class NpdesDatesTests(unittest.TestCase):
             m_record(
                 "permit",
                 "industrial_npdes",
-                facts={"permit_id": "SYNTHETIC-ONLY", "compliance_through": "2026-09-30"},
+                facts={
+                    "permit_id": "SYNTHETIC-ONLY",
+                    "compliance_through": "2026-09-30",
+                    # Fix 1: only a site-matched industrial permit is priced.
+                    "site_match": True,
+                    "industrial_stormwater": True,
+                },
             )
         ]
         s = assess(c)["modeled_integration"]["permit_scenarios"][0]

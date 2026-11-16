@@ -478,9 +478,15 @@ class ModeledSavingsUnitTests(unittest.TestCase):
         self.assertEqual(r["modeled_integration"]["catchment_scenarios"], [])
 
     def test_permit_what_if_does_not_change_candidate_or_documented_economics(self):
+        # Fix 1: only a site-matched industrial-stormwater permit is priced.
         c = fixture()
+        c["address"] = "100 INVENTED ST"
         c["assessment"]["records"] = [
-            record("permit", "industrial_npdes", facts={"permit_id": "SYNTHETIC-ONLY"})
+            record(
+                "permit",
+                "industrial_npdes",
+                facts={"permit_id": "PAR000000", "public_street_address": "100 INVENTED STREET"},
+            )
         ]
         r = assess(c)
         s = r["modeled_integration"]["permit_scenarios"][0]
@@ -490,11 +496,17 @@ class ModeledSavingsUnitTests(unittest.TestCase):
         self.assertEqual(r["economics"]["documented"]["status"], "blocked")
 
     def test_inactive_or_construction_permit_what_if_is_blocked(self):
-        for facts in ({"active": False}, {"permit_type": "construction"}):
+        # Fix 1: construction coverage is not the industrial credit (not applicable); a
+        # site-matched industrial permit recorded inactive is blocked.
+        matched = {"site_match": True, "industrial_stormwater": True}
+        for facts, status in (
+            ({"active": False, **matched}, "blocked"),
+            ({"permit_type": "construction", **matched}, "not_applicable"),
+        ):
             c = fixture()
             c["assessment"]["records"] = [record("permit", "industrial_npdes", facts=facts)]
             self.assertEqual(
-                assess(c)["modeled_integration"]["permit_scenarios"][0]["status"], "blocked"
+                assess(c)["modeled_integration"]["permit_scenarios"][0]["status"], status
             )
 
     def test_unit_source_and_existing_findings_are_unchanged(self):

@@ -513,39 +513,116 @@ def catchment_alternatives(case, gis, screened, as_of, tariff, occupied, record_
     return out
 
 
-def permit_alternatives(case, gis, screened, as_of, tariff):
-    """Explicit what-if only; discovery status and source facts stay unchanged."""
-    from .assessment_policy import _economics, _blocked, NPDES
+PERMIT_LISTINGS = {
+    "priced": "Industrial what-if (best matched active industrial permit)",
+    "not_applicable_construction": "Construction stormwater coverage; not the industrial credit",
+    "nearby_not_matched": "Nearby, not matched",
+    "site_match_unknown": "Site match unknown; not priced",
+    "industrial_coverage_unconfirmed": "Industrial stormwater coverage not established; not priced",
+    "another_permit_priced": "Matched, but another permit carries the one industrial what-if",
+    "blocked": "Matched industrial permit; known-false prerequisite",
+}
 
-    out = []
+
+def _permit_listing(listing, reasons):
+    return {
+        "status": (
+            "not_applicable"
+            if listing == "not_applicable_construction"
+            else "not_matched" if listing in ("nearby_not_matched", "site_match_unknown") else "not_priced"
+        ),
+        "listing": listing,
+        "listing_label": PERMIT_LISTINGS[listing],
+        "reasons": list(dict.fromkeys(reasons)),
+        "gross_monthly_reduction": None,
+        "gross_annual_reduction": None,
+        "bill": None,
+        "ledger": None,
+    }
+
+
+def permit_alternatives(case, gis, screened, as_of, tariff):
+    """Explicit what-if only; discovery status and source facts stay unchanged.
+
+    Fix 1: every permit row is classified (``permits.permit_classification``) and
+    matched to THIS parcel by identity (``permits.permit_site_match``). Construction
+    coverage (PAC/PAD/PAI/PAG-02) is not the manual 4.3.4 industrial credit. A
+    nearby or unmatched facility is listed, never priced. One industrial what-if is
+    priced per property: the best matched industrial permit (reviewed ``active``
+    first, then the searched identifier, then permit ID order); the others are listed.
+    """
+    from .assessment_policy import _economics, _blocked, screen_record
+    from .permits import permit_classification, permit_site_match
+    from .prerequisites import case_vetoes
+
+    rows = []
+    candidates = []
     for r in case.get("assessment", {}).get("records", []):
         if r["category"] != "industrial_npdes" or r.get("decision") == "rejected":
             continue
-        from .assessment_policy import screen_record
-
         facts = r.get("facts", {})
-        from .prerequisites import case_vetoes
-
+        cls = permit_classification(facts.get("permit_id"), facts)
+        site = permit_site_match(r, case)
+        row = {
+            "record_id": r["id"],
+            "permit_id": facts.get("permit_id"),
+            "permit_class": cls["class"],
+            "permit_class_basis": cls["basis"],
+            "site_match": site["status"],
+            "site_match_basis": site["basis"],
+            "facility_name": facts.get("public_facility_name"),
+            "facility_address": facts.get("public_street_address"),
+            "basis": "conditional industrial-coverage what-if",
+        }
+        rows.append(row)
+        if cls["class"] == "construction_stormwater":
+            row.update(_permit_listing("not_applicable_construction", [cls["basis"]]))
+        elif site["status"] == "not_matched":
+            row.update(_permit_listing("nearby_not_matched", [site["basis"]]))
+        elif site["status"] != "matched":
+            row.update(_permit_listing("site_match_unknown", [site["basis"]]))
+        elif cls["class"] != "industrial_stormwater":
+            row.update(_permit_listing("industrial_coverage_unconfirmed", [cls["basis"]]))
+        else:
+            rank = (
+                facts.get("active") is not True,
+                facts.get("identifier_exact_match") is not True,
+                str(facts.get("permit_id") or r["id"]),
+            )
+            candidates.append((rank, r, row))
+    priced = False
+    for _, r, row in sorted(candidates, key=lambda item: item[0]):
+        facts = r.get("facts", {})
         evaluated = screen_record(r, case, gis, as_of)
         failed = case_vetoes(case) + evaluated["failed"]
         if r.get("source_update", {}).get("status") == "pending_review":
             failed.append("Unreconciled public source update")
+        row.update(
+            assumed_prerequisites=list(evaluated["missing"]),
+            date_notes=list(evaluated.get("date_notes", [])),
+        )
+        if priced:
+            row.update(
+                _permit_listing(
+                    "another_permit_priced",
+                    ["One industrial what-if per property; see the priced permit row"],
+                )
+            )
+            continue
         if failed:
-            s = _blocked(failed)
-        else:
-            hypothetical = [
-                {**x, "basis": "modeled", "status": "screen_pass"} if x["id"] == r["id"] else x
-                for x in screened
-            ]
-            s = _economics(case, gis, hypothetical, as_of, tariff)["modeled"]
-        out.append(
+            row.update({**_blocked(failed), "listing": "blocked", "listing_label": PERMIT_LISTINGS["blocked"]})
+            continue
+        hypothetical = [
+            {**x, "basis": "modeled", "status": "screen_pass"} if x["id"] == r["id"] else x
+            for x in screened
+        ]
+        s = _economics(case, gis, hypothetical, as_of, tariff)["modeled"]
+        row.update(
             {
-                "record_id": r["id"],
-                "permit_id": facts.get("permit_id"),
                 **s,
+                "listing": "priced",
+                "listing_label": PERMIT_LISTINGS["priced"],
                 "basis": "conditional industrial-coverage what-if",
-                "assumed_prerequisites": list(evaluated["missing"]),
-                "date_notes": list(evaluated.get("date_notes", [])),
                 "assumptions": [
                     "Only if this permit is applicable active industrial coverage for this site/operator",
                     "Account and previous-12-month compliance/reporting prerequisites are assumed, not established",
@@ -553,7 +630,8 @@ def permit_alternatives(case, gis, screened, as_of, tariff):
                 ],
             }
         )
-    return out
+        priced = s.get("status") == "calculated"
+    return rows
 
 
 def _route_fields(route):
