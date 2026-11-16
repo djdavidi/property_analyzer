@@ -15,6 +15,58 @@ MODEL_URL='https://drive.usercontent.google.com/download?id=1j6Os_c4RmiJlJd6EsPT
 MODEL_PAGE='https://open-earth-map.org/code.html'
 
 
+def _cached_labels(path,shape):
+    """Verified cached prediction, or None (a cache miss) for absent or bad entries.
+
+    A missing/mismatched checksum, unreadable array or wrong shape is never an
+    error that forces a permanent fallback; the prediction is recomputed.
+    """
+    checksum=path.with_suffix('.sha256')
+    try:
+        content=path.read_bytes()
+        if checksum.read_text().strip()!=sha256(content).hexdigest():return None
+        import io
+        labels=np.load(io.BytesIO(content),allow_pickle=False)
+    except (OSError,ValueError,EOFError):
+        return None
+    if labels.shape!=shape or labels.dtype!=np.uint8:return None
+    return labels
+
+
+def _store_labels(path,labels):
+    """Atomic array then checksum writes; a crash between them is a later cache miss."""
+    import io
+    from .saved import atomic_write
+    path.parent.mkdir(parents=True,exist_ok=True)
+    stream=io.BytesIO();np.save(stream,labels,allow_pickle=False);content=stream.getvalue()
+    atomic_write(path,content)
+    atomic_write(path.with_suffix('.sha256'),sha256(content).hexdigest()+'\n')
+
+
+MAX_CELLS=1_000_000
+FINEST_METRES=.5
+COARSEST_METRES=1.0
+
+
+def analysis_resolution(bounds,crs,native=None):
+    """Model cell size (m) for an analysis box, chosen before imagery is requested.
+
+    Uses 0.5 m when the box fits in 1,000,000 cells, otherwise coarsens just
+    enough to fit, up to the model's 1 m limit. Imagery coarser than the result
+    sets the floor. A box that cannot fit at 1 m raises ValueError naming why.
+    """
+    unit=CRS(crs).axis_info[0].unit_conversion_factor
+    width_m,height_m=(bounds[2]-bounds[0])*unit,(bounds[3]-bounds[1])*unit
+    if native is not None and native>COARSEST_METRES:
+        raise ValueError(f'Imagery cells of {native:.2f} m are coarser than the semantic model\'s 1 m limit')
+    target=max(FINEST_METRES,native or 0,math.sqrt(width_m*height_m/MAX_CELLS))
+    while math.ceil(width_m/target)*math.ceil(height_m/target)>MAX_CELLS:target*=1.001
+    if target>COARSEST_METRES+1e-9:
+        raise ValueError(f'Analysis box {width_m:.0f} x {height_m:.0f} m needs {target:.2f} m cells to fit the '
+                         f'{MAX_CELLS:,}-cell model limit; the model supports at most 1 m')
+    return target
+
+
 def semantic_cover(content,bounds,case,source,*,runtime,weights,cache=None):
     runtime=Path(runtime);weights=Path(weights)
     if not runtime.is_file() or not weights.is_file():
@@ -24,10 +76,10 @@ def semantic_cover(content,bounds,case,source,*,runtime,weights,cache=None):
     pixels=image_array(content)
     unit=CRS(case['crs']).axis_info[0].unit_conversion_factor
     native=max((bounds[2]-bounds[0])*unit/pixels.shape[1],(bounds[3]-bounds[1])*unit/pixels.shape[0])
-    if native>1:raise ValueError('Imagery coarser than 1 m is unsuitable for this semantic model')
-    target=max(.5,native)
+    # Coarsen within the model's 1 m limit instead of rejecting a large box.
+    target=analysis_resolution(bounds,case['crs'],native)
     width=max(1,math.ceil((bounds[2]-bounds[0])*unit/target));height=max(1,math.ceil((bounds[3]-bounds[1])*unit/target))
-    if width*height>1_000_000:raise ValueError('Semantic image window exceeds 1,000,000-cell limit')
+    if width*height>MAX_CELLS:raise ValueError('Semantic image window exceeds 1,000,000-cell limit')
     # Palette images are decoded before resampling. Alpha is never interpolated
     # into valid evidence; any nonopaque original pixel makes its sample unknown.
     with MemoryFile() as mem:
@@ -35,11 +87,23 @@ def semantic_cover(content,bounds,case,source,*,runtime,weights,cache=None):
             ds.write(np.moveaxis(pixels[:,:,:3],-1,0))
             rgb=np.moveaxis(ds.read(out_shape=(3,height,width),resampling=Resampling.bilinear),0,-1)
     valid=np.ones((height,width),dtype=bool)
+    transparent=pixels.shape[2]>3 and bool((pixels[:,:,3]!=255).any())
     if pixels.shape[2]>3:
         with MemoryFile() as mem:
             with mem.open(driver='GTiff',width=pixels.shape[1],height=pixels.shape[0],count=1,dtype='uint8') as ds:
                 ds.write((pixels[:,:,3]==255).astype('uint8'),1)
                 valid=ds.read(1,out_shape=(height,width),out_dtype='float32',resampling=Resampling.average)==1
+    if transparent:
+        # Transparent NoData (png32 exports) must not darken valid samples through
+        # the bilinear kernel: weight colours by opacity and renormalize.
+        weight=(pixels[:,:,3]==255).astype('float32')
+        stack=np.concatenate([pixels[:,:,:3].astype('float32')*weight[:,:,None],weight[:,:,None]],axis=2)
+        with MemoryFile() as mem:
+            with mem.open(driver='GTiff',width=pixels.shape[1],height=pixels.shape[0],count=4,dtype='float32') as ds:
+                ds.write(np.moveaxis(stack,-1,0))
+                sampled=np.moveaxis(ds.read(out_shape=(4,height,width),resampling=Resampling.bilinear),0,-1)
+        total=sampled[:,:,3:]
+        rgb=np.where(total>0,np.clip(np.rint(sampled[:,:,:3]/np.where(total>0,total,1)),0,255),0).astype('uint8')
     settings={'algorithm':'OpenEarthMap U-Net EfficientNet-B4 SCSE v1','model_sha256':MODEL_SHA256,
         'model_url':MODEL_URL,'model_reference':MODEL_PAGE,'device':'CPU','torch':'2.9.1',
         'segmentation_models_pytorch':'0.3.3','input_scaling':'RGB / 255; no ImageNet normalization',
@@ -49,14 +113,11 @@ def semantic_cover(content,bounds,case,source,*,runtime,weights,cache=None):
         'source_sha256':source['sha256'],'interpretation_version':'oem-appearance-v2','class_mapping':{'1':'bare_soil','2':'grass_shrub','3':'developed_space',
         '4':'road','5':'canopy','6':'water','7':'grass_shrub (cropland grouped)','8':'roof'}}
     settings['worker_sha256']=sha256(Path(__file__).with_name('model_worker.py').read_bytes()).hexdigest()
+    if transparent:settings['nodata_resampling']='opacity-weighted bilinear; transparent pixels excluded'
     key=sha256(__import__('json').dumps(settings,sort_keys=True).encode()).hexdigest()
     prediction_path=Path(cache)/('semantic-'+key+'.npy') if cache else None
-    if prediction_path and prediction_path.exists():
-        checksum=prediction_path.with_suffix('.sha256')
-        if not checksum.exists() or checksum.read_text().strip()!=sha256(prediction_path.read_bytes()).hexdigest():
-            raise ValueError('Cached semantic prediction hash mismatch')
-        labels=np.load(prediction_path,allow_pickle=False)
-    else:
+    labels=_cached_labels(prediction_path,(height,width)) if prediction_path else None
+    if labels is None:
         with tempfile.TemporaryDirectory() as temporary:
             folder=Path(temporary);np.save(folder/'input.npy',rgb,allow_pickle=False)
             try:
@@ -66,10 +127,7 @@ def semantic_cover(content,bounds,case,source,*,runtime,weights,cache=None):
                 raise ValueError('Local classifier exceeded 180-second processing limit') from exc
             if run.returncode:raise ValueError('Local classifier failed: '+run.stderr[-1500:])
             labels=np.load(folder/'labels.npy',allow_pickle=False)
-        if prediction_path:
-            prediction_path.parent.mkdir(parents=True,exist_ok=True)
-            np.save(prediction_path,labels,allow_pickle=False)
-            prediction_path.with_suffix('.sha256').write_text(sha256(prediction_path.read_bytes()).hexdigest()+'\n')
+        if prediction_path:_store_labels(prediction_path,labels)
     if labels.shape!=(height,width) or labels.dtype!=np.uint8 or labels.max()>8:
         raise ValueError('Invalid semantic prediction raster')
     labels=labels.copy();labels[~valid]=0

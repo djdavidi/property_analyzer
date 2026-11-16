@@ -33,6 +33,23 @@ def query(case):
         f'WHERE p.mupolygongeo.STIntersects({geom})=1 ORDER BY p.mupolygonkey,c.cokey')
 
 
+def polygonal_parts(geometry):
+    """Polygon/MultiPolygon made of a collection's areal members (zero-area parts dropped)."""
+    from shapely.geometry import MultiPolygon
+    polygons=[]
+    for part in getattr(geometry,'geoms',[geometry]):
+        if part.geom_type=='Polygon' and not part.is_empty and part.area>0:polygons.append(part)
+        elif part.geom_type=='MultiPolygon':polygons.extend(p for p in part.geoms if not p.is_empty and p.area>0)
+        elif part.geom_type=='GeometryCollection':
+            nested=polygonal_parts(part);polygons.extend(getattr(nested,'geoms',[nested]) if not nested.is_empty else [])
+    if not polygons:return MultiPolygon()
+    if len(polygons)==1:return polygons[0]
+    combined=MultiPolygon(polygons)
+    if combined.is_valid:return combined
+    from shapely.ops import unary_union
+    return unary_union(polygons)
+
+
 def parse(data):
     table=data.get('Table')
     if table is None and data=={}:return []  # SDA represents no rows as {}.
@@ -45,6 +62,10 @@ def parse(data):
         row=dict(zip(COLUMNS,values));key=str(row['mupolygonkey'])
         try:g=wkt.loads(row['wkt'])
         except Exception as exc:raise SourceError('Invalid USDA soil geometry') from exc
+        if g.geom_type=='GeometryCollection':
+            # STIntersection may return touching lines/points beside the polygons;
+            # those have no area. Keep the polygonal parts only.
+            g=polygonal_parts(g)
         if not g.is_valid:raise SourceError('Invalid USDA soil polygon')
         if g.is_empty or g.area==0:continue
         if g.geom_type not in ('Polygon','MultiPolygon'):raise SourceError('USDA soil geometry must be polygonal')

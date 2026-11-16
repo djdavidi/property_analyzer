@@ -18,7 +18,8 @@ from contextlib import contextmanager
 import os
 from zoneinfo import ZoneInfo
 
-from shapely.geometry import shape
+from shapely.geometry import shape, mapping
+from shapely.ops import unary_union
 from shapely.strtree import STRtree
 from drainage_core.sources import Cache, SourceError, arcgis_features, canonical, now
 from .record_cache import SharedCache
@@ -33,49 +34,119 @@ GROUPS = {
     'partial_area_credit': 'Mapped systems · partial recorded area credits',
     'substantial_area_credit': 'Substantial recorded credits · check remaining opportunity',
 }
-# Anchored public-body names, including common truncations in PWD owner fields.
+# Owner screening (accepted decision D8). Names are normalized first: "&" -> AND,
+# punctuation -> space, common PWD abbreviations expanded, single letters joined
+# ("U S A" -> USA), a leading "THE" dropped. Then:
+# - an exact public-body name (or a public body's agency, or a fixed-width field
+#   truncation of a listed body) is government and excluded;
+# - a name that only *begins* with a public-body name or a public-sounding
+#   prefix (whole tokens) is held for review, never excluded;
+# - everything else is a named non-government record.
 # A private business containing "state", "city" or "Philadelphia" alone is not excluded.
-GOVERNMENT = (
-    r'^(?:THE )?CITY (?:OF |& COUNTY)', r'^(?:THE )?COUNTY OF ',
-    r'^COMMONWEALTH', r'^(?:THE )?(?:UNITED STATES|U S)(?: OF AMERICA| GOVERNMENT| POST| ARMY| NAVY| AIR| DEPT| DEPARTMENT| GENERAL| GSA| VETERANS|$)',
-    r'^(?:THE )?STATE OF ', r'^(?:THE )?(?:PHILADELPHIA|PHILA) (?:HOUSING|REDEVELOP|AUTH|SCHOOL|PARKING|MUNICIPAL)',
-    r'^(?:THE )?SCHOOL DIST', r'^(?:THE )?BOARD OF (?:EDUCATION|PUBLIC)',
-    r'^PHILADELPHIA (?:CITY|COUNTY|REDEV|WATER|HOUSING DEV)', r'^PHILA(?:DELPHIA)? CONV',
-    r'^SOUTHEASTERN (?:PENNSYLVANIA|PA|PENNA)', r'^SEPTA\b', r'^DELAWARE RIVER (?:PORT|WATERFRONT|JOINT)',
-    r'^(?:PENNSYLVANIA|PENNA|PA) (?:DEPT|DEPARTMENT|TURNPIKE|CONVENTION|CONV CTR|HOU?SING|INDUSTRIAL DEV|STATE)',
-    r'^(?:PENNDOT|PENN DOT)\b', r'^(?:NATIONAL PARK SERVICE|UNITED STATES POSTAL|US POSTAL|POSTMASTER GENERAL)',
-    r'^(?:FEDERAL (?:GOVERNMENT|AVIATION|BUREAU|HIGHWAY|EMERGENCY|RESERVE)|GENERAL SERVICES ADMIN|DEFENSE LOGISTICS|US ARMY|U S A GOVERNMENT)',
-    r'^(?:COMMUNITY COLLEGE OF PHILADELPHIA|PHILADELPHIA COMMUNITY COLLEGE)',
-    r'^(?:FREE LIBRARY OF PHILA|POST OFFICE DEPT|U S GOV|US GOV|U S A$)',
-    r'^PHILA (?:HSG|REDEV)',
-    r'^FAIRMOUNT PARK COMM', r'^PHILADELPHIA REGIONAL POR',
+OWNER_ABBREVIATIONS = {
+    'PHILA': 'PHILADELPHIA', 'PHILADA': 'PHILADELPHIA', 'PENNA': 'PENNSYLVANIA', 'PA': 'PENNSYLVANIA',
+    'AUTH': 'AUTHORITY', 'HSG': 'HOUSING', 'DEPT': 'DEPARTMENT', 'REDEV': 'REDEVELOPMENT',
+    'DEV': 'DEVELOPMENT', 'CORP': 'CORPORATION', 'COMMW': 'COMMONWEALTH', 'COMWLTH': 'COMMONWEALTH',
+    'ADMIN': 'ADMINISTRATION', 'ASSN': 'ASSOCIATION', 'NATL': 'NATIONAL', 'CTR': 'CENTER',
+    'CONV': 'CONVENTION', 'DIST': 'DISTRICT', 'GOVT': 'GOVERNMENT', 'UNIV': 'UNIVERSITY',
+    'SCH': 'SCHOOL', 'BD': 'BOARD', 'COMMN': 'COMMISSION', 'INDUST': 'INDUSTRIAL', 'INDUS': 'INDUSTRIAL',
+}
+GOVERNMENT_BODIES = (
+    'CITY OF PHILADELPHIA', 'CITY AND COUNTY OF PHILADELPHIA', 'COUNTY OF PHILADELPHIA',
+    'COMMONWEALTH OF PENNSYLVANIA', 'STATE OF PENNSYLVANIA',
+    'UNITED STATES OF AMERICA', 'US OF AMERICA', 'UNITED STATES', 'USA', 'US',
+    'UNITED STATES GOVERNMENT', 'US GOVERNMENT', 'USA GOVERNMENT',
+    'UNITED STATES POSTAL SERVICE', 'US POSTAL SERVICE', 'POSTMASTER GENERAL', 'POST OFFICE DEPARTMENT',
+    'UNITED STATES ARMY', 'US ARMY', 'UNITED STATES NAVY', 'US NAVY', 'US ARMY CORPS OF ENGINEERS',
+    'SECRETARY OF HOUSING AND URBAN DEVELOPMENT', 'SECRETARY OF VETERANS AFFAIRS', 'VETERANS ADMINISTRATION',
+    'NATIONAL PARK SERVICE', 'GENERAL SERVICES ADMINISTRATION', 'DEFENSE LOGISTICS AGENCY',
+    'FEDERAL AVIATION ADMINISTRATION', 'FEDERAL HIGHWAY ADMINISTRATION', 'FEDERAL EMERGENCY MANAGEMENT AGENCY',
+    'FEDERAL RESERVE BANK OF PHILADELPHIA', 'NATIONAL RAILROAD PASSENGER CORPORATION', 'AMTRAK',
+    'SCHOOL DISTRICT OF PHILADELPHIA', 'BOARD OF EDUCATION', 'BOARD OF PUBLIC EDUCATION',
+    'BOARD OF EDUCATION OF THE SCHOOL DISTRICT OF PHILADELPHIA', 'PHILADELPHIA BOARD OF EDUCATION',
+    'PHILADELPHIA HOUSING AUTHORITY', 'PHILADELPHIA REDEVELOPMENT AUTHORITY',
+    'REDEVELOPMENT AUTHORITY OF THE CITY OF PHILADELPHIA', 'REDEVELOPMENT AUTHORITY OF PHILADELPHIA',
+    'PHILADELPHIA AUTHORITY FOR INDUSTRIAL DEVELOPMENT', 'PHILADELPHIA INDUSTRIAL DEVELOPMENT CORPORATION',
+    'PHILADELPHIA HOUSING DEVELOPMENT CORPORATION', 'PHILADELPHIA PARKING AUTHORITY',
+    'PHILADELPHIA MUNICIPAL AUTHORITY', 'PHILADELPHIA GAS WORKS', 'PHILADELPHIA LAND BANK',
+    'BOARD OF CITY TRUSTS', 'BOARD OF DIRECTORS OF CITY TRUSTS', 'PHILADELPHIA WATER DEPARTMENT',
+    'PHILADELPHIA REGIONAL PORT AUTHORITY', 'PHILADELPHIA ENERGY AUTHORITY',
+    'PENNSYLVANIA CONVENTION CENTER AUTHORITY', 'PHILADELPHIA CONVENTION CENTER AUTHORITY',
+    'COMMUNITY COLLEGE OF PHILADELPHIA', 'PHILADELPHIA COMMUNITY COLLEGE', 'FREE LIBRARY OF PHILADELPHIA',
+    'FAIRMOUNT PARK COMMISSION', 'SOUTHEASTERN PENNSYLVANIA TRANSPORTATION AUTHORITY', 'SEPTA',
+    'DELAWARE RIVER PORT AUTHORITY', 'DELAWARE RIVER PORT AUTHORITY OF PENNSYLVANIA AND NEW JERSEY',
+    'DELAWARE RIVER JOINT TOLL BRIDGE COMMISSION', 'DELAWARE RIVER WATERFRONT CORPORATION',
+    'PENNSYLVANIA TURNPIKE COMMISSION', 'PENNSYLVANIA HOUSING FINANCE AGENCY',
+    'PENNSYLVANIA INDUSTRIAL DEVELOPMENT AUTHORITY', 'PENNSYLVANIA STATE POLICE', 'PENNDOT', 'PENN DOT',
 )
-REVIEW_OWNER = (r'\bAUTHORITY\b', r'^TEMPLE UNIV', r'^PENNSYLVANIA STATE UNIV', r'^PENN STATE', r'^UNKNOWN\b', r'^OWNER OF RECORD\b')
+# Sovereign bodies' named agencies ("COMMONWEALTH OF PENNSYLVANIA DEPARTMENT OF ...").
+_SOVEREIGN = r'(?:CITY OF PHILADELPHIA|CITY AND COUNTY OF PHILADELPHIA|COUNTY OF PHILADELPHIA|COMMONWEALTH OF PENNSYLVANIA|PENNSYLVANIA|UNITED STATES OF AMERICA|US OF AMERICA|UNITED STATES|USA|US)'
+GOVERNMENT_AGENCY = re.compile(_SOVEREIGN+r' (?:DEPARTMENT|DIVISION|BUREAU|OFFICE|BOARD|COMMISSION|AGENCY) OF(?: [A-Z0-9]+)+')
+# Prefix-only signals: held for review (D8), never excluded.
+REVIEW_OWNER = (
+    r'^(?:CITY|COUNTY|CITY AND COUNTY|COMMONWEALTH|STATE) OF\b',
+    r'^(?:UNITED STATES|USA|US) (?:OF AMERICA|GOVERNMENT|POSTAL|POST OFFICE|ARMY|NAVY|AIR FORCE|DEPARTMENT|GENERAL SERVICES|VETERANS|SECRETARY)\b',
+    r'^SCHOOL DISTRICT\b', r'^BOARD OF (?:EDUCATION|PUBLIC EDUCATION|CITY TRUSTS|DIRECTORS OF CITY TRUSTS)\b',
+    r'^PHILADELPHIA (?:HOUSING AUTHORITY|HOUSING DEVELOPMENT CORPORATION|REDEVELOPMENT|PARKING AUTHORITY|MUNICIPAL AUTHORITY|AUTHORITY FOR|INDUSTRIAL DEVELOPMENT|GAS WORKS|LAND BANK|REGIONAL PORT|WATER DEPARTMENT|ENERGY AUTHORITY|BOARD OF EDUCATION)\b',
+    r'^REDEVELOPMENT AUTHORITY\b', r'^SOUTHEASTERN PENNSYLVANIA TRANSPORTATION\b', r'^DELAWARE RIVER (?:PORT|JOINT|WATERFRONT)\b',
+    r'^PENNSYLVANIA (?:DEPARTMENT|TURNPIKE|CONVENTION|HOUSING FINANCE|INDUSTRIAL DEVELOPMENT|STATE POLICE)\b',
+    r'^NATIONAL (?:PARK SERVICE|RAILROAD PASSENGER)\b', r'^FEDERAL (?:GOVERNMENT|AVIATION|HIGHWAY|EMERGENCY|RESERVE|BUREAU)\b',
+    r'^(?:GENERAL SERVICES ADMINISTRATION|DEFENSE LOGISTICS|POSTMASTER GENERAL|POST OFFICE DEPARTMENT|SECRETARY OF)\b',
+    r'\bAUTHORITY\b', r'^TEMPLE UNIVERSITY\b', r'^PENNSYLVANIA STATE UNIVERSITY\b', r'^PENN STATE\b',
+    r'^UNKNOWN\b', r'^OWNER OF RECORD\b',
+)
+# Bodies too short or generic to act as a prefix signal on their own.
+_NO_PREFIX = {'US', 'USA', 'UNITED STATES'}
 
 
 class CappedCache:
-    """Hard cap on new requests; cached evidence remains usable without a request."""
+    """Hard cap on new requests; cached evidence remains usable without a request.
+
+    A cached HTTP-200 error body is not evidence: it counts as missing, so it is
+    fetched again within the budget. A stale record whose refresh fails (or is
+    out of budget) is kept as the flagged stale copy instead of being dropped.
+    """
     def __init__(self, cache, max_requests=80, max_seconds=300,cancel=None,refresh_stale=False):
         self.cache=cache;self.max_requests=max_requests;self.requests=0
         self.deadline=time.monotonic()+max_seconds;self.lock=Lock()
         self.cancel=cancel
         self.refresh_stale=refresh_stale
+        self.stale_reuse=[]
+
+    def _saved(self,url):
+        usable=getattr(self.cache,'_read_usable',None)
+        saved=(usable or self.cache._read)(url)
+        if saved is None:return None
+        problem=getattr(self.cache,'_problem',None)
+        if problem and not usable and problem(url,saved[0]):return None
+        try:data=json.loads(saved[0])
+        except (TypeError,ValueError):return None
+        if isinstance(data,dict) and data.get('error'):return None
+        return data,saved[1]
 
     def fetch_json(self,url,refresh=False,metadata=None):
         if self.cancel and self.cancel.is_set():raise SourceError('Scan cancelled; no further request made')
-        saved=self.cache._read(url) if not refresh else None
+        saved=self._saved(url) if not refresh else None
+        stale=None
         if saved is not None:
             age=freshness(saved[1],datetime.now(ZoneInfo('America/New_York')).date().isoformat(),30 if '/parcel/' in url else 90)
             if not self.refresh_stale or age['status']=='fresh':
-                data=json.loads(saved[0])
-                if isinstance(data,dict) and data.get('error'):raise SourceError(str(data['error']))
-                return {'data':data,'provenance':saved[1]}
-            refresh=True
-        with self.lock:
-            if self.requests>=self.max_requests or time.monotonic()>=self.deadline:
-                raise SourceError('Acquisition budget reached; no further network request made')
-            self.requests+=1
-        return self.cache.fetch_json(url,refresh,metadata)
+                return {'data':saved[0],'provenance':saved[1]}
+            refresh=True;stale=(saved,age)
+        try:
+            with self.lock:
+                if self.requests>=self.max_requests or time.monotonic()>=self.deadline:
+                    raise SourceError('Acquisition budget reached; no further network request made')
+                self.requests+=1
+            return self.cache.fetch_json(url,refresh,metadata)
+        except Exception as exc:
+            if stale is None or (self.cancel and self.cancel.is_set()):raise
+            (data,provenance),age=stale
+            event={'url':url,'retrieved_at':provenance.get('retrieved_at'),'sha256':provenance.get('sha256'),
+                   'age_days':age['age_days'],'max_age_days':age['max_age_days'],'error':str(exc),
+                   'status':'stale_record_kept_after_failed_refresh'}
+            with self.lock:self.stale_reuse.append(event)
+            return {'data':data,'provenance':{**provenance,'refresh_failed':True,'refresh_error':str(exc)}}
 
 
 @contextmanager
@@ -110,15 +181,58 @@ def number(value):
         return None
 
 
+def owner_name(value):
+    """Normalized owner name used only for public-body screening."""
+    text = re.sub(r'[^A-Z0-9 ]', ' ', str(value).upper().replace('&', ' AND '))
+    tokens, letters = [], []
+    for token in text.split():
+        if len(token) == 1 and token.isalpha():
+            letters.append(token)
+            continue
+        if letters:
+            tokens.append(''.join(letters)); letters = []
+        tokens.append(token)
+    if letters:
+        tokens.append(''.join(letters))
+    tokens = [OWNER_ABBREVIATIONS.get(t, t) for t in tokens]
+    if len(tokens) > 1 and tokens[0] == 'THE':
+        tokens = tokens[1:]
+    return ' '.join(tokens)
+
+
+def _government_match(name):
+    if name in GOVERNMENT_BODIES or GOVERNMENT_AGENCY.fullmatch(name):
+        return 'Exact public-body owner name: '+name
+    # PWD owner fields are fixed-width; a long cut-off name that is the start of
+    # exactly a listed body (e.g. "PHILADELPHIA AUTHORITY FO") is that body.
+    if len(name) >= 20 and len(name.split()) >= 3 and any(body.startswith(name) for body in GOVERNMENT_BODIES):
+        return 'Truncated public-body owner name: '+name
+    return None
+
+
+def _review_match(name):
+    for body in GOVERNMENT_BODIES:
+        if body not in _NO_PREFIX and name.startswith(body+' '):
+            return 'Owner name only begins with public body "'+body+'"'
+    for pattern in REVIEW_OWNER:
+        if re.search(pattern, name):
+            return 'Public-body/ownership signal "'+pattern+'"'
+    return None
+
+
 def owner_status(*owners):
-    names = [' '.join(re.sub(r'[^A-Z0-9 ]', ' ', str(s).upper()).split()) for s in owners if s and str(s).strip()]
+    names = [owner_name(s) for s in owners if s and str(s).strip()]
+    names = [n for n in names if n]
     if not names:
         return {'status': 'unknown', 'reason': 'Owner missing from public record'}
     for name in names:
-        if any(re.search(pattern, name) for pattern in GOVERNMENT):
-            return {'status': 'government', 'reason': 'Public-body owner name: '+name}
-    if any(re.search(pattern, name) for name in names for pattern in REVIEW_OWNER):
-        return {'status': 'review', 'reason': 'Public-body/ownership classification requires review'}
+        reason = _government_match(name)
+        if reason:
+            return {'status': 'government', 'reason': reason}
+    for name in names:
+        reason = _review_match(name)
+        if reason:
+            return {'status': 'review', 'reason': reason+'; partial-name match held for review, not excluded: '+name}
     return {'status': 'nongovernment_record', 'reason': 'Named public-record owner; no government-name signal. Beneficial ownership is unverified.'}
 
 
@@ -142,21 +256,58 @@ def read_inventory(cache, refresh=False):
     return arcgis_features(SYSTEMS, cache, {'outSR': '2272'}, refresh, page_size=2000, max_pages=25)
 
 
+def representative_points(geometry):
+    """One interior point per polygon part, rounded as sent to the parcel query."""
+    parts = list(geometry.geoms) if hasattr(geometry, 'geoms') else [geometry]
+    output = []
+    for part in parts:
+        if part.is_empty or part.area <= 0:
+            continue
+        pt = part.representative_point()
+        output.append((round(pt.x, 3), round(pt.y, 3)))
+    return output
+
+
+def coverage_gaps(systems, parcels, minimum_fraction=.01):
+    """Footprint parts of selected systems not covered by any fetched parcel.
+
+    Only one seed system per project is queried first; every other selected
+    system's uncovered footprint is queried next, so an unfetched parcel is not
+    mistaken for an ambiguous overlap.
+    """
+    shapes = []
+    for feature in parcels:
+        try:
+            g = shape(feature['geometry'])
+            if g.is_valid and g.area > 0:
+                shapes.append(g)
+        except Exception:
+            continue
+    tree = STRtree(shapes) if shapes else None
+    gaps = []
+    for feature in systems:
+        try:
+            g = shape(feature['geometry'])
+            if not g.is_valid or g.area <= 0:
+                continue
+            covering = [shapes[int(i)] for i in tree.query(g)] if tree is not None else []
+            remaining = g.difference(unary_union(covering)) if covering else g
+        except Exception:
+            continue
+        if remaining.area > g.area*minimum_fraction:
+            gaps.append({'type': 'Feature', 'geometry': mapping(remaining),
+                         'properties': {'gsi_system_id': props(feature).get('gsi_system_id')}})
+    return gaps
+
+
 def find_parcels(systems, cache, refresh=False, workers=4, progress=None):
     """Batch representative interior points; exact overlap subsequently validates matches.
 
     This fast join can miss other parcels crossed by a footprint. It never represents
     a system's managed area or proves parcel credit allocation.
     """
-    points = []
-    for feature in systems:
-        geometry = shape(feature['geometry'])
-        parts = list(geometry.geoms) if geometry.geom_type == 'MultiPolygon' else [geometry]
-        for part in parts:
-            pt = part.representative_point()
-            points.append([round(pt.x, 3), round(pt.y, 3)])
-    points = sorted({tuple(p) for p in points})
-    chunks = [points[i:i+16] for i in range(0, len(points), 16)]
+    points = sorted({pt for feature in systems for pt in representative_points(shape(feature['geometry']))})
+    chunks = [[list(pt) for pt in points[i:i+16]] for i in range(0, len(points), 16)]
     output, sources, errors = {}, [], []
 
     def fetch(chunk):
@@ -176,13 +327,22 @@ def find_parcels(systems, cache, refresh=False, workers=4, progress=None):
                 for feature in data['features']:
                     output[str(props(feature)['parcelid'])] = feature
             except Exception as exc:
-                errors.append({'stage': 'parcel_query', 'chunk': tasks[task], 'error': str(exc)})
+                errors.append({'stage': 'parcel_query', 'chunk': tasks[task], 'points': chunks[tasks[task]], 'error': str(exc)})
             if progress:
                 progress(stage='parcel_matching', completed=done, total=len(chunks))
     return list(output.values()), sources, errors
 
 
-def match_systems(systems, parcels):
+def match_systems(systems, parcels, unqueried=()):
+    """Assign systems with a dominant (>=80%) parcel overlap.
+
+    Held systems carry ``reason_code``: ``ambiguous_overlap`` (fetched parcels
+    share the footprint), ``no_parcel_found`` (queried, nothing returned) or
+    ``parcel_not_queried`` (the parcel query for an uncovered part failed or was
+    not made, e.g. request budget). Coverage gaps are not ambiguity.
+    """
+    from shapely.geometry import Point
+    missing = [Point(pt) for pt in unqueried]
     usable, shapes, errors = [], [], []
     for feature in parcels:
         try:
@@ -204,7 +364,15 @@ def match_systems(systems, parcels):
             overlaps = [(int(i), g.intersection(shapes[int(i)]).area/g.area) for i in tree.query(g)]
             overlaps = sorted((x for x in overlaps if x[1] > .01), key=lambda x: -x[1])
             if not overlaps or overlaps[0][1] < .8 or len(overlaps) > 1 and overlaps[1][1] > .2:
-                held.append({'system_id': p.get('gsi_system_id'), 'reason': 'No dominant parcel overlap',
+                covered = sum(f for _, f in overlaps)
+                remaining = g.difference(unary_union([shapes[i] for i, _ in overlaps])) if overlaps else g
+                if covered < .99 and any(remaining.buffer(.01).intersects(pt) for pt in missing):
+                    code, reason = 'parcel_not_queried', 'Parcel at an uncovered part of the system was not queried (request failed or budget reached)'
+                elif not overlaps:
+                    code, reason = 'no_parcel_found', 'No parcel returned at the system location'
+                else:
+                    code, reason = 'ambiguous_overlap', 'No dominant parcel overlap'
+                held.append({'system_id': p.get('gsi_system_id'), 'reason': reason, 'reason_code': code,
                              'candidate_parcels': [{'parcel_id': props(usable[i]).get('parcelid'), 'footprint_overlap_fraction': round(f, 4)} for i, f in overlaps]})
                 continue
             i, overlap = overlaps[0]
@@ -354,21 +522,31 @@ def group_sites(rows,as_of):
 def finish_ranking(result,rows,limit,as_of):
     sites=group_sites(rows,as_of)
     result.update(version=VERSION,ranking='Descending current annual public charge across all credit groups; recorded IA credit share breaks ties. Charges already reflect credits. Group labels describe evidence, not savings probability. Owner/site grouping remains a review hypothesis.',
-        parcel_rows=rows,prospects=sites,top=sites[:limit])
+        parcel_rows=rows,prospects=sites,top=sites[:limit],limit=limit)
     result['counts'].update(ranked_parcels=len(rows),ranked_prospects=len(sites),returned=min(limit,len(sites)),
         stale_or_undated_billing=sum(freshness(r.get('billing_source',{}),as_of)['status']!='fresh' for r in rows),
         recorded_owners=len({r['owner_key'] for s in sites for r in s['member_parcels']}))
+    result['retry_parcel_ids']=sorted(t['parcel_id'] for t in result.get('retry_targets',[]))
+    result['counts']['retryable_billing_failures']=len(result['retry_parcel_ids'])
     result['groups']=[{'id':k,'label':label,'count':sum(s['group']==k for s in sites[:limit])} for k,label in GROUPS.items()]
-    result['freshness_policy']='Billing/ownership capture age >30 days requires review; unknown dates remain unknown. Cached records are never silently refreshed. These are operational screening defaults, not legal validity periods.'
+    result['freshness_policy']='Billing/ownership capture age >30 days requires review; unknown dates remain unknown. Cached records are never silently refreshed. A failed refresh keeps the earlier stale record, flagged for review. These are operational screening defaults, not legal validity periods.'
     result['result_sha256']=sha256(canonical({k:v for k,v in result.items() if k!='result_sha256'})).hexdigest()
     return result
 
 
-def rerank_saved(root,limit=50):
+def saved_limit(previous,limit=None):
+    """Explicit limit, else the saved run's own limit (older runs: 50)."""
+    value=limit if limit is not None else previous.get('limit',50)
+    if not isinstance(value,int) or isinstance(value,bool) or not 1<=value<=200:raise ValueError('Limit 1–200')
+    return value
+
+
+def rerank_saved(root,limit=None):
     start=time.perf_counter()
     with scan_lock(root):
         previous=load_result(root)
         if previous is None:raise ValueError('No saved records to rerank; explicit bounded acquisition is required')
+        limit=saved_limit(previous,limit)
         result=deepcopy(previous);as_of=datetime.now(ZoneInfo('America/New_York')).date().isoformat()
         rows=previous.get('parcel_rows') or [m for s in previous['prospects'] for m in s.get('member_parcels',[s])]
         result.update(id=uuid.uuid4().hex,at=now(),as_of=as_of,parent_run_id=previous['id'],elapsed_seconds=round(time.perf_counter()-start,3))
@@ -380,8 +558,13 @@ def rerank_saved(root,limit=50):
     return result
 
 
-def update_selected(root,parcel_ids,*,cache=None,max_requests=80,cancel=None,progress=None):
-    """Update chosen member bills only. No inventory/matching/imagery/GIS calls."""
+def update_selected(root,parcel_ids,*,cache=None,max_requests=80,cancel=None,progress=None,limit=None):
+    """Update chosen member bills only. No inventory/matching/imagery/GIS calls.
+
+    Ranked member parcels and parcels whose billing failed earlier (``retry_parcel_ids``)
+    can be selected. A failed update keeps the previous row (or retry entry); a
+    stale bill whose refresh fails is kept as the flagged stale copy.
+    """
     if not isinstance(parcel_ids,list) or not parcel_ids or len(parcel_ids)>80 or any(not isinstance(v,str) or not v.isdecimal() for v in parcel_ids):
         raise ValueError('Select 1–80 known billing parcel IDs')
     if not 0<=max_requests<=80:raise ValueError('New request cap must be 0–80')
@@ -389,9 +572,11 @@ def update_selected(root,parcel_ids,*,cache=None,max_requests=80,cancel=None,pro
     with scan_lock(root):
         previous=load_result(root)
         if not previous:raise ValueError('Build an initial shortlist before selecting updates')
+        limit=saved_limit(previous,limit)
         source_rows=previous.get('parcel_rows') or [m for s in previous['prospects'] for m in s.get('member_parcels',[s])]
         rows={r['parcel_id']:deepcopy(r) for r in source_rows};selected=sorted(set(parcel_ids))
-        if set(selected)-set(rows):raise ValueError('Selection contains a parcel outside the saved candidate records')
+        retry={t['parcel_id']:deepcopy(t) for t in previous.get('retry_targets',[])}
+        if set(selected)-set(rows)-set(retry):raise ValueError('Selection contains a parcel outside the saved candidate records')
         source=cache or SharedCache(fallback_roots=[root/'public'],timeout=20)
         bounded=CappedCache(source,max_requests,300,cancel,refresh_stale=True)
         as_of=datetime.now(ZoneInfo('America/New_York')).date().isoformat();result=deepcopy(previous)
@@ -402,11 +587,11 @@ def update_selected(root,parcel_ids,*,cache=None,max_requests=80,cancel=None,pro
         with ThreadPoolExecutor(max_workers=2) as executor:
             tasks={executor.submit(fetch,pid):pid for pid in selected}
             for done,task in enumerate(as_completed(tasks),1):
-                pid=tasks[task];old=rows[pid]
+                pid=tasks[task];old=rows.get(pid) or retry[pid]
                 try:
                     item,bill=task.result();new_sources.append(item['provenance'])
                     if not old.get('parcel_record'):raise ValueError('Saved parcel match needs rebuilding before a targeted update')
-                    identity_changed=any(old['billing'].get(k)!=bill.get(k) for k in ('owner1','owner2','address','gross_area_sqft','property_type'))
+                    identity_changed=bool(old.get('billing')) and any(old['billing'].get(k)!=bill.get(k) for k in ('owner1','owner2','address','gross_area_sqft','property_type'))
                     raw_shape=(item['data'].get('Parcel') or {}).get('Shape')
                     if raw_shape and old.get('parcel_geometry'):
                         from shapely import wkt
@@ -418,26 +603,35 @@ def update_selected(root,parcel_ids,*,cache=None,max_requests=80,cancel=None,pro
                     match={'parcel':{'properties':old['parcel_record'],'geometry':old.get('parcel_geometry')},'systems':old['systems']}
                     row,excluded=rank_prospect(pid,match,bill)
                     result['excluded']=[e for e in result['excluded'] if e.get('parcel_id')!=pid]
+                    stale=bool(item['provenance'].get('refresh_failed'))
                     if row:
-                        row['billing_source']=item['provenance'];row['selected_record_update']={'status':'updated_or_reused_fresh','at':now()}
+                        row['billing_source']=item['provenance']
+                        row['selected_record_update']={'status':'stale_record_kept_after_failed_refresh' if stale else 'updated_or_reused_fresh','at':now(),
+                                                       **({'error':item['provenance'].get('refresh_error')} if stale else {})}
                         if identity_changed:row['history_flags'].append('Owner/boundary changed; verify site match before assessment')
                         rows[pid]=row
                     else:
-                        rows.pop(pid);result['excluded'].append({'parcel_id':pid,'address':bill['address'],**excluded})
+                        rows.pop(pid,None);result['excluded'].append({'parcel_id':pid,'address':bill['address'],**excluded})
+                    retry.pop(pid,None)
                 except Exception as exc:
                     errors.append({'stage':'selected_billing','parcel_id':pid,'error':str(exc)})
-                    old['selected_record_update']={'status':'failed_previous_record_retained','error':str(exc),'at':now()}
+                    if pid in rows:old['selected_record_update']={'status':'failed_previous_record_retained','error':str(exc),'at':now()}
+                    else:old.update(error=str(exc),last_retry_at=now())
                 if progress:progress(stage='selected_records',completed=done,total=len(selected))
         if cancel and cancel.is_set():raise SourceError('Selected update cancelled; previous saved result retained')
         if changes:invalidate_matches(root,'Selected parcel identity or boundary changed')
         result.update(id=uuid.uuid4().hex,at=now(),as_of=as_of,parent_run_id=previous['id'],selected_parcel_ids=selected,
             match_changes=changes,selected_update_failures=errors,elapsed_seconds=round(time.perf_counter()-started,3))
-        result['failures']=result.get('failures',[])+errors;result['source_snapshots']+=new_sources
+        # Earlier billing failures of re-attempted parcels are replaced by this attempt's outcome.
+        result['failures']=[f for f in result.get('failures',[]) if f.get('parcel_id') not in selected or f.get('stage') not in ('billing','selected_billing')]+errors
+        result['retry_targets']=sorted(retry.values(),key=lambda t:t['parcel_id'])
+        result['source_snapshots']+=new_sources
+        result['stale_records_kept']=bounded.stale_reuse
         result['status']='partial' if result['failures'] or result.get('invalid_systems') else 'complete'
         result['acquisition_budget']={'max_new_requests':max_requests,'new_requests':bounded.requests,'workers':2,'max_seconds':300,'selected_parcel_count':len(selected)}
         result['counts']['failed_requests_or_geometry']=len(result['failures'])
         result['counts']['exclusions_by_status']={s:sum(e['status']==s for e in result['excluded']) for s in sorted({e['status'] for e in result['excluded']})}
-        finish_ranking(result,list(rows.values()),50,as_of);save_result(root,result)
+        finish_ranking(result,list(rows.values()),limit,as_of);save_result(root,result)
     return result
 
 
@@ -527,10 +721,17 @@ def _run_scan(root, *, refresh=False, limit=50, workers=2, progress=None, cache=
         rest, more_sources, more_failures=find_parcels(seeds[5:],cache,refresh,workers,notify)
         parcels=list({str(props(f)['parcelid']):f for f in first+rest}.values())
         parcel_sources+=more_sources;failures+=more_failures
-        matches, ambiguous, geometry_errors = match_systems(selected_systems, parcels)
+        # Every other selected system: query the parts not covered by a fetched parcel.
+        gaps=coverage_gaps(selected_systems,parcels)
+        if gaps:
+            extra, extra_sources, extra_failures=find_parcels(gaps,cache,refresh,workers,notify)
+            parcels=list({str(props(f)['parcelid']):f for f in parcels+extra}.values())
+            parcel_sources+=extra_sources;failures+=extra_failures
+        unqueried=[tuple(pt) for f in failures for pt in f.get('points',[])]
+        matches, ambiguous, geometry_errors = match_systems(selected_systems, parcels, unqueried)
         if not failures:write_matches(root,selected_systems,parcels,matches,ambiguous,geometry_errors,parcel_sources)
     failures.extend(geometry_errors)
-    exclusions, targets = [], {}
+    exclusions, targets, retry_targets = [], {}, []
     for pid, match in matches.items():
         p = props(match['parcel'])
         owner = owner_status(p.get('owner1'), p.get('owner2'))
@@ -562,38 +763,68 @@ def _run_scan(root, *, refresh=False, limit=50, workers=2, progress=None, cache=
                     exclusions.append({'parcel_id': pid, 'address': props(targets[pid]['parcel']).get('address'), **excluded})
             except Exception as exc:
                 failures.append({'stage': 'billing', 'parcel_id': pid, 'error': str(exc)})
+                # Kept so the failed bill can be retried as a selected update.
+                retry_targets.append({'parcel_id': str(pid), 'address': props(targets[pid]['parcel']).get('address'),
+                    'parcel_record': props(targets[pid]['parcel']), 'parcel_geometry': targets[pid]['parcel'].get('geometry'),
+                    'systems': sorted(targets[pid]['systems'], key=lambda s: (s['system_id'], str(s['objectid']))), 'error': str(exc)})
             notify(stage='billing_and_credits', completed=done, total=len(targets))
     candidates.sort(key=ordering)
     for n, row in enumerate(candidates, 1):
         row['rank'] = n
+    stale_kept = list(cache.stale_reuse) if isinstance(getattr(cache, 'stale_reuse', None), list) else []
+    held_codes = [h.get('reason_code', 'ambiguous_overlap') for h in ambiguous]
     result = {'schema_version': 1, 'version': VERSION, 'id': uuid.uuid4().hex,
         'at': now(), 'as_of': as_of, 'elapsed_seconds': round(time.perf_counter()-start, 3),
-        'status': 'partial' if failures or invalid else 'complete',
+        'status': 'partial' if failures or invalid or stale_kept else 'complete',
         'claim': 'Records-only prospect ranking. No imagery, AI classification, terrain, routing or full assessment run. No qualifying savings or award established.',
         'ranking': 'Known no area credit first, then partial IA credit (<75%), then substantial IA credit. Within each group: descending annual current public charge, address, parcel ID. Threshold is a screening heuristic, not eligibility or a calibrated probability.',
-        'coverage': 'Bounded candidate pool, not an exhaustive citywide top 50. Preselect the largest mapped existing private projects by summed footprint area (not managed area), query one representative system per project, then check dominant (>=80%) footprint overlap. Shared/cross-parcel systems and unlisted systems may be missed. No imagery opportunity search.',
+        'coverage': 'Bounded candidate pool, not an exhaustive citywide top 50. Preselect the largest mapped existing private projects by summed footprint area (not managed area), query the largest system per project, then the footprint of every other selected system not covered by a fetched parcel, then check dominant (>=80%) footprint overlap. Systems whose parcel could not be queried are labelled parcel_not_queried, not ambiguous. Shared/cross-parcel systems and unlisted systems may be missed. No imagery opportunity search.',
         'persistent_matches':'reused' if persisted else 'rebuilt',
         'acquisition_budget':{'max_new_requests':max_requests,'new_requests':getattr(cache,'requests',0),'max_seconds':max_seconds,'workers':workers,'candidate_project_limit':candidate_projects},
         'ownership_policy': 'Government/public-body names in either parcel or billing owner fields excluded. Missing owners and unresolved authority/state-related ownership held for review. Public name screening does not verify beneficial ownership.',
         'counts': {'inventory_features': len(inventory['features']), 'system_status': source_states,
             'usable_existing_private_features': len(systems),'selected_project_count':len(selected), 'matched_parcels': len(matches),
             'billing_attempts': len(targets), 'ranked_prospects': len(candidates), 'returned': min(limit, len(candidates)),
-            'ambiguous_systems': len(ambiguous), 'failed_requests_or_geometry': len(failures), 'invalid_systems': len(invalid),
+            'ambiguous_systems': held_codes.count('ambiguous_overlap'), 'parcel_not_queried_systems': held_codes.count('parcel_not_queried'),
+            'no_parcel_found_systems': held_codes.count('no_parcel_found'), 'stale_billing_kept_after_failed_refresh': len(stale_kept),
+            'failed_requests_or_geometry': len(failures), 'invalid_systems': len(invalid),
             'exclusions_by_status': {s: sum(e['status'] == s for e in exclusions) for s in sorted({e['status'] for e in exclusions})}},
         'groups': [{'id': key, 'label': label, 'count': sum(r['group'] == key for r in candidates[:limit])} for key, label in GROUPS.items()],
         'top': candidates[:limit], 'prospects': candidates, 'excluded': exclusions,
         'ambiguous_matches': ambiguous, 'invalid_systems': invalid, 'failures': failures,
+        'retry_targets': sorted(retry_targets, key=lambda t: t['parcel_id']), 'stale_records_kept': stale_kept,
         'source_snapshots': inventory['sources']+parcel_sources+bill_sources,
         'source_layers': {'systems': SYSTEMS, 'parcels': PARCELS, 'billing': BILLING},
         'not_run': ['imagery', 'AI inference', 'DEM', 'drainage', 'full assessment', 'actual invoice validation', 'independent ownership/credit accuracy'],
     }
     finish_ranking(result,candidates,limit,as_of)
+    # A run that lost ranked rows to source failures is kept as evidence but does
+    # not replace the last good shortlist.
+    previous = _latest_summary(root)
+    degraded = previous is not None and result['status'] == 'partial' and len(candidates) < previous['ranked_parcels']
+    result['promoted'] = not degraded
+    if degraded:
+        result['not_promoted_reason'] = (f"Partial run ranked {len(candidates)} parcels, fewer than the {previous['ranked_parcels']} "
+                                         f"in saved run {previous['id']}; that run remains the latest shortlist.")
     result['elapsed_seconds']=round(time.perf_counter()-start,3)
     result['result_sha256']=sha256(canonical({k:v for k,v in result.items() if k!='result_sha256'})).hexdigest()
     if cancel and cancel.is_set():raise SourceError('Scan cancelled; previous results retained')
-    save_result(root, result)
-    notify(stage='complete', completed=len(candidates), total=len(candidates), run_id=result['id'])
+    if degraded:save_result(root, result, promote=False)
+    else:save_result(root, result)
+    # Saved: a cancel arriving now no longer changes the outcome, so it is not checked.
+    if progress:progress(stage='complete', completed=len(candidates), total=len(candidates), run_id=result['id'], promoted=not degraded)
     return result
+
+
+def _latest_summary(root):
+    try:
+        latest = load_result(root)
+    except (OSError, ValueError, KeyError):
+        return None
+    if latest is None:
+        return None
+    rows = latest.get('parcel_rows') or [m for s in latest.get('prospects', []) for m in s.get('member_parcels', [s])]
+    return {'id': latest['id'], 'ranked_parcels': len(rows)}
 
 
 def csv_report(result):
@@ -628,15 +859,55 @@ def html_report(result):
     return '<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Philadelphia top prospects</title><style>body{font:15px/1.5 system-ui;margin:24px;color:#183c34}table{border-collapse:collapse;width:100%;font-size:13px}td,th{padding:10px;border-bottom:1px solid #ccd8cf;text-align:left;vertical-align:top}.scroll{overflow:auto}pre{white-space:pre-wrap}h2{margin-top:32px}</style>'+body+'</html>'
 
 
-def save_result(root, result):
+_GEOMETRY_ROWS = ('parcel_rows', 'prospects', 'top', 'retry_targets')
+
+
+def _row_dicts(result):
+    for key in _GEOMETRY_ROWS:
+        for row in result.get(key) or []:
+            yield row
+            yield from row.get('member_parcels') or []
+
+
+def compact_result(result):
+    """Store each parcel geometry once (``parcel_geometries``) and reference it."""
+    data = deepcopy(result)
+    geometries, conflicts = {}, set()
+    for row in _row_dicts(data):
+        pid, geometry = row.get('parcel_id'), row.get('parcel_geometry')
+        if pid is None or geometry is None:
+            continue
+        if geometries.setdefault(str(pid), geometry) != geometry:
+            conflicts.add(str(pid))
+    for row in _row_dicts(data):
+        pid = str(row.get('parcel_id'))
+        if row.get('parcel_geometry') is not None and pid in geometries and pid not in conflicts:
+            row['parcel_geometry_ref'] = pid
+            del row['parcel_geometry']
+    data['parcel_geometries'] = {k: v for k, v in geometries.items() if k not in conflicts}
+    return data
+
+
+def expand_result(data):
+    geometries = data.pop('parcel_geometries', None)
+    if geometries is None:
+        return data
+    for row in _row_dicts(data):
+        if 'parcel_geometry_ref' in row:
+            row['parcel_geometry'] = geometries[row.pop('parcel_geometry_ref')]
+    return data
+
+
+def save_result(root, result, promote=True):
     folder = Path(root)/'runs'/result['id']
     folder.mkdir(parents=True, exist_ok=False)
-    (folder/'results.json').write_bytes(canonical(result)+b'\n')
+    (folder/'results.json').write_bytes(canonical(compact_result(result))+b'\n')
     (folder/'top50.csv').write_text(csv_report(result))
     (folder/'report.html').write_text(html_report(result))
-    temp = Path(root)/'latest.tmp'
-    temp.write_text(json.dumps({'id': result['id']}))
-    temp.replace(Path(root)/'latest.json')
+    if promote:
+        # Unique temporary name, then an atomic replace: concurrent writers never share it.
+        from drainage_core.saved import atomic_json
+        atomic_json(Path(root)/'latest.json', {'id': result['id']})
 
 
 def load_result(root, run_id=None):
@@ -647,7 +918,7 @@ def load_result(root, run_id=None):
         run_id = json.loads((root/'latest.json').read_text())['id']
     if not re.fullmatch('[a-f0-9]{32}', str(run_id)):
         raise ValueError('Invalid scan ID')
-    result = json.loads((root/'runs'/run_id/'results.json').read_text())
+    result = expand_result(json.loads((root/'runs'/run_id/'results.json').read_text()))
     if result['result_sha256'] != sha256(canonical({k:v for k,v in result.items() if k != 'result_sha256'})).hexdigest():
         raise ValueError('Prospect result hash mismatch')
     return result
@@ -656,7 +927,7 @@ def load_result(root, run_id=None):
 def public_result(result):
     if result is None:
         return None
-    return {k:v for k,v in result.items() if k not in ('prospects','parcel_rows','excluded','ambiguous_matches','invalid_systems','source_snapshots')}
+    return {k:v for k,v in result.items() if k not in ('prospects','parcel_rows','excluded','ambiguous_matches','invalid_systems','source_snapshots','retry_targets')}
 
 
 def main():

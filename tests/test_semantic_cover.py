@@ -40,10 +40,13 @@ class SemanticCoverTests(unittest.TestCase):
                 c['features']['features']=result['features'];m=measure(c)
                 self.assertIsNone(m['canopy_sqft']);self.assertEqual(m['ia_sqft'],0)
                 self.assertAlmostEqual(m['unknown_sqft'],2*SQFT_PER_M2)
+                # A bad cache entry is a miss: recomputed and repaired, never a permanent fallback.
                 cache_file=next((folder/'cache').glob('*.npy'));cache_file.write_bytes(b'tampered')
-                with self.assertRaisesRegex(ValueError,'prediction hash mismatch'):
-                    semantic_cover(raw,[0,0,2,1],c,{'sha256':sha256(raw).hexdigest(),'source_vintage':'2025'},
-                                   runtime=runtime,weights=weights,cache=folder/'cache')
+                repaired=semantic_cover(raw,[0,0,2,1],c,{'sha256':sha256(raw).hexdigest(),'source_vintage':'2025'},
+                                        runtime=runtime,weights=weights,cache=folder/'cache')
+                self.assertEqual(process.call_count,2)
+                self.assertEqual(repaired['prediction_sha256'],result['prediction_sha256'])
+                self.assertEqual(cache_file.with_suffix('.sha256').read_text().strip(),sha256(cache_file.read_bytes()).hexdigest())
 
     def test_weights_must_match_pinned_model_before_any_inference(self):
         with tempfile.TemporaryDirectory() as temporary:
