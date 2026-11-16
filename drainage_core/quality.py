@@ -26,9 +26,14 @@ QUALITY_VERSION='physical-quality-v3'
 # corner blocking, inlet-in-GSI, touched point/line rasterization, canopy coverage,
 # flat-tolerance exits, roof-sliver IA, measured/per-catchment extent, class-edge
 # erosion and the installation-status allowlist.
-PHYSICAL_INTERPRETATION_VERSION=2
+# 3 (2026-11-16, Phase 4a): capacity spill read along the perimeter line (cell-minimum
+# and bilinear range, matching-method offsets, per-component storage), structure/DEM-
+# timing/vertical-unit gates, ponding depth, regional fill relabelled as non-storage,
+# bed IA per scenario, explicit route states, observed canopy in surface context.
+PHYSICAL_INTERPRETATION_VERSION=3
 PHYSICAL_SCOPE=('engine','geometry','drainage','research','model_integration','semantic_cover',
-                'remote_sensing','model_worker','freshness','installation','sources','validation','extent')
+                'remote_sensing','model_worker','freshness','installation','sources','validation','extent',
+                'runoff_capacity','management_estimates','surface_estimates')
 PROVENANCE_LIBRARIES=('numpy','shapely','rasterio','pyproj')
 # A real engine artifact carries one of these. One without an interpretation version
 # predates explicit versions (byte fingerprints or none at all): "unknown/legacy".

@@ -7,7 +7,7 @@ from shapely.geometry import box, mapping, shape
 from drainage_core.engine import canonical, input_hash, new_case
 from drainage_core.freshness import age_policy
 from drainage_core.geometry import SQFT_PER_M2
-from drainage_core.management_estimates import estimate_canopy, estimate_system
+from drainage_core.management_estimates import ROUTE_STATES, estimate_canopy, estimate_system, route_state
 from drainage_core.research import digest
 
 
@@ -100,8 +100,46 @@ class ManagementGeometryTests(unittest.TestCase):
             'horizontal_unit': 'm', 'vertical_unit': 'm'}
         array = [[1.]*10 for _ in range(10)]; array[5][5] = None
         gis['research_drainage']['primary'].update(grid=grid, rasters={'filled_elevations': array})
-        d = estimate_system(case, gis, 'G1')['runs'][0]['diagnostics']
+        run = estimate_system(case, gis, 'G1')['runs'][0]; d = run['diagnostics']
         self.assertTrue(d['touches_grid_boundary']); self.assertTrue(d['touches_nodata'])
+        self.assertEqual(run['route_state'], 'partial_upstream_unknown')
+        self.assertEqual(run['partial_label'], 'partial: true value may be higher')
+        self.assertIn('window edge', run['route_state_reason'])
+
+    def test_route_states_are_explicit_for_every_frozen_condition(self):
+        # Interior catchment (cells 3-5 of a clean 10 x 10 grid): complete only with
+        # measured coverage; unknown coverage is not complete; a false invariant blocks.
+        grid = {'origin': [0, 30.48], 'cell_size': 3.048, 'crs': 'EPSG:26918', 'horizontal_unit': 'm', 'vertical_unit': 'm'}
+        inner = mapping(box(9.144, 9.144, 18.288, 18.288))
+        states = []
+        for coverage, invariant in (({'terrain_covers_parcel_buffer': True}, True), (None, True),
+                                    ({'terrain_covers_parcel_buffer': False}, True),
+                                    ({'terrain_covers_parcel_buffer': True}, False)):
+            case, gis = fixture(); run = gis['research_drainage']['primary']
+            run.update(grid=grid, rasters={'filled_elevations': [[1.]*10 for _ in range(10)]},
+                       invariants={'terminal_accumulation_equals_routed_cells': invariant, 'meaning': 'text'})
+            run['catchments'][0]['geometry'] = inner
+            if coverage is not None:
+                run['coverage'] = coverage
+            states.append(estimate_system(case, gis, 'G1')['runs'][0]['route_state'])
+        self.assertEqual(states, ['complete_in_window', 'missing_terrain', 'partial_upstream_unknown', 'invariant_failed'])
+        case, gis = fixture()
+        run = estimate_system(case, gis, 'G1')['runs'][0]
+        self.assertEqual(run['route_state'], 'missing_terrain')
+        self.assertIsNone(run['partial_label'])
+        self.assertEqual(set(ROUTE_STATES), {'complete_in_window', 'partial_upstream_unknown', 'missing_terrain', 'invariant_failed'})
+        self.assertEqual(route_state({'invariants': {'x': False}, 'touches_window_edge': True})[0], 'invariant_failed')
+
+    def test_system_bed_ia_reported_in_every_area_scenario(self):
+        # Footprint box(0, 0, 3.048, 3.048) lies on 100 sq ft of observed pavement.
+        case, gis = fixture(); rows = scenarios(estimate_system(case, gis, 'G1'))
+        for key, total in [('low', 1000), ('base', 3000), ('high', 6000)]:
+            self.assertAlmostEqual(rows[key]['ia_within_footprint_sqft'], 100)
+            self.assertAlmostEqual(rows[key]['area_outside_footprint_sqft'], total - 100)
+        case['features']['features'][-1]['geometry'] = mapping(box(3.048, 0, 6.096, 3.048))
+        rows = scenarios(estimate_system(case, gis, 'G1'))
+        self.assertAlmostEqual(rows['low']['ia_within_footprint_sqft'], 0)
+        self.assertAlmostEqual(rows['base']['ia_within_footprint_sqft'], 100)
 
     def test_basin_footprint_is_not_an_inlet_or_contributing_area(self):
         case, gis = fixture('01074', 'Subsurface Basin')
@@ -109,7 +147,8 @@ class ManagementGeometryTests(unittest.TestCase):
         result = estimate_system(case, gis, '01074')
         self.assertEqual(result['status'], 'connection_unknown'); self.assertEqual(result['runs'], [])
         self.assertAlmostEqual(result['footprint_area_sqft'], 100)
-        self.assertIsNone(result['surface_storage_diagnostic']['volume_cuft'])
+        self.assertNotIn('surface_storage_diagnostic', result)
+        self.assertIsNone(result['regional_depression_fill_diagnostic']['fill_volume_cuft'])
 
     def test_only_exact_in_footprint_terminal_nominates_connection(self):
         case, gis = fixture('01074', 'Subsurface Basin')
@@ -146,17 +185,50 @@ class ManagementGeometryTests(unittest.TestCase):
             'fill_depth': [[0., 0., 0.], [0., 1., 0.], [0., 0., 0.]],
             'filled_elevations': [[1.]*3 for _ in range(3)],
             'conditioned_elevations': [[1., 1., 1.], [1., -90., 1.], [1., 1., 1.]]})
-        storage = estimate_system(case, gis, 'G1')['surface_storage_diagnostic']
-        self.assertAlmostEqual(storage['volume_cuft'], SQFT_PER_M2/.3048)
-        self.assertEqual(storage['status'], 'modeled')
-        self.assertIn('before burn offsets', storage['basis'])
+        fill = estimate_system(case, gis, 'G1')['regional_depression_fill_diagnostic']
+        self.assertAlmostEqual(fill['fill_volume_cuft'], SQFT_PER_M2/.3048)
+        self.assertEqual(fill['status'], 'diagnostic_only')
+        self.assertFalse(fill['is_storage'])
+        self.assertIn('before burn offsets', fill['basis'])
+
+    def test_regional_fill_is_not_storage_and_points_to_capacity(self):
+        # Review r2: a 31 x 31 lot rimmed at 20 m around 10 m ground holds a 3 x 3
+        # garden bowl at 0 m. Regional fill to 20 m inside the 5 x 5 footprint:
+        # 16 cells x 10 m + 9 cells x 20 m = 340 m3. Local perimeter spill is 10 m:
+        # 9 x 10 = 90 m3. Only the latter is storage.
+        from drainage_core.research import fill_dem
+        from drainage_core.runoff_capacity import estimate_capacity
+        import numpy as np
+        case, gis = fixture(); n = 31
+        el = [[10.]*n for _ in range(n)]
+        for i in range(n):
+            el[0][i] = el[n-1][i] = el[i][0] = el[i][n-1] = 20.
+        for r in range(17, 20):
+            for c in range(11, 14):
+                el[r][c] = 0.
+        grid = {'origin': [0, 31], 'cell_size': 1., 'crs': case['crs'], 'horizontal_unit': 'm', 'vertical_unit': 'm'}
+        case['terrain'] = {**grid, 'elevations': el}
+        case['features']['features'][-1]['geometry'] = mapping(box(10, 10, 15, 15))
+        gis['research_drainage']['primary'].update(grid=grid, input_dem_sha256=digest(el),
+            rasters={'fill_depth': (fill_dem(el) - np.asarray(el)).tolist()})
+        result = estimate_system(case, gis, 'G1'); fill = result['regional_depression_fill_diagnostic']
+        cuft_per_m3 = SQFT_PER_M2/.3048
+        self.assertNotIn('surface_storage_diagnostic', result)
+        self.assertEqual(fill['status'], 'diagnostic_only')
+        self.assertFalse(fill['is_storage'])
+        self.assertIn('not the', fill['meaning'])
+        self.assertIn('estimate_capacity', fill['storage_result'])
+        self.assertAlmostEqual(fill['fill_volume_cuft'], 340*cuft_per_m3)
+        self.assertNotIn('volume_cuft', fill)
+        self.assertAlmostEqual(estimate_capacity(case, gis, 'G1')['surface_storage_volume_cuft'], 90*cuft_per_m3)
 
     def test_unbound_storage_raster_does_not_establish_volume(self):
         case, gis = fixture()
         gis['research_drainage']['primary']['rasters'] = {'fill_depth': [[1.]]}
         gis['research_drainage']['primary']['grid'] = {'origin': [0, 1], 'cell_size': 1}
-        storage = estimate_system(case, gis, 'G1')['surface_storage_diagnostic']
-        self.assertIsNone(storage['volume_cuft'])
+        fill = estimate_system(case, gis, 'G1')['regional_depression_fill_diagnostic']
+        self.assertIsNone(fill['fill_volume_cuft'])
+        self.assertEqual(fill['status'], 'unavailable')
 
     def test_exact_system_id_preserves_leading_zeros(self):
         case, gis = fixture('01073')
@@ -179,8 +251,28 @@ class ManagementGeometryTests(unittest.TestCase):
         rows = {r['id']: r for r in result['area_scenarios']}
         self.assertAlmostEqual(result['canopy_area_sqft'], 10000)
         self.assertAlmostEqual(rows['low']['area_sqft'], 1000)
-        self.assertAlmostEqual(rows['base']['area_sqft'], 1000)
         self.assertAlmostEqual(rows['high']['area_sqft'], 10000)
+        self.assertEqual(set(rows), {'low', 'high'})
+        self.assertIsNone(result['base_scenario'])
+
+    def test_canopy_road_overlap_only_from_observed_canopy(self):
+        # Review r3b: modeled classes are disjoint, so modeled canopy beside modeled
+        # road gives no road-beneath-canopy area. An observed canopy polygon over the
+        # 2,000 sq ft road strip does, and is reported separately, not as a base row.
+        case, gis = fixture()
+        obs, road, dev, grass, fp = case['features']['features']
+        case['features']['features'] = [obs, road, dev, candidate('canopy', box(18.288, 0, 30.48, 30.48)), fp]
+        modeled = estimate_canopy(case, gis)
+        self.assertEqual(modeled['road_appearance_beneath_observed_canopy_sqft'], 0)
+        self.assertAlmostEqual(modeled['model_canopy_sqft'], 4000)
+        self.assertEqual(modeled['observed_canopy_sqft'], 0)
+        case['features']['features'].append({'id': 'obs-canopy', 'geometry': mapping(box(3.048, 0, 9.144, 30.48)),
+            'properties': {'layer': 'canopy'}})
+        observed = estimate_canopy(case, gis)
+        self.assertAlmostEqual(observed['road_appearance_beneath_observed_canopy_sqft'], 2000)
+        self.assertAlmostEqual(observed['observed_canopy_sqft'], 2000)
+        self.assertEqual([r['id'] for r in observed['area_scenarios']], ['low', 'high'])
+        self.assertAlmostEqual(observed['area_scenarios'][1]['area_sqft'], 6000)
 
     def test_overlapping_class_predictions_cannot_be_counted_twice(self):
         case, gis = fixture()

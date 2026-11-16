@@ -1,5 +1,14 @@
 # Rain garden 01073: runoff capacity and savings
 
+> **Method changed (Phase 4a, physical interpretation version 3); every figure below
+> is superseded pending a recompute from saved inputs.** The capacity spill is now read
+> along the perimeter line itself, as a cell-minimum versus bilinear range (decision
+> D4). Corner contacts are included, sensitivities use the matching method, and storage
+> is reported per component. A result is also blocked or flagged for structures inside
+> the footprint, DEM timing versus installation year, and vertical-unit status, and
+> ponding depth is now reported. The "conservative" label below no longer applies.
+> The saved 01073 data is not in this environment, so no new figures are given here.
+
 **Conservative storage-based estimate: $32.21/month, or $386.52/year.**
 This replaces the previous $5,989.92 full-management scenario as the primary estimate.
 Unsupported confidence percentages have been removed from the pilot generator,

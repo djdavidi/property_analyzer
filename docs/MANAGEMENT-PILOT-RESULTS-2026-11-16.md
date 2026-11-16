@@ -1,5 +1,13 @@
 # Whitaker and 3060 S 61st saved-data pilot
 
+> **Method changed (Phase 4a, physical interpretation version 3); the physical figures
+> below are superseded pending a recompute from saved inputs.** Capacity now uses a
+> perimeter-line spill range. The regional fill volume is relabelled
+> `regional_depression_fill_diagnostic` and is not storage. Candidate IA reports the
+> system bed per scenario, canopy context includes observed canopy and the soft
+> share, and routes carry explicit `route_state` values. The saved pilot data is not
+> in this environment, so no new figures are given here.
+
 Implemented November 16, 2026. These are our current preliminary estimates from
 saved 2025 imagery classifications, native 1 m terrain, system polygons and public
 billing records. No new downloads or classification inference. The pilot is a

@@ -143,6 +143,44 @@ class SurfaceEstimatesUnitTests(unittest.TestCase):
         self.assertAlmostEqual(context['visible_context_coverage_fraction'], 4/ring_area)
         self.assertAlmostEqual(context['road_context_under_canopy_sqft'], 100*4/ring_area*SQFT_PER_M2)
 
+    def test_context_shares_reconcile_to_hidden_crown_area_including_soft_share(self):
+        # Review r6: the 2 m ring holds 4 m2 each of road, developed and grass.
+        case, gis = fixture(); result = estimate_surfaces(case, gis, (2, 5))
+        ring_area = box(10, 10, 20, 20).buffer(2).difference(box(10, 10, 20, 20)).area
+        context = result['canopy']['contexts'][0]
+        self.assertAlmostEqual(context['soft_context_under_canopy_sqft'], 100*4/ring_area*SQFT_PER_M2)
+        for context in result['canopy']['contexts']:
+            with self.subTest(distance=context['distance_metres']):
+                self.assertAlmostEqual(sum(context[k] for k in ('road_context_under_canopy_sqft',
+                    'developed_context_under_canopy_sqft', 'soft_context_under_canopy_sqft',
+                    'unclassified_context_under_canopy_sqft')), result['canopy']['hidden_ground_sqft'])
+
+    def test_observed_canopy_is_included_and_reported_separately_from_model(self):
+        # Observed crown box(0, 20, 10, 30) over ground the image left unclassified
+        # conceals it (100 m2). The part over modeled road (box(10, 8, 12, 10)) was
+        # visible ground in the image and is not hidden (4 m2).
+        case, gis = fixture()
+        before = estimate_surfaces(case, gis, (2,))
+        case['features']['features'].append({'id': 'observed-canopy', 'geometry': mapping(box(0, 20, 10, 30)),
+            'properties': {'layer': 'canopy'}})
+        case['features']['features'].append({'id': 'observed-canopy-road', 'geometry': mapping(box(10, 8, 12, 10)),
+            'properties': {'layer': 'canopy'}})
+        result = estimate_surfaces(case, gis, (2,)); canopy = result['canopy']
+        self.assertAlmostEqual(canopy['observed_crown_sqft'], 104*SQFT_PER_M2)
+        self.assertAlmostEqual(canopy['model_crown_sqft'], 100*SQFT_PER_M2)
+        self.assertAlmostEqual(canopy['visible_crown_sqft'], 204*SQFT_PER_M2)
+        self.assertAlmostEqual(canopy['observed_only_crown_sqft'], 104*SQFT_PER_M2)
+        self.assertAlmostEqual(canopy['observed_crown_over_visible_ground_sqft'], 4*SQFT_PER_M2)
+        self.assertAlmostEqual(canopy['hidden_ground_sqft'], before['canopy']['hidden_ground_sqft'] + 100*SQFT_PER_M2)
+        self.assertAlmostEqual(result['road_appearance_sqft'], before['road_appearance_sqft'])
+        self.assertAlmostEqual(sum(result[k] for k in ('roof_and_observed_ia_sqft', 'observed_pervious_sqft',
+            'road_appearance_sqft', 'developed_appearance_sqft', 'soft_appearance_sqft', 'unclassified_ground_sqft'))
+            + canopy['hidden_ground_sqft'], result['parcel_area_sqft'])
+        for context in canopy['contexts']:
+            self.assertAlmostEqual(sum(context[k] for k in ('road_context_under_canopy_sqft',
+                'developed_context_under_canopy_sqft', 'soft_context_under_canopy_sqft',
+                'unclassified_context_under_canopy_sqft')), canopy['hidden_ground_sqft'])
+
     def test_observed_pervious_overrides_ai_roof_in_context(self):
         case, gis = fixture()
         case['features']['features'] = [semantic('canopy', box(10, 10, 20, 20)),

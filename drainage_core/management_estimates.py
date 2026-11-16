@@ -2,6 +2,25 @@
 
 No routing, inference or acquisition takes place here.  Appearance assumptions,
 unverified connections and DEM-visible storage remain separate from observations.
+
+Output fields consumed by policy (Phase 4b):
+
+* ``runs[].route_state``: one of ``ROUTE_STATES`` (review R8, decision D2).
+  ``complete_in_window``: no window-edge/NoData contact, and the terrain covers
+  the parcel plus its buffer (``drainage_core.extent``). ``partial_upstream_unknown``:
+  contact, or measured coverage is incomplete. Show the in-window figure
+  labelled ``runs[].partial_label`` ("partial: true value may be higher").
+  ``missing_terrain``: the frozen run lacks the raster or coverage record needed
+  for the test, so completeness is unknown and must not be presented as complete.
+  ``invariant_failed``: a saved routing invariant is false, so block. The
+  ``runs[].route_state_reason`` field explains the state.
+  ``alternative_routing[]`` rows carry the same three fields.
+* ``runs[].area_scenarios[].ia_within_footprint_sqft`` and
+  ``area_outside_footprint_sqft``: the system's own bed inside each candidate IA
+  scenario (H16). Every policy path must exclude the bed.
+* ``regional_depression_fill_diagnostic``: regional filled-minus-source depth
+  over the footprint (H13). It is **not** storage (``is_storage: False``). Surface
+  storage comes only from ``drainage_core.runoff_capacity.estimate_capacity``.
 """
 from copy import deepcopy
 from math import isfinite
@@ -17,8 +36,10 @@ from .installation import installation_issues
 from .model_integration import CLASSES, _area_only, _polygon, ai_surfaces
 from .research import METRES, digest
 
-VERSION = 'saved-management-geometry-v1'
+VERSION = 'saved-management-geometry-v2'
 EMPTY = {'type': 'GeometryCollection', 'geometries': []}
+ROUTE_STATES = ('complete_in_window', 'partial_upstream_unknown', 'missing_terrain', 'invariant_failed')
+PARTIAL_LABEL = 'partial: true value may be higher'
 
 
 def _frozen(case, gis):
@@ -54,14 +75,14 @@ def _routing_alternatives(case, gis, system_id, selected_branch):
     source = gis.get('research_drainage', {})
     parcel = shape(case['parcel']); alternatives = []
     for name, geometry, run in _runs({}, source, system_id):
-        alternatives.append({'name': name, 'research_branch': 'saved_source_roofs_only',
+        alternatives.append(_with_route_state({'name': name, 'research_branch': 'saved_source_roofs_only',
             'geometry': mapping(geometry),
             'contributing_area_sqft': case_area_sqft(geometry, case),
             'on_parcel_area_sqft': case_area_sqft(geometry.intersection(parcel), case),
             'off_parcel_area_sqft': case_area_sqft(geometry.difference(parcel), case),
             'diagnostics': _diagnostics(case, run, geometry),
             'scope': 'Routing diagnostic only; excluded from selected area scenarios and savings',
-            'limitations': ['Missing source roof outlines can route actual buildings as ground; this branch is not automatically a plausible upper bound']})
+            'limitations': ['Missing source roof outlines can route actual buildings as ground; this branch is not automatically a plausible upper bound']}))
     return alternatives
 
 
@@ -119,7 +140,38 @@ def _diagnostics(case, run, geometry):
     return result
 
 
-def _surface_run(case, observation, ai, name, geometry, run, **extra):
+def route_state(diagnostics):
+    """Explicit route state from frozen per-catchment diagnostics (R8/D2).
+
+    The order of precedence is: failed invariant, then window-edge/NoData contact
+    or incomplete coverage, then measured completeness. When completeness cannot
+    be tested, the state is ``missing_terrain``, never complete.
+    """
+    invariants = diagnostics.get('invariants') or {}
+    failed = sorted(k for k, v in invariants.items() if v is False) if isinstance(invariants, dict) else []
+    if failed:
+        return 'invariant_failed', 'Saved routing invariant failed: ' + ', '.join(failed)
+    contact = [name for name, key in (('raster window edge', 'touches_window_edge'), ('NoData', 'touches_nodata'))
+               if diagnostics.get(key)]
+    if contact:
+        return 'partial_upstream_unknown', 'Catchment touches the ' + ' and '.join(contact) + '; unseen upstream inflow is possible'
+    if diagnostics.get('extent_complete') is False:
+        return 'partial_upstream_unknown', 'Measured terrain does not cover the parcel and requested routing buffer'
+    if diagnostics.get('extent_complete') is True:
+        return 'complete_in_window', 'No window-edge/NoData contact and terrain covers the parcel plus buffer'
+    if diagnostics.get('touches_window_edge') is None:
+        return 'missing_terrain', 'Frozen run lacks the saved terrain raster needed to test window-edge/NoData contact'
+    return 'missing_terrain', 'Frozen run lacks the measured terrain coverage record needed to confirm completeness'
+
+
+def _with_route_state(row):
+    state, reason = route_state(row['diagnostics'])
+    row.update(route_state=state, route_state_reason=reason,
+               partial_label=PARTIAL_LABEL if state == 'partial_upstream_unknown' else None)
+    return row
+
+
+def _surface_run(case, observation, ai, name, geometry, run, footprint, **extra):
     parcel = shape(case['parcel']); region = _area_only(geometry.intersection(parcel))
     observed = _polygon(observation['geometries']['physical_ia'])
     unknown = _polygon(observation['geometries']['unknown'])
@@ -132,7 +184,7 @@ def _surface_run(case, observation, ai, name, geometry, run, **extra):
         ('high', identified.union(road).union(developed), 'Road and developed-space appearance assumed impervious',
          ['All road/developed-space pixels in this catchment are impermeable; this is unverified'])]
     sf = lambda g: case_area_sqft(_area_only(g), case)
-    return {'name': name, 'geometry': mapping(geometry), 'on_parcel_geometry': mapping(region),
+    row = {'name': name, 'geometry': mapping(geometry), 'on_parcel_geometry': mapping(region),
         'contributing_area_sqft': sf(geometry), 'on_parcel_area_sqft': sf(region),
         'off_parcel_area_sqft': sf(geometry.difference(parcel)),
         'identified_ia_sqft': sf(identified),
@@ -140,12 +192,16 @@ def _surface_run(case, observation, ai, name, geometry, run, **extra):
         'unresolved_ground_sqft': sf(unknown.intersection(region)),
         'unclassified_area_sqft': sf(region.difference(shape(ai['coverage_geometry']))),
         'area_scenarios': [{'id': key, 'area_sqft': sf(g), 'geometry': mapping(_area_only(g)),
+            'ia_within_footprint_sqft': sf(g.intersection(footprint)),
+            'area_outside_footprint_sqft': sf(g.difference(footprint)),
             'basis': basis, 'assumptions': assumptions,
-            'scope': 'On-parcel candidate hard surface routed toward receiver, not established managed area'}
+            'scope': ('On-parcel candidate hard surface routed toward receiver, not established managed area; '
+                      'ia_within_footprint_sqft is the system bed, not managed contributing area')}
             for key, g, basis, assumptions in scenarios],
         'all_unknown_impervious_ceiling_sqft': sf(identified.union(unknown.intersection(region))),
         'captured_area_sqft': None, 'adequately_treated_area_sqft': None,
         'diagnostics': _diagnostics(case, run, geometry), **extra}
+    return _with_route_state(row)
 
 
 def _terminal_hypotheses(case, research, footprint):
@@ -213,28 +269,37 @@ def _conservative_terminal_hypothesis(case, gis, footprint):
             'connection_scope': 'Union of named hypothetical connections; any subset, including none, may actually connect'}
 
 
-def _surface_storage(case, research, footprint, underground=False):
-    limits = ['Surface depression volume only; excludes media, infiltration, pipes and hidden storage',
-        'DEM age/resolution, grading and actual rim/outlet elevations require site verification',
-        'Neither effective treatment capacity nor captured runoff is established']
+FILL_MEANING = ('Regional depression fill (filled-minus-source DEM) inside the footprint. Its depth is set by the '
+    'lowest spill of the whole enclosing depression, which can lie far outside the facility; it is not the '
+    "facility's surface storage")
+STORAGE_POINTER = ('Surface storage: drainage_core.runoff_capacity.estimate_capacity '
+    '(local perimeter-line spill scenarios and range)')
+
+
+def _regional_fill(case, research, footprint, underground=False):
+    """Regional fill diagnostic (H13); never storage, never priced."""
+    base = {'is_storage': False, 'meaning': FILL_MEANING, 'storage_result': STORAGE_POINTER,
+        'limitations': ['Diagnostic only; excludes media, infiltration, pipes and hidden storage',
+            'DEM age/resolution, grading and actual rim/outlet elevations require site verification',
+            'Neither effective treatment capacity nor captured runoff is established']}
     if underground:
-        return {'status': 'unavailable', 'volume_cuft': None,
-            'reason': 'Surface DEM cannot measure underground storage', 'limitations': limits}
+        return {**base, 'status': 'unavailable', 'fill_volume_cuft': None,
+            'reason': 'Surface DEM cannot measure underground storage'}
     run = research.get('primary') or {}; grid = run.get('grid', {})
     depth = _grid_array(case, run, 'fill_depth')
     if depth is None:
-        return {'status': 'unavailable', 'volume_cuft': None,
-            'reason': 'Frozen pre-infrastructure depression-fill raster is unavailable', 'limitations': limits}
+        return {**base, 'status': 'unavailable', 'fill_volume_cuft': None,
+            'reason': 'Frozen pre-infrastructure depression-fill raster is unavailable'}
     # This raster is filled DEM minus source DEM, before any paper burn offsets.
     terrain = case.get('terrain') or {}
     source_hash = run.get('input_dem_sha256')
     if not source_hash or source_hash != digest(terrain.get('elevations')):
-        return {'status': 'unavailable', 'volume_cuft': None,
-            'reason': 'Pre-burn fill raster cannot be bound to the saved source elevation grid', 'limitations': limits}
+        return {**base, 'status': 'unavailable', 'fill_volume_cuft': None,
+            'reason': 'Pre-burn fill raster cannot be bound to the saved source elevation grid'}
     factor = METRES.get(grid.get('vertical_unit'))
     if factor is None or any(grid.get(k) != terrain.get(k) for k in ('origin', 'cell_size', 'crs')):
-        return {'status': 'unavailable', 'volume_cuft': None,
-            'reason': 'Pre-burn fill grid units/alignment are not established', 'limitations': limits}
+        return {**base, 'status': 'unavailable', 'fill_volume_cuft': None,
+            'reason': 'Pre-burn fill grid units/alignment are not established'}
     if depth.shape != np.asarray(terrain['elevations'], dtype=float).shape or (depth[np.isfinite(depth)] < -1e-9).any():
         raise ValueError('Invalid frozen pre-burn fill-depth grid')
     region = _area_only(footprint.intersection(shape(case['parcel'])))
@@ -252,12 +317,12 @@ def _surface_storage(case, research, footprint, underground=False):
             else:
                 missing_parts.append(part)
     covered = union(valid_parts); missing = _area_only(region.difference(covered))
-    return {'status': 'partial' if not missing.is_empty else 'modeled', 'volume_cuft': volume,
+    return {**base, 'status': 'partial_diagnostic' if not missing.is_empty else 'diagnostic_only',
+        'fill_volume_cuft': volume,
         'covered_footprint_sqft': case_area_sqft(covered, case),
         'uncovered_or_nodata_footprint_sqft': case_area_sqft(missing, case),
         'basis': 'Cell depth × polygon-intersection area from saved filled-minus-source DEM, before burn offsets',
-        'input_dem_sha256': source_hash, 'fill_depth_sha256': digest(run['rasters']['fill_depth']),
-        'limitations': limits}
+        'input_dem_sha256': source_hash, 'fill_depth_sha256': digest(run['rasters']['fill_depth'])}
 
 
 def estimate_system(case, frozen_gis, system_id):
@@ -286,16 +351,17 @@ def estimate_system(case, frozen_gis, system_id):
             'Locally checked surface classes and current installation/condition'],
         'ai_exclusions': deepcopy(ai['excluded']), 'installation_issues': issues}
     if issues:
-        result.update(status='excluded', surface_storage_diagnostic={'status': 'excluded', 'volume_cuft': None})
+        result.update(status='excluded', regional_depression_fill_diagnostic={'status': 'excluded',
+            'fill_volume_cuft': None, 'is_storage': False, 'meaning': FILL_MEANING, 'storage_result': STORAGE_POINTER})
         return result
     for name, geometry, run in _runs(frozen_gis, research, system_id):
-        result['runs'].append(_surface_run(case, observation, ai, name, geometry, run,
+        result['runs'].append(_surface_run(case, observation, ai, name, geometry, run, footprint,
             kind='saved_surface_route', route_basis='Frozen modeled receiver catchment'))
     if underground and not result['runs']:
         for name, geometry, run, evidence in _terminal_hypotheses(case, research, footprint):
-            result['runs'].append(_surface_run(case, observation, ai, name, geometry, run, **evidence))
+            result['runs'].append(_surface_run(case, observation, ai, name, geometry, run, footprint, **evidence))
         for name, geometry, run, evidence in _conservative_terminal_hypothesis(case, frozen_gis, footprint):
-            result['runs'].append(_surface_run(case, observation, ai, name, geometry, run, **evidence))
+            result['runs'].append(_surface_run(case, observation, ai, name, geometry, run, footprint, **evidence))
     for run in result['runs']:
         on = shape(run['on_parcel_geometry'])
         run['within_system_footprint_sqft'] = case_area_sqft(on.intersection(footprint), case)
@@ -303,7 +369,8 @@ def estimate_system(case, frozen_gis, system_id):
     result['status'] = ('connection_hypothesis' if underground else 'modeled') if result['runs'] else 'connection_unknown'
     if not result['runs']:
         result['missing_evidence'].append('No saved upstream catchment is connected to this footprint; footprint is not served area')
-    result['surface_storage_diagnostic'] = _surface_storage(case, research, footprint, underground)
+    result['regional_depression_fill_diagnostic'] = _regional_fill(case, research, footprint, underground)
+    result['surface_storage_result'] = STORAGE_POINTER
     result['range_basis'] = 'Explicit surface/connection hypotheses and DEM sensitivity; not a confidence interval'
     result['scenario_envelope_sqft'] = {key: {
         'minimum': min((s['area_sqft'] for r in result['runs'] for s in r['area_scenarios'] if s['id'] == key), default=None),
@@ -313,32 +380,46 @@ def estimate_system(case, frozen_gis, system_id):
 
 
 def estimate_canopy(case, frozen_gis):
-    """Bound pavement beneath canopy separately from canopy's visible footprint."""
+    """Bound pavement beneath canopy separately from canopy's visible footprint.
+
+    Low and high only (H18). Modeled classes are mutually exclusive, so modeled
+    canopy never overlaps modeled road appearance. A "road beneath canopy" central
+    case therefore cannot come from class overlap. It is reported only where an
+    *observed* canopy polygon overlaps modeled road appearance
+    (``road_appearance_beneath_observed_canopy_sqft``). The local-context central
+    case is ``drainage_core.surface_estimates.estimate_surfaces``.
+    """
     observation, ai, _, lineage = _frozen(case, frozen_gis)
     parcel = shape(case['parcel'])
-    canopy = _area_only(union([shape(observation['geometries']['canopy']),
-        shape(ai['geometries']['canopy'])]).intersection(parcel))
+    observed_canopy = _area_only(shape(observation['geometries']['canopy']).intersection(parcel))
+    model_canopy = _area_only(shape(ai['geometries']['canopy']).intersection(parcel))
+    canopy = _area_only(union([observed_canopy, model_canopy]))
     roofs = union([shape(f['geometry']) for f in effective_features(case)
         if f.get('properties', {}).get('layer') == 'surface' and f['properties'].get('class') == 'roof']
         + [shape(ai['geometries']['roof'])])
     ground = _area_only(canopy.difference(roofs))
     known = _area_only(ground.intersection(shape(observation['geometries']['physical_ia'])))
     hidden = _area_only(ground.intersection(shape(observation['geometries']['unknown'])))
-    road = _area_only(hidden.intersection(shape(ai['geometries']['road'])))
+    road = _area_only(hidden.intersection(observed_canopy).intersection(shape(ai['geometries']['road'])))
     complete = observation.get('canopy_status') == 'complete' or (
         ai['status'] == 'modeled' and case_area_sqft(
             _area_only(parcel.difference(shape(ai['coverage_geometry']))), case) < .001)
     available = complete or not canopy.is_empty
     scenarios = [('low', known, 'Observed ground IA beneath mapped canopy'),
-        ('base', known.union(road), 'Observed ground IA plus road appearance assumed impervious beneath canopy'),
         ('high', known.union(hidden), 'All unresolved ground beneath canopy assumed impervious')]
     return {'version': VERSION, 'status': 'modeled' if complete else 'partial' if available else 'unavailable',
         'canopy_geometry': mapping(canopy),
         'canopy_area_sqft': case_area_sqft(canopy, case) if available else None,
         'mapped_canopy_extent_sqft': case_area_sqft(canopy, case),
+        'observed_canopy_sqft': case_area_sqft(observed_canopy, case),
+        'model_canopy_sqft': case_area_sqft(model_canopy, case),
         'canopy_coverage_complete': complete,
         'known_ground_ia_beneath_canopy_sqft': case_area_sqft(known, case),
         'unresolved_ground_beneath_canopy_sqft': case_area_sqft(hidden, case),
+        'road_appearance_beneath_observed_canopy_sqft': case_area_sqft(road, case),
+        'base_scenario': None,
+        'base_scenario_reason': ('Modeled classes are mutually exclusive, so modeled canopy never overlaps modeled road; '
+            'use drainage_core.surface_estimates crown-context shares for a central case'),
         'roof_overlap_excluded_sqft': case_area_sqft(canopy.intersection(roofs), case),
         'area_scenarios': [{'id': key, 'area_sqft': case_area_sqft(g, case), 'geometry': mapping(_area_only(g)),
             'basis': basis, 'assumptions': [] if key == 'low' else [basis],
