@@ -140,15 +140,16 @@ class PerAccountMinimumTests(unittest.TestCase):
         # GA 2 units x $1.003 = $2.006 -> $2.01; parcel $16.11 -> halves $8.06 -> minimum each:
         # 2 x ($20.89 + $2.81) = $47.40. A 500 sq ft credit (400 sq ft at 80%) leaves IA 450 ->
         # $7.05, GA 600 -> $2.01, parcel $9.06 -> still $47.40. Savings $0.00 (was -$20.88).
-        from test_management_estimates import fixture as m_fixture, rectangle
+        from test_management_estimates import fixture as m_fixture, rectangle, bind
         from stormwater.management_estimates import estimate_management
         c,g,e=m_fixture()
         c['parcel']=rectangle(1000);g['measurement']['geometries']['physical_ia']=c['parcel']
-        c['features']['features'][0]['geometry']=rectangle(100)
+        c['features']['features'][0]['geometry']=rectangle(100,start=1.524)
+        e['footprint_geometry']=rectangle(100,start=1.524)  # bed outside the 500 sq ft candidate (H16)
         c['baseline'].update(ga_sqft=1000,ia_sqft=1000,undeveloped=False,
                              accounts=[{'allocation':.5,'discount_factor':1},{'allocation':.5,'discount_factor':1}])
         e['runs'][0]['area_scenarios']=[{'id':'base','area_sqft':500,'geometry':rectangle(500),'basis':'x'}]
-        r=estimate_management(c,g,e,'2026-11-16')
+        r=estimate_management(c,g,bind(c,e,g),'2026-11-16')  # lineage bound to the edited case (H9)
         self.assertEqual(r['baseline']['monthly_total'],47.40)
         self.assertEqual(r['current_estimate']['monthly_savings'],0.0)
 

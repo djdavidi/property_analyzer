@@ -8,9 +8,25 @@
 > the footprint, DEM timing versus installation year, and vertical-unit status, and
 > ponding depth is now reported. The "conservative" label below no longer applies.
 > The saved 01073 data is not in this environment, so no new figures are given here.
+>
+> **Pricing changed (Phase 4b, policy interpretation version 3).** A single system's
+> savings are now presented range first (decision D4). The headline is the range across
+> the two perimeter-line storage methods, four named runoff loads (candidate IA and
+> garden rain only; plus remaining on-parcel soft/mixed ground; plus the off-parcel
+> contributing area; plus both) and the labelled candidate-IA interpretations of the
+> nominal run. Storage is budgeted per hydraulic component. Off-parcel runoff now
+> consumes storage (review R6); when the route is partial or the off-parcel area is
+> unknown, the lower end and the reference row are withheld. Runoff supplied,
+> captured, stored and treated and qualifying area are separate fields; only supplied
+> and stored are modeled. The volume-equivalent area is a labelled hypothesis, and
+> every dollar comes from the assessment ledger. Physical `blocked`, `unavailable`
+> and `excluded` results stay distinct. Any rain garden or bioretention system takes
+> this path by type, not by ID. The figures below are historical single rows from the
+> earlier method; none is a headline, bound or conservative value.
 
-**Conservative storage-based estimate: $32.21/month, or $386.52/year.**
-This replaces the previous $5,989.92 full-management scenario as the primary estimate.
+**Historical storage-limited row (earlier method, superseded): $32.21/month, or $386.52/year.**
+It replaced the earlier $5,989.92 full-management scenario. It is one row of a much
+wider range and is no longer presented as the primary estimate.
 Unsupported confidence percentages have been removed from the pilot generator,
 active saved results and current summaries. No numerical confidence is available.
 
@@ -21,7 +37,7 @@ active saved results and current summaries. No numerical confidence is available
 | Direct rainfall on the garden during a 1.5-inch event | 1,230.36 cu ft |
 | Remaining storage for outside runoff | **257.91 cu ft** |
 | Equivalent impervious area managed at 1.5 inches | **2,063.31 sq ft** |
-| Monthly / annual credit estimate | **$32.21 / $386.52** |
+| Monthly / annual credit value of this one row (historical) | $32.21 / $386.52 |
 
 The old 38,542.84 sq ft included 7,227.68 sq ft inside the mapped garden bed. That
 bed is excluded from contributing credit IA, and its direct rainfall uses storage
@@ -63,7 +79,7 @@ qualifying drainage subarea or verified treatment/drawdown finding.
 
 | Terrain interpretation | Surface volume | Nominal-route annual credit value, with soft-ground runoff omitted |
 | --- | ---: | ---: |
-| Lowest perimeter cell: conservative primary | 1,488.28 cu ft | $386.52 |
+| Lowest perimeter cell (earlier single-row method) | 1,488.28 cu ft | $386.52 |
 | Bilinear perimeter interpolation | 4,900.21 cu ft | $4,540.80 |
 | Perimeter shifted inward by half a DEM cell | 1,175.68 cu ft | $0 |
 | Perimeter shifted outward by half a DEM cell | 10,245.49 cu ft | $4,915.20 |
@@ -78,8 +94,9 @@ credit, realized savings or refund is established.
 ## Implementation and evidence
 
 Physical: `drainage_core/runoff_capacity.py`. Policy: `stormwater/runoff_capacity.py`.
-The pilot now uses the capacity result for 01073's primary amount. Other systems
-retain their previous full-management scenarios. No GIS routing, terrain acquisition,
+Since Phase 4b the pilot chooses the capacity path by system type: every surface rain
+garden or bioretention system (62571 included) is priced storage-limited, and other
+systems take the management range with the system bed excluded. No GIS routing, terrain acquisition,
 image inference, personal browser or main report redesign was performed.
 
 Only the requested saved01073calculation was executed:
@@ -90,6 +107,10 @@ Only the requested saved01073calculation was executed:
   --south-61st data/assessments/top10-corrected-2026-11-15/cases/pwd-538963 \
   --output data/assessments/01073-capacity-2026-11-16
 ```
+
+That historical command predates `--as-of`. A rerun (Phase 8) should pass an explicit
+`--as-of YYYY-MM-DD`; without it each case's recorded date is used and named in the
+output (`as_of_source`).
 
 Execution takes **about5s**; compact JSON is about **1.57 MB**. Its source/method
 hashes, scenarios, volume budget and money are in the Git-ignored output directory's

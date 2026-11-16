@@ -7,6 +7,21 @@
 > system bed per scenario, canopy context includes observed canopy and the soft
 > share, and routes carry explicit `route_state` values. The saved pilot data is not
 > in this environment, so no new figures are given here.
+>
+> **Pricing changed (Phase 4b, policy interpretation version 3); the dollar rows below
+> are superseded.** All prices now go through the assessment ledger (decision D7). The
+> headline is the nominal run only; a blocked nominal result is blocked and never
+> replaced by a sensitivity run. Each system's own bed is excluded from candidate IA
+> (review H16), which also affects 62571's earlier full-management row. Surface rain
+> gardens and bioretention take the storage-limited range by system type (62571 and
+> 01073 alike). The single recorded-IA ground fraction is now one labelled family with
+> a spatial-allocation sensitivity (R15), read from one class table shared with the app
+> (D3). Routes follow D2: partial catchments are labelled "partial: true value may be
+> higher"; untestable extent blocks. Impervious-area correction is **not estimated**
+> unless complete measured GA/IA exists; it is no longer shown as $0 (R4). A
+> published-versus-computed baseline gap above $1.00/month (or 1%) blocks prices, and
+> engineering lineage keys are required. The pilot takes `--as-of`; otherwise each
+> case's recorded date is used.
 
 Implemented November 16, 2026. These are our current preliminary estimates from
 saved 2025 imagery classifications, native 1 m terrain, system polygons and public
@@ -19,12 +34,12 @@ unchanged.
 | Property / opportunity | Area estimate | Annual value / estimate | Scenario range |
 | --- | ---: | ---: | ---: |
 | Whitaker: canopy over hard ground |14,496sqft|$1,184.16|$0–$2,284|
-| Whitaker: rain garden62571, full-management scenario |16,519sqft|$2,511.96|$0–$4,927|
-| Whitaker: IA reduction |No reduction identified|$0|Not independently bounded|
+| Whitaker: rain garden62571, full-management scenario (superseded: includes its bed; now storage-limited by type) |16,519sqft|$2,511.96|$0–$4,927|
+| Whitaker: IA reduction |Not estimated|Not estimated (not a $0 finding)|Not independently bounded|
 |3060: canopy|About1sqft|$0|$0 in saved crown scenarios|
-|3060: garden01073, storage-limited estimate|2,063sqft equivalent|**$386.52**|$0–$4,915|
+|3060: garden01073, one storage-limited row (superseded single row, not a headline)|2,063sqft equivalent|$386.52|$0–$4,915|
 |3060: basin01074, full-management scenario|11,241sqft|$1,739.04|$0–$2,415|
-|3060: IA reduction|No reduction identified|$0|Not independently bounded|
+|3060: IA reduction|Not estimated|Not estimated (not a $0 finding)|Not independently bounded|
 
 No statistical confidence percentage is available. Ranges are explicit scenario
 envelopes, not validated prediction intervals; actual results can fall outside them.
@@ -60,9 +75,10 @@ excluded from canopy ground benefits, and observed pervious/impervious ground
 remains distinct. 3060's saved image and classification indicate negligible canopy.
 
 There is no independent whole-property IA measurement sufficient to justify an
-appeal. The best action estimate therefore retains 185,889 sq ft at Whitaker and
-554,025 sq ft at 3060: **$0 reduction currently identified**, rather than a finding
-that actual appeal savings must be zero. The billing-compatible ground model cannot
+appeal. The recorded 185,889 sq ft at Whitaker and 554,025 sq ft at 3060 are retained
+as a prior: an IA correction is **not estimated** (shown as unknown since Phase 4b,
+earlier as "$0 reduction identified"), which is not a finding that actual appeal
+savings are zero. The billing-compatible ground model cannot
 be used to prove its own recorded-IA prior correct or incorrect.
 
 Selected AI-roof research catchments span 33,652–47,882 sq ft for 62571 and about
@@ -112,6 +128,8 @@ The command consumes saved compatible artifacts without routing:
   --south-61st data/assessments/top10-corrected-2026-11-15/cases/pwd-538963 \
   --output data/assessments/management-pilot-2026-11-16
 ```
+
+A rerun should add an explicit `--as-of YYYY-MM-DD` (available since Phase 4b).
 
 Runtime outputs (Git-ignored) are `estimates.json`, `summary.md`, `preservation.json`
 and Whitaker's new frozen case/GIS/run metadata under that output directory. Results

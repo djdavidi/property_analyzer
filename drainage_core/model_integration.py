@@ -9,6 +9,7 @@ from shapely.errors import ShapelyError
 from .geometry import effective_features, union, measure, case_area_sqft, projected_crs, area_only, erode_against
 from .freshness import freshness
 from .research import analyze_research, feature_inputs, digest
+from .class_interpretation import APP_LABELLED_BOUNDS, MEASUREMENT_SCENARIO, classes as interpreted
 
 INTERPRETATION_VERSION='ai-drainage-integration-v2'
 CLASSES=('canopy','grass_shrub','bare_soil','water','roof','road','developed_space')
@@ -69,10 +70,10 @@ def ai_surfaces(case, observation):
     known_pervious=shape(observation['geometries']['pervious'])
     missing=shape(observation['geometries']['unknown'])
     # Visible road/developed/vegetation classes establish neither construction
-    # nor permeability. Roof outline is a modeled IA hypothesis; ground stays
-    # unresolved until a separate physical observation identifies its surface.
-    ia_prediction=geoms['roof']
-    pervious_prediction=union([])
+    # nor permeability. The shared class table (D3) keeps the measurement basis at
+    # roof outlines only; road/soft interpretations are labelled scenarios.
+    ia_prediction=union([geoms[k] for k in interpreted(MEASUREMENT_SCENARIO,'impervious')])
+    pervious_prediction=union([geoms[k] for k in interpreted(MEASUREMENT_SCENARIO,'pervious')])
     disagreement=known_ia.intersection(pervious_prediction).union(known_pervious.intersection(ia_prediction))
     return {'status':'modeled' if sources else 'unavailable','geometries':{k:mapping(g) for k,g in geoms.items()},
         'coverage_geometry':mapping(coverage),'conflict_geometry':mapping(conflict),
@@ -168,7 +169,12 @@ def build(case, observation, conservative, research):
 
 
 def ia_bounds(case, integration, region):
-    """Known-only / AI nominal / unresolved-ground upper, never a confidence interval."""
+    """Known-only / AI nominal / unresolved-ground upper, never a confidence interval.
+
+    ``road_impervious`` is the shared class table's labelled default (D3): nominal
+    plus road appearance on unresolved ground. It is appended after ``upper`` so
+    existing bound order is unchanged.
+    """
     ai=integration['ai'];m=integration['measurement'];region=_area_only(region.intersection(shape(case['parcel'])))
     modeled=_polygon(m['geometries']['physical_ia']);unknown=_polygon(m['geometries']['unknown'])
     # Nominal may depend on AI. Lower retains only observed IA and shrunk AI IA.
@@ -187,4 +193,8 @@ def ia_bounds(case, integration, region):
         # overwrite an established pervious observation.
         allowed=shape(case['parcel']).difference(shape(integration.get('observed_pervious_geometry',EMPTY)))
         upper=upper.union(added.buffer(edge).intersection(allowed))
-    return {'lower':_area_only(lower).intersection(region),'nominal':modeled.intersection(region),'upper':_area_only(upper).intersection(region)}
+    bounds={'lower':_area_only(lower).intersection(region),'nominal':modeled.intersection(region),'upper':_area_only(upper).intersection(region)}
+    for name,scenario in APP_LABELLED_BOUNDS:
+        extra=union([shape(ai['geometries'][k]) for k in interpreted(scenario,'impervious') if k in ai.get('geometries',{})])
+        bounds[name]=_area_only(modeled.union(_area_only(extra.intersection(unknown)))).intersection(region)
+    return bounds

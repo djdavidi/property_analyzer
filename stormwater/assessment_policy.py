@@ -405,9 +405,30 @@ def _existing_allocations(case, gis, baseline):
     return allocations,errors
 
 
-def _economics(case, gis, records, as_of, tariff):
+def _hypothetical_benefits(benefits):
+    """Adapter alternatives (``system_pricing.price_benefit``) as ledger benefits.
+
+    Each keeps its whole possible geometry for overlap checks while crediting its
+    stated area (a weighted fraction may be smaller than the geometry). Saved case
+    benefits are not credited alongside: each priced system is one alternative.
+    """
+    out=[];errors=[]
+    for b in benefits:
+        r=deepcopy(b);r.setdefault('basis','modeled');r.setdefault('existing_overlap_reconciled',True)
+        try:s=screen(r['category'],r['area_sqft'],r.get('evidence'))
+        except (ValueError,KeyError) as exc:errors.append(str(exc));continue
+        if s['status']!='screen_pass':
+            errors.append('Alternative '+str(r.get('id'))+' prerequisites: '+', '.join(s['failed']+s['missing']));continue
+        out.append((r,s))
+    return out,errors
+
+
+def _economics(case, gis, records, as_of, tariff, hypothetical=None):
     """One ledger for every savings figure. Unknown undeveloped status on a parcel
-    under 5,000 sq ft GA yields explicit developed/undeveloped alternatives (D6)."""
+    under 5,000 sq ft GA yields explicit developed/undeveloped alternatives (D6).
+
+    ``hypothetical`` (list of benefits) replaces saved case benefits with adapter
+    alternatives priced by this same ledger (D7); see ``_hypothetical_benefits``."""
     if case.get('assessment',{}).get('baseline_refresh',{}).get('status')=='pending_review':
         blocked=_blocked(['New public billing/credit facts differ from the retained baseline; review required'])
         return {'baseline':None,**{k:deepcopy(blocked) for k in ECONOMIC_KEYS}}
@@ -416,13 +437,13 @@ def _economics(case, gis, records, as_of, tariff):
     t=tariff or default_tariff()
     measured_ga=(gis.get('measurement') or {}).get('ga_sqft')
     if undeveloped_unknown(baseline,baseline.get('ga_sqft'),measured_ga,tariff=t):
-        outputs={name:_economics_once(case,{**baseline,'undeveloped':flag},gis,records,as_of,t) for name,flag in STATUS_ALTERNATIVES}
+        outputs={name:_economics_once(case,{**baseline,'undeveloped':flag},gis,records,as_of,t,hypothetical) for name,flag in STATUS_ALTERNATIVES}
         if any(output.get('baseline') is None for output in outputs.values()):return outputs[STATUS_ALTERNATIVES[0][0]]
         return merge_status_alternatives(outputs,ECONOMIC_KEYS,_blocked)
-    return _economics_once(case,baseline,gis,records,as_of,t)
+    return _economics_once(case,baseline,gis,records,as_of,t,hypothetical)
 
 
-def _economics_once(case, baseline, gis, records, as_of, t):
+def _economics_once(case, baseline, gis, records, as_of, t, hypothetical=None):
     try:
         common,allocation=bill_terms(baseline,t)
         if not RULES['effective_from']<=as_of.isoformat()<=RULES['verified_through']:raise ValueError('Assessment date outside verified rule period')
@@ -440,14 +461,16 @@ def _economics_once(case, baseline, gis, records, as_of, t):
     vetoes=case_vetoes(case)
     residual_rate=factor('npdes_unmanaged_area_factor')
     minimum_credit_ga=factor('credit_minimum_gross_area_sqft')
-    legacy=_legacy_benefits(case,gis)
+    if hypothetical is None:legacy,hypothetical_errors=_legacy_benefits(case,gis),[]
+    else:legacy,hypothetical_errors=_hypothetical_benefits(hypothetical)
     def scenario(documented, use_measure=False, use_benefits=True):
         total_ga,total_ia=ga,ia
         active=[r for r in records if use_benefits and r['status']=='screen_pass' and (not documented or r['basis']=='documented')]
         originals={r['id']:r for r in case.get('assessment',{}).get('records',[])}
         legacy_active=[(b,s) for b,s in legacy if use_benefits and (not documented or b.get('basis')=='documented')]
-        if not use_measure and not active and not legacy_active:return _blocked(['No passing '+('documented' if documented else 'reviewed')+' existing-site or baseline benefits'])
+        if not use_measure and not active and not legacy_active:return _blocked((hypothetical_errors if use_benefits and not documented else [])+['No passing '+('documented' if documented else 'reviewed')+' existing-site or baseline benefits'])
         errors=[];regions=[];ledger=[];new_ga=Decimal(0);new_ia=Decimal(0);new_iar=Decimal(0)
+        if use_benefits and not documented:errors.extend(hypothetical_errors)
         if active or legacy_active:errors.extend(vetoes)
         npdes=any(r['category']=='industrial_npdes' for r in active) or bool(old_npdes)
         if use_measure:
@@ -493,7 +516,10 @@ def _economics_once(case, baseline, gis, records, as_of, t):
                            'factor':float(rate),'open_space_factor':float(open_rate) if open_area else None,
                            'ga_credit_sqft':float(g),'ia_credit_sqft':float(i),'iar_sqft':0})
         for b,s in legacy_active:
-            region=shape(b['geometry']);regions.append((b['id'],region));a=_area_decimal(s['area_sqft']);cat=s['category'];applied=True
+            # An unlocated adapter unit sensitivity has no geometry; it cannot be
+            # reconciled against recorded existing credits.
+            if not b.get('geometry') and (existing or supplied_allocations):errors.append('Unlocated area cannot be reconciled against existing credit allocations')
+            region=shape(b.get('geometry') or {'type':'GeometryCollection','geometries':[]});regions.append((b['id'],region));a=_area_decimal(s['area_sqft']);cat=s['category'];applied=True
             if existing and b.get('existing_overlap_reconciled') is not True:errors.append('Baseline benefit overlap with existing credits is unreconciled')
             if cat=='management':g=i=a*_factors(False,npdes)[0];j=Decimal(0)
             elif cat=='open_space':g,applied=_open_space_credit(a,b['evidence']['curve_number'],npdes);i=j=Decimal(0)
@@ -572,19 +598,30 @@ def research_economics(case, gis, records, as_of, tariff):
     for f in effective_features(case):
         if f.get('properties',{}).get('layer')=='benefit':reserved.append(shape(f['geometry']))
     occupied=union(reserved); scenarios=[]
+    # H16: surface GSI receivers' own beds are never contributing IA.
+    from drainage_core.research import feature_inputs
+    try:beds=union([shape(f['geometry']) for f in feature_inputs(case)[0] if f.get('role')=='gsi'
+                    and shape(f['geometry']).geom_type in ('Polygon','MultiPolygon')])
+    except (ValueError,TypeError,KeyError,ShapelyError):beds=union([])
     # Unknown prerequisites are assumed below; known-false ones are not (R1).
     vetoes=case_vetoes(case)
     assumed={key:True for key in ('physical_area_confirmed','parcel_allocation_confirmed','account_current',
              'routing_confirmed','approved_record_drawings','current_condition_confirmed',
              'maintenance_documented','professional_reviewed')}
     assumed['treatment_depth_inches']=1.5
+    from .system_pricing import catchment_route,combine_routes
     for name,run in [('nominal',research['primary'])]+[(r['name'],r) for r in research.get('sensitivity',[])]:
+        # D2: one per-catchment rule (app and pilot). Partial catchments are priced
+        # in-window and labelled; untestable extent or a failed invariant blocks.
+        route=combine_routes(catchment_route(c,run.get('invariants')) for c in run.get('catchments',[]))
         known=shape(run['known_ia_union_geometry'])
         unknown=shape(run.get('unknown_ground_union_geometry') or {'type':'GeometryCollection','geometries':[]})
         hypotheses=[('known_ground_only',known,False)]
         if not unknown.is_empty:hypotheses.append(('unknown_ground_assumed_impervious',known.union(unknown),True))
         for surface_basis,raw_region,assume_unknown in hypotheses:
             region=raw_region.difference(occupied)
+            bed_area=case_area_sqft(region.intersection(beds),case) if not beds.is_empty else 0.
+            region=region.difference(beds)
             scenario_assumptions=deepcopy(assumed)
             scenario_assumptions['existing_installation']=True
             view=gis
@@ -597,8 +634,8 @@ def research_economics(case, gis, records, as_of, tariff):
                 view={**gis,'measurement':{**gis['measurement'],'geometries':geoms}}
             if vetoes:
                 s=_blocked(vetoes)
-            elif run.get('extent_sufficient') is not True:
-                s=_blocked(['Surrounding watershed extent is unverified'])
+            elif route['blocked_reasons']:
+                s=_blocked(route['blocked_reasons'])
             elif region.is_empty or case_area_sqft(region,case)<.000001:
                 s=_blocked(['No unallocated known impervious area modeled to GSI; unknown surfaces and missing connections are not zero-area evidence'])
             else:
@@ -609,7 +646,9 @@ def research_economics(case, gis, records, as_of, tariff):
                         'basis':'modeled','existing_overlap_reconciled':True,'evidence':scenario_assumptions}}})
                 s=_economics(working,view,records,as_of,tariff)['modeled']
             scenarios.append({**s,'name':name+' / '+surface_basis,'basis':'conditional research scenario',
+                'route_state':route['route_state'],'route_state_reason':route['route_state_reason'],'partial_label':route['partial_label'],
                 'surface_assumption':surface_basis,'modeled_unallocated_area_sqft':case_area_sqft(region,case),
+                'system_bed_ia_excluded_sqft':bed_area,
                 'assumed_prerequisites':scenario_assumptions,
                 'claim':'Counterfactual: only if the modeled existing system meets all management prerequisites and the stated ground assumption holds. No screen pass, approval or treatment capacity is established.'})
     return {'status':'conditional','scenarios':scenarios,

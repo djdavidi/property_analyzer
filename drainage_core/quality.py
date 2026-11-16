@@ -30,10 +30,12 @@ QUALITY_VERSION='physical-quality-v3'
 # and bilinear range, matching-method offsets, per-component storage), structure/DEM-
 # timing/vertical-unit gates, ponding depth, regional fill relabelled as non-storage,
 # bed IA per scenario, explicit route states, observed canopy in surface context.
+# (Phase 4b added class_interpretation to the scope without a bump: the shared class table
+# reproduces the existing measurement basis and system low/base/high areas exactly.)
 PHYSICAL_INTERPRETATION_VERSION=3
 PHYSICAL_SCOPE=('engine','geometry','drainage','research','model_integration','semantic_cover',
                 'remote_sensing','model_worker','freshness','installation','sources','validation','extent',
-                'runoff_capacity','management_estimates','surface_estimates')
+                'runoff_capacity','management_estimates','surface_estimates','class_interpretation')
 PROVENANCE_LIBRARIES=('numpy','shapely','rasterio','pyproj')
 # A real engine artifact carries one of these. One without an interpretation version
 # predates explicit versions (byte fingerprints or none at all): "unknown/legacy".

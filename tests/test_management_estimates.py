@@ -5,14 +5,25 @@ from unittest.mock import patch
 
 from shapely.geometry import box, mapping
 
+from drainage_core.engine import input_hash
 from stormwater.management_estimates import estimate_management
 
 
 DAY = '2026-11-16'
+# The mapped system bed sits at the east end of the invented parcel, away from the
+# candidate rectangles (which start at x=0), so bed exclusion (H16) is explicit.
+FOOTPRINT_START = 30.48 - 1.524
 
 
 def rectangle(area, start=0):
     return mapping(box(start, 0, start + area / 100 * .3048, 30.48))
+
+
+def bind(case, engineering, gis=None):
+    """Bind engineering lineage to the case as the physical layer would (H9)."""
+    engineering['source_lineage'] = {**engineering.get('source_lineage', {}), 'case_sha256': input_hash(case),
+                                     'gis_analysis_sha256': (gis or {}).get('analysis_sha256')}
+    return engineering
 
 
 def fixture():
@@ -20,8 +31,9 @@ def fixture():
     case = {
         'crs': 'EPSG:26918', 'parcel': parcel,
         'features': {'features': [{'type': 'Feature', 'id': 'public-footprint',
-                                  'geometry': rectangle(500),
-                                  'properties': {'gsi_system_id': '62571', 'year_installed': 2018}}]},
+                                  'geometry': rectangle(500, FOOTPRINT_START),
+                                  'properties': {'gsi_system_id': '62571', 'year_installed': 2018,
+                                                 'kind': 'system_footprint', 'gsi_system_type': 'Rain Garden'}}]},
         'baseline': {'ga_sqft': 10000, 'ia_sqft': 10000, 'bill_date': DAY,
                      'existing_ga_credit_sqft': 0, 'existing_ia_credit_sqft': 0,
                      'existing_iar_sqft': 0, 'npdes_fraction': 0,
@@ -34,21 +46,27 @@ def fixture():
            'drainage': {'extent_sufficient': False}}
     engineering = {
         'system_id': '62571', 'system_type': 'Rain Garden', 'footprint_area_sqft': 500,
+        'footprint_geometry': rectangle(500, FOOTPRINT_START),
         'status': 'modeled', 'runs': [{
-            'name': 'native', 'contributing_area_sqft': 4000, 'on_parcel_area_sqft': 3000,
+            'name': 'nominal', 'contributing_area_sqft': 4000, 'on_parcel_area_sqft': 3000,
             'off_parcel_area_sqft': 1000, 'identified_ia_sqft': 500,
+            'route_state': 'complete_in_window', 'route_state_reason': 'Invented interior catchment',
+            'partial_label': None,
             'area_scenarios': [{'id': name, 'area_sqft': area, 'geometry': rectangle(area),
                                 'basis': 'Invented unit-test cover assumption',
                                 'assumptions': ['Invented routing; not site evidence']}
                                for name, area in [('low', 500), ('base', 1000), ('high', 2000)]],
             'diagnostics': {'extent_sufficient': False},
-        }], 'source_lineage': {'input_sha256': 'invented-not-an-empirical-source'},
+        }], 'source_lineage': {'note': 'invented-not-an-empirical-source'},
         'missing_evidence': ['Capacity', 'Bypass'],
     }
-    return case, gis, engineering
+    return case, gis, bind(case, engineering)
 
 
-def run(case, gis, engineering, **kwargs):
+def run(case, gis, engineering, rebind=True, **kwargs):
+    """Tests edit the case after ``fixture()``; rebind lineage unless testing it."""
+    if rebind:
+        bind(case, engineering, gis)
     return estimate_management(case, gis, engineering, DAY, **kwargs)
 
 
@@ -82,7 +100,7 @@ class ManagementEstimateTests(unittest.TestCase):
     def test_estimate_lineage_cannot_be_applied_to_a_different_property(self):
         c, g, e = fixture()
         e['source_lineage']['case_sha256'] = '0'*64
-        result = run(c, g, e)
+        result = run(c, g, e, rebind=False)
         self.assertEqual(result['status'], 'blocked')
         self.assertIsNone(base(result)['annual_savings'])
         self.assertIn('Engineering estimate belongs to different case inputs', result['reasons'])
@@ -90,7 +108,7 @@ class ManagementEstimateTests(unittest.TestCase):
     def test_estimate_must_match_exact_frozen_artifact(self):
         c, g, e = fixture()
         e['source_lineage']['gis_analysis_sha256'] = '0'*64
-        result = run(c, g, e)
+        result = run(c, g, e, rebind=False)
         self.assertEqual(result['status'], 'blocked')
         self.assertIsNone(base(result)['annual_savings'])
 
@@ -199,7 +217,7 @@ class ManagementEstimateTests(unittest.TestCase):
         self.assertEqual(result['runs'][0]['scenarios'][0]['status'], 'calculated')
         self.assertEqual(base(result)['status'], 'blocked')
         self.assertIsNone(base(result)['annual_savings'])
-        self.assertIn('billed physical IA', ' '.join(base(result)['reasons']))
+        self.assertIn('Allocations exceed available physical impervious area', base(result)['reasons'])
 
     def test_geometry_cannot_credit_off_parcel_or_false_scalar(self):
         for scenario in [{'geometry': rectangle(1000, start=-1)}, {'area_sqft': 1001.1}]:
@@ -223,7 +241,7 @@ class ManagementEstimateTests(unittest.TestCase):
         e['runs'][0]['area_scenarios'][1]['geometry'] = rectangle(1000, start=3.048)
         result = base(run(c, g, e))
         self.assertEqual(result['status'], 'blocked')
-        self.assertIn('Candidate and existing allocations exceed available billed physical IA', result['reasons'])
+        self.assertIn('Allocations exceed available physical impervious area', result['reasons'])
 
     def test_existing_overlap_blocks_and_disjoint_allocation_keeps_prior_credits(self):
         c, g, e = fixture()
@@ -379,9 +397,151 @@ class ManagementEstimateTests(unittest.TestCase):
 
     def test_rule_and_tariff_effective_periods_remain_enforced(self):
         c, g, e = fixture()
-        result = estimate_management(c, g, e, '2028-01-01')
+        result = estimate_management(c, g, bind(c, e), '2028-01-01')
         self.assertEqual(base(result)['status'], 'blocked')
         self.assertIn('Assessment date outside verified rule period', base(result)['reasons'])
+
+
+class ReviewHPolicyRegressionTests(unittest.TestCase):
+    """Repros new-policy/r1_mgmt.py, r3_pilot.py (R9), r4, r7 and r8 as unit tests."""
+
+    def test_nominal_headline_blocked_is_not_replaced_by_a_sensitivity_run_h2(self):
+        # Nominal base overlaps the prior award; the sensitivity run is disjoint. With
+        # 800 sq ft prior credits the sensitivity base would save 193.20/yr (billed GA
+        # 9200 -> 8400: 19.06 -> 17.05; IA 133.91 -> 119.82; 16.10/month); it never headlines.
+        c, g, e = fixture(); add_existing(c, g)
+        nominal = deepcopy(e['runs'][0]); sensitivity = deepcopy(e['runs'][0]); sensitivity['name'] = 'sensitivity_dem_plus'
+        for s in sensitivity['area_scenarios']:
+            s['geometry'] = rectangle(s['area_sqft'], start=3.048)
+        for s in nominal['area_scenarios']:
+            if s['id'] != 'base':
+                s['geometry'] = rectangle(s['area_sqft'], start=3.048)
+        e['runs'] = [nominal, sensitivity]
+        result = run(c, g, e)
+        self.assertEqual(result['status'], 'blocked')
+        self.assertIsNone(result['current_estimate'])
+        self.assertIsNone(result['range'])
+        self.assertTrue(any('Overlapping physical allocations' in r for r in result['reasons']))
+        self.assertEqual(result['runs'][1]['scenarios'][1]['annual_savings'], 193.20)
+
+    def test_nominal_is_the_headline_whatever_the_run_order_h2(self):
+        # Nominal base 500 sq ft -> 400 credit -> billed 9600 -> still 20 units -> 0.00.
+        c, g, e = fixture()
+        other = deepcopy(e['runs'][0]); other['name'] = 'high_terrain'
+        nominal = deepcopy(e['runs'][0]); nominal['area_scenarios'][1].update(area_sqft=500, geometry=rectangle(500))
+        e['runs'] = [other, nominal]
+        result = run(c, g, e)
+        self.assertEqual(result['current_estimate']['run'], 'nominal')
+        self.assertEqual(result['current_estimate']['annual_savings'], 0)
+        self.assertEqual(result['headline']['annual_savings_range'], [0.0, 289.80])
+
+    def test_records_linked_by_the_app_resolver_block_h1(self):
+        records = [
+            {'id': 'r1', 'category': 'management', 'decision': 'rejected', 'gsi_id': '62571', 'facts': {}},
+            {'id': 'public-abc', 'category': 'management', 'decision': 'rejected', 'facts': {},
+             'source': {'url': 'u', 'record_id': '991'}, 'raw_record': {'gsi_system_id': '62571'}},
+            {'id': 'public-abc', 'category': 'management', 'decision': 'candidate',
+             'facts': {'routing_confirmed': False, 'treatment_depth_inches': 0.5},
+             'source': {'url': 'u', 'record_id': '991'}, 'raw_record': {'gsi_system_id': '62571'}},
+            {'id': 'r3', 'category': 'management', 'decision': 'candidate',
+             'facts': {'gsi_id': '62571', 'treatment_depth_inches': 0.5}}]
+        for record in records:
+            with self.subTest(record=record['id'], decision=record['decision']):
+                c, g, e = fixture(); c['assessment']['records'] = [record]
+                result = run(c, g, e)
+                self.assertEqual(result['eligibility']['status'], 'requirements_failed')
+                self.assertEqual(base(result)['status'], 'blocked')
+                self.assertEqual(result['status'], 'blocked')
+
+    def test_conflicting_identifiers_including_this_system_need_review(self):
+        c, g, e = fixture()
+        c['assessment']['records'] = [{'id': 'x', 'gsi_id': '62571', 'raw_record': {'gsi_system_id': '99999'}, 'facts': {}}]
+        result = run(c, g, e)
+        self.assertEqual(base(result)['status'], 'blocked')
+        self.assertTrue(any('conflicting system identifiers' in r for r in result['eligibility']['failed']))
+
+    def test_lineage_keys_are_required_h9(self):
+        c, g, e = fixture()
+        other = deepcopy(c); other['parcel'] = rectangle(12000)
+        other['baseline'].update(ga_sqft=12000, ia_sqft=12000)
+        e['source_lineage'] = {'case_sha256': None, 'gis_analysis_sha256': None}
+        result = estimate_management(other, g, e, DAY)
+        self.assertEqual(result['status'], 'blocked')
+        self.assertIn('Engineering estimate lacks required case_sha256 lineage; it cannot be bound to this case', result['reasons'])
+        e = bind(c, deepcopy(e)); e['source_lineage'].pop('gis_analysis_sha256')
+        self.assertIn('Engineering estimate lacks required gis_analysis_sha256 lineage',
+                      estimate_management(c, g, e, DAY)['reasons'])
+
+    def test_generic_id_never_overrides_a_system_id_field_h10(self):
+        c, g, e = fixture()
+        c['features']['features'].append({'type': 'Feature', 'id': 62571, 'geometry': {'type': 'Point', 'coordinates': [500, 500]},
+            'properties': {'kind': 'project_point', 'gsi_system_id': '99999', 'status': 'In Design'}})
+        result = run(c, g, e)
+        self.assertEqual(result['status'], 'conditional_estimate')
+        self.assertEqual(result['eligibility']['status'], 'unverified')
+        c, g, e = fixture()
+        c['features']['features'].append({'type': 'Feature', 'id': '062571', 'geometry': {'type': 'Point', 'coordinates': [500, 500]},
+            'properties': {'status': 'In Design'}})
+        self.assertEqual(run(c, g, e)['eligibility']['status'], 'requirements_failed')
+
+    def test_physical_exclusion_is_never_priced_h10(self):
+        c, g, e = fixture()
+        e.update(status='excluded', runs=[], installation_issues=['Installation year is after observation date'])
+        result = run(c, g, e)
+        self.assertEqual(result['status'], 'excluded')
+        self.assertEqual(result['sensitivity_examples'], [])
+        self.assertIsNone(result['current_estimate'])
+        self.assertIn('Installation year is after observation date', result['reasons'])
+
+    def test_published_gap_blocks_above_threshold_and_is_always_a_warning_h7(self):
+        # Computed baseline: GA 20 x 1.003 = 20.06, IA 20 x 7.048 = 140.96, billing 2.81 = 163.83.
+        c, g, e = fixture(); c['baseline']['published_monthly_total'] = 10.00
+        result = run(c, g, e)
+        self.assertEqual(result['status'], 'blocked')
+        self.assertEqual(result['baseline_gap']['difference_monthly'], 153.83)
+        self.assertTrue(any('differs from the published charge by $153.83/month' in r for r in result['reasons']))
+        c, g, e = fixture(); c['baseline']['published_monthly_total'] = 163.50
+        result = run(c, g, e)
+        self.assertEqual(base(result)['annual_savings'], 96.60)
+        self.assertEqual(result['baseline_gap']['status'], 'within_threshold')
+        self.assertTrue(any('$0.33/month' in w for w in result['warnings']))
+
+    def test_system_bed_is_excluded_from_every_candidate_h16(self):
+        # 1500 sq ft candidate ending at the parcel edge contains the 500 sq ft bed:
+        # 1000 priced -> 800 credits -> 19 units -> 96.60/yr.
+        c, g, e = fixture()
+        e['runs'][0]['area_scenarios'][1].update(area_sqft=1500, geometry=rectangle(1500, start=30.48 - 4.572))
+        estimate = base(run(c, g, e))
+        self.assertAlmostEqual(estimate['system_bed_ia_excluded_sqft'], 500)
+        self.assertAlmostEqual(estimate['priced_candidate_ia_sqft'], 1000)
+        self.assertEqual(estimate['annual_savings'], 96.60)
+        c, g, e = fixture(); e.pop('footprint_geometry'); c['features']['features'] = []
+        self.assertTrue(any('bed IA cannot be excluded' in r for r in base(run(c, g, e))['reasons']))
+        e['runs'][0]['area_scenarios'][1]['ia_within_footprint_sqft'] = 0
+        self.assertEqual(base(run(c, g, e))['annual_savings'], 96.60)
+
+    def test_route_state_rule_d2(self):
+        c, g, e = fixture(); e['runs'][0].update(route_state='partial_upstream_unknown', route_state_reason='Touches window edge')
+        result = run(c, g, e)
+        self.assertEqual(result['status'], 'conditional_estimate')
+        self.assertEqual(result['partial_label'], 'partial: true value may be higher')
+        self.assertEqual(base(result)['partial_label'], 'partial: true value may be higher')
+        for state in ('missing_terrain', 'invariant_failed', None):
+            with self.subTest(state=state):
+                c, g, e = fixture(); e['runs'][0]['route_state'] = state
+                result = run(c, g, e)
+                self.assertEqual(result['status'], 'blocked')
+                self.assertIsNone(base(result)['annual_savings'])
+
+    def test_one_money_path_and_undeveloped_alternatives_d6_d7(self):
+        c, g, e = fixture()
+        with patch('stormwater.billing.calculate_scenarios', side_effect=AssertionError('one money path (D7)')):
+            self.assertEqual(base(run(c, g, e))['annual_savings'], 96.60)
+        c, g, e = fixture(); c['baseline'].update(ga_sqft=4000, ia_sqft=4000)
+        estimate = base(run(c, g, e))
+        self.assertEqual(estimate['status'], 'unverified_alternatives')
+        self.assertIsNone(estimate['annual_savings'])
+        self.assertEqual(set(estimate['alternatives']), {'developed', 'undeveloped'})
 
 
 if __name__ == '__main__':
