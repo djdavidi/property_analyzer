@@ -4,6 +4,43 @@ Newest entries first. Current truth belongs in STATE; the active bounded task be
 in TASK. These records preserve changes, decisions, evidence, unresolved issues and
 handoffs. Do not rewrite past results to match later runs.
 
+## 2026-11-16 — Final-review fix batch B1 merged (finding and policy)
+
+Head `c03baf3`. Full suite after merge: Ran 881, OK (skipped=1). Node harnesses pass
+and the link check is clean. `POLICY_INTERPRETATION_VERSION` 4→5.
+
+**Changes.**
+- **Permits.** Each permit gets a program class: PAC/PAD/PAI/PAG-02 = construction,
+  not applicable; PAR/PAG-03/PAS = industrial candidate. A permit must match the
+  site by address or point, and there is one industrial what-if per property.
+  Live: 16 of the 18 priced permit rows lose their dollars (Whitaker PAD510200 →
+  not applicable). Only 7575 Brewster's PAG030110 keeps one ($6,737.76/yr).
+- **IA measurement range.** Both ends now use measured GA and calculate on all 11
+  live parcels.
+- **Existing-system leads.** The 56 on-parcel mapped systems become leads with
+  status "request PCSMP" and their project numbers (`systems_without_recorded_credit`).
+- **Bounds.**
+  - `nominal` is renamed `observed_ia_only`.
+  - A new `developed_on_2018_paved` bound is offered only when stable-footprint
+    agreement is ≥85% and parcel agreement ≥50%.
+- **Route state.** On-parcel catchments only.
+- **Canopy.** Capped at recorded IA minus identified IA (Cherokee $26,979.60 →
+  $10,994.88).
+- **Image green roofs.** RGB greenness is an image candidate, and combined rows
+  unblock.
+- **Storage check.** App catchment rows carry `storage_check` (62571: 2.4–2.9 cu ft
+  terrain-visible storage against 3,681 cu ft required).
+- **Minimum charge.** The literal reading: PWD's published totals follow it on 7 of
+  7 distinguishing parcels. 0%-allocation accounts are billed $0.
+- **Rounding.** PWD's float rounding, half-even per step. 2,325 of 2,325 computable
+  snapshot parcels now match to the cent (previously 2,056).
+- **Owner screen.** Fairmount Park Comm, PIDC ("AUTHORTY"), the airport and the
+  port owner names are now government, plus 94 more snapshot parcels.
+
+**Limits.**
+- The saved 3107 case predates the new permit discovery and needs rediscovery.
+- No live case has an attached 2018 reference yet.
+
 ## 2026-11-16 — Final-review fix batch A merged; PWD reference snapshot added
 
 **Batch A** (commit `9afe316`). Full suite after merge: Ran 847, OK (skipped=1). The
