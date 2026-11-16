@@ -365,6 +365,42 @@ class CanopyCapTests(unittest.TestCase):
         self.assertIn("Recorded IA leaves no room", hidden["reasons"][0])
 
 
+class ImageGreenRoofCandidateTests(unittest.TestCase):
+    def test_saved_image_candidate_is_labelled_and_never_blocks_combined_rows(self):
+        # Live (8000 Cherokee, 1001-99 N Delaware): combined rows were blocked by
+        # "Overlapping physical allocations: image-roof-vegetation-...". Saved records
+        # still carry basis public_candidate; the policy reads them as image candidates.
+        from test_modeled_assessment_unit import record
+
+        c = fixture()
+        public = record("public-roof", "green_roof")
+        image = record(
+            "image-roof-vegetation-abc",
+            "green_roof",
+            facts={"existing_installation": None, "image_vegetation_candidate": True},
+        )
+        c["assessment"]["records"] = [public, image]
+        out = assess(c)
+        combined = out["modeled_integration"]["combined"]
+        self.assertTrue(combined)
+        for row in combined:
+            self.assertFalse(
+                any("Overlapping physical allocations" in r for r in row.get("reasons", []))
+            )
+            self.assertIn(
+                "image-roof-vegetation-abc", [x["record_id"] for x in row["excluded_records"]]
+            )
+        roofs = next(cat for cat in out["categories"] if cat["category"] == "green_roof")
+        bases = {r["id"]: r["basis"] for r in roofs["records"]}
+        self.assertEqual(bases["image-roof-vegetation-abc"], "image_candidate")
+        self.assertEqual(bases["public-roof"], "public_candidate")
+        info = next(
+            i for i in out["modeled_integration"]["records"]
+            if i["record_id"] == "image-roof-vegetation-abc"
+        )
+        self.assertEqual(info["record_basis"], "image_candidate")
+
+
 class ResearchRouteScopeTests(unittest.TestCase):
     def test_off_parcel_catchment_edge_contact_does_not_mark_on_parcel_figure_partial(self):
         from datetime import date

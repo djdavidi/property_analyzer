@@ -189,6 +189,7 @@ def _validate_assessment_inputs(assessment):
                     raise ValueError("Invalid candidate decision")
                 if record.get("basis", "manual") not in (
                     "public_candidate",
+                    "image_candidate",
                     "manual",
                     "documented",
                     "modeled",
@@ -572,7 +573,9 @@ def screen_record(record, case, gis, as_of):
     output["rule_applicability"] = "applicable" if applicable else "outside_verified_period"
     if not applicable:
         missing.append("applicable_rule_version")
-    output["basis"] = record.get("basis", "manual")
+    # Fix 7: RGB greenness on a roof is an image candidate even in saved records that
+    # were labelled public candidates before the fix.
+    output["basis"] = "image_candidate" if is_image_candidate(record) else record.get("basis", "manual")
     output["status"] = (
         "rejected"
         if decision == "rejected"
@@ -592,6 +595,13 @@ def screen_record(record, case, gis, as_of):
         else "No supported eligibility conclusion"
     )
     return output
+
+
+def is_image_candidate(record):
+    """Fix 7: an image heuristic (RGB greenness on a mapped roof), not a public record."""
+    return record.get("basis") == "image_candidate" or (
+        (record.get("facts") or {}).get("image_vegetation_candidate") is True
+    )
 
 
 def _blocked(reasons):

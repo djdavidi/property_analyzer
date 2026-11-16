@@ -661,7 +661,7 @@ def _bound_assumptions(bound):
 
 
 def integrate(case, gis, screened, as_of, tariff):
-    from .assessment_policy import _blocked, _area_decimal, RULES
+    from .assessment_policy import _blocked, _area_decimal, RULES, is_image_candidate
     from .system_pricing import catchment_route, combine_routes
     from .billing import default_tariff
 
@@ -728,6 +728,12 @@ def integrate(case, gis, screened, as_of, tariff):
                 else None
             ),
         }
+        if is_image_candidate(record):
+            info["record_basis"] = "image_candidate"
+            info["record_claim"] = (
+                "RGB greenness on a mapped roof: an image candidate, not a public record or a "
+                "confirmed green roof; never combined with other records"
+            )
         if category == "industrial_npdes":
             info.update(
                 status="not_applicable",
@@ -857,7 +863,18 @@ def integrate(case, gis, screened, as_of, tariff):
             info["runs"].append(output)
         items.append(info)
     combined = []
+    image_ids = {
+        r["id"]
+        for r in case.get("assessment", {}).get("records", [])
+        if is_image_candidate(r)
+    }
     for (run, bound), recipes in recipes_by_key.items():
+        # Fix 7: an image candidate keeps its own labelled row but never enters (or
+        # blocks) a combined row; it is not a public or reviewed record.
+        image = [r for r in recipes if r["id"] in image_ids]
+        recipes = [r for r in recipes if r["id"] not in image_ids]
+        if not recipes:
+            continue
         usable = [
             r for r in recipes if not r["failed"] and case_area_sqft(r["region"], case) > 0.000001
         ]
@@ -868,6 +885,14 @@ def integrate(case, gis, screened, as_of, tariff):
             }
             for r in recipes
             if r not in usable
+        ] + [
+            {
+                "record_id": r["id"],
+                "reasons": [
+                    "Image candidate (RGB greenness on a roof); listed separately, never combined"
+                ],
+            }
+            for r in image
         ]
         routes = [r["route"] for r in usable if r.get("route")]
         combined.append(
