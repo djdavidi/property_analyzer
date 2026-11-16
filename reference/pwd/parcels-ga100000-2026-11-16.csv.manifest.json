@@ -12,7 +12,7 @@
   "priced": 2590,
   "unavailable": 0,
   "csv": "parcels-ga100000-2026-11-16.csv",
-  "csv_sha256": "bbca92d6ad5d34aaf5dc735857399bb7a8792ee9514b8735f4b8484d5aae98c6",
+  "csv_sha256": "788f5c5c4b7fb66466423f72a5ff0b109c13ebe97460e59de8ba36131022a374",
   "caveats": [
     "Charges are PWD's public calculation for the current rate period, not invoices.",
     "Owner screen is a name-based heuristic; beneficial ownership is unverified.",

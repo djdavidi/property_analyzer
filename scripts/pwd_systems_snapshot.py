@@ -169,7 +169,9 @@ def main(argv: list[str] | None = None) -> int:
             ),
             systems_but_no_recorded_credit=(
                 "yes"
-                if (regulation + retrofit) and not credited and row.get("annual_charge")
+                if (regulation + retrofit)
+                and not credited
+                and float(row.get("annual_charge") or 0) > 0
                 else ""
             ),
         )
@@ -190,8 +192,13 @@ def main(argv: list[str] | None = None) -> int:
         )
         manifest["csv_sha256"] = hashlib.sha256(args.parcel_csv.read_bytes()).hexdigest()
         manifest["systems_csv_sha256"] = hashlib.sha256(systems_csv.read_bytes()).hexdigest()
-        manifest["caveats"].append(
-            "A mapped system footprint is not proof of drainage area, condition, approval or credit eligibility."
+        manifest["caveats"] = list(
+            dict.fromkeys(
+                manifest["caveats"]
+                + [
+                    "A mapped system footprint is not proof of drainage area, condition, approval or credit eligibility."
+                ]
+            )
         )
         manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
     print(f"wrote {systems_csv} and updated {args.parcel_csv}", file=sys.stderr)
