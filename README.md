@@ -21,6 +21,12 @@ records twelve successful local recomputations and a full per-site/category repo
 Original cases were preserved. Conditional scenarios are separate; supported net
 savings and appeal amounts remain unknown for all ten sites.
 
+**Second review (2026-11-16):** the [follow-up adversarial review](docs/ADVERSARIAL-REVIEW-2026-11-16.md)
+found the documented full suite failing, several reproduced billing and
+routing defects, and gates that block all automatic catchment finance. It was
+re-verified on this main commit: 567 tests ran, with the same single failure. Treat
+the Whitaker full-flow dollar figures as superseded.
+
 ## Coding sessions: start here
 
 Open this repository in your coding agent and say **“Continue from the repository

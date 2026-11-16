@@ -1,5 +1,50 @@
 # Current state
 
+## Second adversarial review — report complete (2026-11-16)
+
+[Findings](ADVERSARIAL-REVIEW-2026-11-16.md), with
+[repro scripts](review-2026-11-16-repros/). Review only; no application change.
+
+**The documented full suite is red:** on `a11f4db`, 567 ran, 1 failure, 1 skip
+(452 on `b6b00da`). HEAD's refresh
+change restages reviewed records as "public source changed" and blocks their
+finance. The "340 passed" figure below came from a 22-module subset that excluded
+all HTTP/CLI/integration modules.
+
+**In current code, automatic assessments cannot produce catchment or appeal dollar
+alternatives:**
+- `extent_sufficient` is never computed.
+- Only AI roofs count as modeled IA.
+- Any source-file edit quarantines all saved results, including the recorded
+  baseline bill, and nothing in the app can recompute them.
+
+**Reproduced money defects:**
+- NPDES residual base.
+- Multi-account minimum: a credit can raise the bill.
+- CN float ceiling.
+- Brush CN row.
+- SMP drainage areas that include lawn.
+- Conflicting legacy/assessment savings engines.
+
+**Reproduced GIS crashes and leaks:**
+- Touching neighbour roof.
+- Wall/roof/inlet overlaps.
+- Diagonal berms.
+- An inlet inside a GSI.
+
+**Main's new pilot/capacity code (section H of the review):**
+- Recorded failures are missed because of mismatched ID fields.
+- Sensitivity runs can become headlines.
+- Headline storage changes with a 1e-6 m footprint shift.
+- The DEM is never dated against installation.
+- The garden's own bed is counted as candidate IA.
+
+A [fix plan](FIX-PLAN-2026-11-16.md) with decisions D1–D12 awaits the user.
+
+**Other limits:**
+- [Whitaker results](WHITAKER-LIVE-RESULTS-2026-11-15.md) still show pre-fix
+  dollars and should be read as superseded.
+- PWD rule interpretations await primary-source access.
 ## Source publication authorized (2026-11-16)
 
 User requested commit and push of the completed pending work to the existing

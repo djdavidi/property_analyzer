@@ -4,6 +4,137 @@ Newest entries first. Current truth belongs in STATE; the active bounded task be
 in TASK. These records preserve changes, decisions, evidence, unresolved issues and
 handoffs. Do not rewrite past results to match later runs.
 
+## 2026-11-16 — Second adversarial review (review only)
+
+User requested an adversarial review of the code, analysis mechanisms and
+measurements. Five independent subsystem reviews plus a cross-cutting pass:
+[findings](ADVERSARIAL-REVIEW-2026-11-16.md), [repro scripts](review-2026-11-16-repros/).
+No application code, frozen data, rules or sources changed. Added the review, the
+repro scripts and TASK/STATE/README pointers. Nothing committed.
+
+Key results:
+- The 2026-11-15 fixes left automatic catchment/appeal finance effectively
+  unreachable:
+  - `extent_sufficient` is never computed.
+  - Only AI roofs count as modeled IA.
+  - Any code edit quarantines all saved results, and no recompute action exists.
+- HEAD introduced a refresh regression: reviewed records are restaged as changed on
+  every run. This is the one full-suite failure.
+- Money defects reproduced:
+  - NPDES leftover-credit base.
+  - Multi-account minimum: a credit can double the bill.
+  - Float ceiling on the CN factor.
+  - Brush CN row copied from woods-grass.
+  - Lawn in SMP drainage areas fails the credit.
+  - Two savings engines disagree.
+- GIS crashes or aborts on touching neighbour roofs and on wall/roof/inlet overlaps.
+- Diagonal berm/wall leaks; an inlet inside a GSI erases its catchment.
+- Pagination skips records; cached error bodies are served as data.
+- The government-owner screen misclassifies in both directions.
+
+Commands and results:
+- `.venv/bin/python -m unittest discover -s tests` → Ran 452, FAILED (failures=1,
+  skipped=1). The failure is `test_assessment_http.py:134`; the skip needs
+  gitignored `data/`.
+- Commit c883f7f → Ran 376, OK.
+- Node syntax and the three UI harnesses passed.
+- Single-test rerun reproduced the failure.
+
+The suite contacted the live USDA soil service (blocked by proxy) and created
+`data/public/failures.jsonl`. `data/` did not exist before and was removed. PWD PDFs
+were unreachable (DNS), so rule interpretations remain PLAUSIBLE. No property,
+inference, browser or live-source validation.
+
+Resume answers (repository only):
+1. **What are we building?** A local existing-site stormwater GIS/drainage
+   assessment with a separate Philadelphia PWD credit layer (PRD).
+2. **What is done?** The five additions, the automatic imagery/AI path, the research
+   drainage method, prospects, and the 2026-11-15 fixes.
+3. **Current state?** Review complete; awaiting the user's selection of fixes.
+4. **What is the evidence?** Synthetic unit tests only. The full suite is currently
+   red (1 failure). No independent accuracy, invoices or awards.
+5. **Next?** The fix order in the review: A4 first, then A1/A2, then B1-B6 with
+   known-answer tests. Blocked: PWD primary-source access from this environment.
+
+Follow-up the same day: cross-checked a user-supplied second review written against
+`origin/main` `a11f4db`. Confirmed 13 findings this review missed: account-standing
+override, a rejected receiver re-priced, and main-only pilot/capacity defects
+(hard-coded IA zero, observed canopy dropped, off-parcel load unbudgeted, storage
+pooled, assumed units dropped, volume equivalent priced as managed area). The rest
+duplicate items here or restate prior-review limits. One conflict, the brush CN row
+versus PWD Table A-1, needs the primary PDF. See the review's addendum.
+
+Rebase and re-verification: at the user's request the branch was rebased onto
+`origin/main` `a11f4db`. The first pass had reviewed `b6b00da`, one commit behind.
+Doc conflicts were resolved keeping both sides; main's 01073 TASK is archived below.
+
+On main:
+- `.venv/bin/python -m unittest discover -s tests` → Ran 567, FAILED (failures=1,
+  skipped=1). It is the same A4 failure.
+- Every repro in sections A–E reproduced unchanged.
+- Main's new pilot/capacity modules were reviewed. Section H added 19 findings,
+  including H1 (wrong ID fields miss recorded failures) and H12 (headline storage
+  changes with a 1e-6 m footprint shift).
+- [Fix plan](FIX-PLAN-2026-11-16.md) written with decisions D1–D12. It is awaiting
+  the user's decisions.
+
+The suite again created `data/public/failures.jsonl` from a blocked USDA request;
+it was removed.
+
+### Archived TASK before second adversarial review (verbatim)
+
+#### Current task: estimate 01073 managed runoff and savings
+
+Status: complete, 2026-11-16.
+
+Objective: estimate the runoff rain garden01073 can manage from saved data, then
+calculate savings from that estimated managed area. Withdraw invented confidence
+percentages from active pilot code, outputs and current documentation.
+
+Context: previous38,542.84sqft/$5,989.92 annual result assumed complete management;
+DEM fill-depth67kcuft was only a diagnostic. Need a local surface storage/capture
+estimate, not just pricing an assumed managed area. Existing source snapshots,
+frozen routing and original policy outputs must remain intact.
+
+Constraints: only saved data/local processing; no network, classification inference,
+property/routing rerun, browser, report redesign, paid services, outreach, application,
+commit/push or broader tests. Requested saved-data computation is task execution;
+software verification uses unit tests only. Physical quantities stay in drainage_core;
+PWD treatment-depth interpretation and bill calculations stay in stormwater.
+
+Plan/success criteria:
+- [x] Derive reproducible terrain-based surface storage from source elevations and
+  local overflow/spill geometry; distinguish global depression fill and real storage,
+  expose terrain/footprint/NoData/unit sensitivities without invented probabilities.
+- [x] Compute capacity-limited managed area/runoff and price through existing policy
+  ledger/rates, keeping candidate, captured, stored and treated quantities distinct.
+  Unknown infiltration/drawdown/operating condition are not verified eligibility.
+- [x] Remove numerical confidence guesses from active generator/output and withdraw
+  their current documentation claims; preserve historical artifacts marked superseded.
+- [x] Unit tests cover known geometry/volume, managed-area cap, scalar/geometry
+  consistency, missing versus zero capacity, false facts, hashes/units and isolation.
+- [x] Produce the actual saved01073result and short explanation, checkpoint exact
+  commands/results/limits and preserve original inputs. No full assessment rerun.
+
+Results: [capacity/credit calculation](01073-CAPACITY-RESULTS-2026-11-16.md),
+[82 passing targeted unit tests](01073-capacity-unit-results-2026-11-16.txt), zero skips.
+Local storage1,488.28cuft minus1,230.36cuft gardenrain leaves257.91cuft for outside
+runoff:2,063.31sqft managed-IA equivalent, $32.21/month / $386.52/year. This is a
+conservative dry-start storage estimate; sensitivity range$0–$4,915.20/year, not
+statistical confidence. Oldfull-area01073price is flagged superseded/unusable.
+Invented scores removed from code/current outputs/docs; archived versions preserved.
+All169 protected originals and consumed case/GIS input bytes remain unchanged.
+
+Next: user review. Real-site operation, fine spill/outlet geometry, treatment,
+drawdown and statistical accuracy remain unverified. No new rerun, wider assessment,
+report redesign, network, publication or follow-up is authorized automatically.
+
+Publication update: user explicitly requested commit and push after completion.
+That request authorizes publishing the reviewed source/tests/docs to the existing
+origin/main. Runtime data/caches/uploads remain excluded. No new property execution
+or additional tests are part of this publication action; Git records the resulting
+commit and remote state.
+
 ## 2026-11-16 — Completed source snapshot authorized for commit and push
 
 User explicitly requested Git commit/push. Reviewed all26 pending source/test/doc

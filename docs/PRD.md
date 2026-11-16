@@ -20,6 +20,26 @@ no report redesign or automatic wider batch. Appearance/connection/capacity hypo
 stay separate from observed facts and approved credits. Independent validation
 remains unfinished while useful estimates are provided from available evidence.
 
+## Adversarial fix-plan decisions (accepted 2026-11-16)
+
+The user accepted the default decisions D1–D12 in the [fix plan](FIX-PLAN-2026-11-16.md):
+- **Saved results.** They stay visible with a version label and a recompute action.
+  Public observations are never hidden.
+- **Catchment extent.** One automatic per-catchment edge/NoData test, shared by the
+  app and the pilot. Partial catchments are labelled as such.
+- **AI classes.** Road = impervious, developed space = unknown and grass/soil =
+  pervious, each as a labelled scenario, pending a benchmark against the 2018 land
+  cover.
+- **Headlines.** Ranges first; no "conservative" wording.
+- **Unknown baseline facts.** Unknown developed status or account allocation
+  produces alternatives, not a silent choice.
+- **Savings tables.** One table; the older one is removed.
+- **Owner screen.** Prefix-only government matches go to review.
+- **Process.** STATE is slimmed; verbose logs are not committed.
+- **Code style.** A formatting-only pass happens after the lifecycle fix.
+- **Commits.** One commit per phase, pushed when green.
+- **Reruns.** From saved inputs only after Phases 0–4.
+
 ## Automatic open-space CN worksheet (accepted 2026-11-15)
 
 User requested automatic curve-number calculation from free public soil data and
