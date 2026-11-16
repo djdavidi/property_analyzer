@@ -33,9 +33,15 @@ def normalize_billing(data):
     for account in raw_accounts or []:
         rows.extend(account.get('current', [r for r in account.get('YearlyAccountCharges',[]) if r.get('RateSchedule',{}).get('IsCurrent')]))
         allocation = account.get('allocation', account.get('AccountPercentOfCharge', account.get('Allocation')))
-        if allocation is None:
-            allocation = 1/len(raw_accounts)
+        # Unknown stays unknown (decision D6). Billing shows the tariff 4.3(a)(8)
+        # equal-division default only as a labelled, unverified alternative.
         accounts.append({'allocation':allocation,'discount_factor':1.0,'discount_verified':False})
+    # Tariff 1.0(p): Undeveloped Property is a BRT/OPA classification (SB, SC, SI,
+    # SR or SS). The PWD record does not carry it, so status is unknown (None),
+    # never assumed developed. Only an explicit saved value is kept.
+    undeveloped = data.get('undeveloped', parcel.get('undeveloped'))
+    if not isinstance(undeveloped, bool):
+        undeveloped = None
     def number(key):
         value = parcel.get(key)
         return float(value) if value is not None else None
@@ -50,7 +56,8 @@ def normalize_billing(data):
             'existing_ia_credit_sqft':data.get('ChargeSummary',{}).get('ImpervCreditSqFt',number('ImpervCredit')),
             'existing_iar_sqft':0 if number('GrossCredit') == 0 and number('ImpervCredit') == 0 else None,
             'npdes_fraction':npdes,'accounts':accounts,'property_type':parcel.get('BldgType'),
-            'undeveloped':False, 'undeveloped_verified':False,'bill_date':rows[0]['RateSchedule']['StartDate'][:10] if rows and rows[0].get('RateSchedule') else None,
+            'undeveloped':undeveloped, 'undeveloped_verified':False,
+            'account_allocation_status':'unknown' if any(a['allocation'] is None for a in accounts) else 'public_record','bill_date':rows[0]['RateSchedule']['StartDate'][:10] if rows and rows[0].get('RateSchedule') else None,
             'published_monthly_total':sum(float(row['TotalWeightedCharge']) for row in rows) if rows else number('WeightedCharge'),
             'existing_credits_spatially_reconciled':False,
             'actual_bill_verified':False,'source_total_kind':'public calculation, not actual invoice'}

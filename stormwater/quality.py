@@ -16,7 +16,7 @@ from hashlib import sha256
 import json
 from drainage_core.quality import OUTDATED, RECOMPUTE_HINT, artifact_quality, version_label, withhold_physical
 
-POLICY_INTERPRETATION_VERSION=1
+POLICY_INTERPRETATION_VERSION=2  # 2: Phase 2 money corrections (per-account minimum, NPDES residual base, managed open space, D6/D7)
 POLICY_SCOPE=('rules','billing','assessment_policy','model_assessment','curve_number','renewals',
               'management_estimates','runoff_capacity','management_pilot','jurisdictions/philadelphia')
 # A saved policy output carries one of these. One without an interpretation version

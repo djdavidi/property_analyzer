@@ -35,7 +35,7 @@ class SyntheticFixtureTests(unittest.TestCase):
         screens={s['id']:s for s in result['screens']}
         self.assertEqual(screens['canopy-hypothesis']['status'],'screen_pass')
         self.assertEqual(screens['roof-disconnection-unresolved']['status'],'missing_evidence')
-        self.assertEqual(result['billing']['combined']['basis'],'modeled')
+        self.assertEqual(result['billing']['combined']['basis'],'conditional')
         self.assertEqual(result['billing']['documented_credit_only']['status'],'blocked')
 
 

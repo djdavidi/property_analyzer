@@ -81,9 +81,11 @@ class AssessmentPolicyTests(unittest.TestCase):
         self.assertEqual(run(c,g)['economics']['documented']['ledger']['new_ia_credit_sqft'],900)
 
     def test_npdes_identity_inactive_construction_and_compliance_period_rejected(self):
+        # A lagging DMR period or an expiry with possible administrative continuation
+        # is missing evidence, not a failed permit (review B7; tests in test_policy_money).
         for key,value in [('site_match',False),('operator_match',False),('active',False),('industrial_stormwater',False),
-                          ('permit_type','construction'),('expires_on','2026-11-14'),('compliance_from','2025-11-16'),
-                          ('compliance_through','2026-11-14'),('compliance_previous_12_months',False),('terminated_on','2026-11-01')]:
+                          ('permit_type','construction'),('compliance_from','2025-11-16'),
+                          ('compliance_previous_12_months',False),('terminated_on','2026-11-01')]:
             with self.subTest(key=key):
                 c,g=fixture();r=record('industrial_npdes');r['facts'][key]=value;c['assessment']['records']=[r]
                 self.assertIn(key,run(c,g)['categories'][3]['records'][0]['failed'])
@@ -170,7 +172,7 @@ class AssessmentPolicyTests(unittest.TestCase):
         c,g=fixture();r=record();c['assessment']['records']=[r];r['managed_area_sqft']=2000
         self.assertIn('managed_area_matches_geometry',run(c,g)['categories'][0]['records'][0]['failed'])
         r['geometry']=mapping(box(100,100,110,110))
-        self.assertIn('managed_geometry_matches_physical_ia',run(c,g)['categories'][0]['records'][0]['failed'])
+        self.assertIn('managed_geometry_inside_parcel',run(c,g)['categories'][0]['records'][0]['failed'])
         r['geometry']={'type':'Polygon','coordinates':[]}
         self.assertIn('managed_area_geometry',run(c,g)['categories'][0]['records'][0]['failed'])
 

@@ -2,13 +2,26 @@
   "rule_version": "pwd-2026-09-screen-v1",
   "verified_on": "2026-11-15",
   "tariff_effective_from": "2026-09-01",
+  "tariff_version": "pwd-2026-09-01",
+  "tariff_verified_through": "2027-08-31",
   "ga_rate_per_500_sqft": "1.003",
   "ia_rate_per_500_sqft": "7.048",
   "minimum_swms_monthly": "20.89",
   "collection_per_account_monthly": "2.81",
+  "statutory_ia_ga_threshold_sqft": 5000,
+  "statutory_ia_fraction_developed": "0.85",
+  "statutory_ia_fraction_undeveloped": "0.25",
+  "minimum_charge_rule": "per_account",
+  "minimum_charge_rule_basis": "Each account SWMS = max(allocated share, minimum); same rule for baseline and credited bills. Tariff 2026-09-01 sections 4.3(a)(6), 4.3(a)(8), 4.5(b); manual section 4.3.5 step 5; PWD stormwater billing FAQ (water.phila.gov/stormwater/billing/, retrieved 2026-11-16): each account is assigned its share and if that value is less than the Minimum Charge, the minimum applies.",
   "billing_area_increment_sqft": 500,
   "canopy_ground_ia_overlap_iar_factor": "0.5",
   "non_surface_management_factor": "0.8",
+  "credit_minimum_gross_area_sqft": 500,
+  "open_space_cn_threshold": 75,
+  "open_space_cn_step_factor": "0.04",
+  "open_space_cn_step_npdes_factor": "0.0435",
+  "open_space_cn_max_steps": 20,
+  "credit_term_years": 4,
   "sources": [
     "https://water.phila.gov/wp-content/uploads/files/rates-and-charges-2026-09-01.pdf",
     "https://water.phila.gov/wp-content/uploads/files/stormwater-credits-appeals-manual.pdf"
@@ -21,8 +34,8 @@
     "NPDES with IAR GA allocation unresolved",
     "Legacy charge-based NPDES baseline with new benefits until area-ledger reconciliation"
   ],
-  "fractional_curve_number_policy": "Round upward to next integer CN conservatively; pending PWD-specific confirmation",
-  "money_rounding_policy": "Decimal ROUND_HALF_UP per GA/IA component, allocated account SWMS and final discounted account total; reconcile with actual bill",
+  "fractional_curve_number_policy": "Whole CN steps below 75 (manual 4.3.3.1: a percent reduction for each whole number below a CN of 75), i.e. steps = floor(75 - average CN); average summed in Decimal from area x CN (Appendix A steps 3-5)",
+  "money_rounding_policy": "Decimal ROUND_HALF_UP per GA/IA component, allocated account SWMS and final discounted account total; per-account minimum after allocation; reconcile with actual bill",
   "source_download_status": "Current manual and tariff original PDF bytes captured locally with SHA-256 after initial restricted DNS failure.",
   "existing_site_rule_version": "pwd-existing-site-2026-09-v1",
   "non_surface_management_npdes_factor": "0.87",
@@ -61,5 +74,9 @@
       "source_kind": "primary-rule-pdf",
       "effective_from": "2026-09-01"
     }
-  ]
+  ],
+  "managed_open_space_factor": "0.8",
+  "managed_open_space_npdes_factor": "0.87",
+  "surface_discharge_open_space_factor": "0.9",
+  "surface_discharge_open_space_npdes_factor": "0.97"
 }

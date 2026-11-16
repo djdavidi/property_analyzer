@@ -1,5 +1,6 @@
 """PWD Appendix A worksheet over frozen mapped areas. No routing or awards."""
 from copy import deepcopy
+from decimal import Decimal
 from hashlib import sha256
 from math import isfinite
 from shapely.geometry import shape, mapping
@@ -146,23 +147,29 @@ def worksheet(case,gis):
     mapped_union=union([g for _,g,_,basis in patches if basis=='mapped_open_space'])
     add('unattributed-open-space',physical.difference(mapped_union),{},'mapped_open_space',extra=['Mapped open space has no cover feature'])
     mapped=[r for r in rows if r['basis']=='mapped_open_space'];candidates=[r for r in rows if r['basis']=='image_candidate']
-    total=sum(r['area_sqft'] for r in mapped);known=sum(r['area_sqft'] for r in mapped if r['curve_number'] is not None)
-    product=sum(r['area_times_cn'] for r in mapped if r['area_times_cn'] is not None)
+    # Appendix A steps 3-5: sum(area x CN) / sum(area). Summed in Decimal so a
+    # uniform CN61 split into strips averages to exactly 61 (review B4).
+    d_total=sum((_dec(r['area_sqft']) for r in mapped),Decimal(0))
+    d_known=sum((_dec(r['area_sqft']) for r in mapped if r['curve_number'] is not None),Decimal(0))
+    d_product=sum((_dec(r['area_sqft'])*Decimal(r['curve_number']) for r in mapped if r['curve_number'] is not None),Decimal(0))
+    total=float(d_total);known=float(d_known);product=float(d_product)
     complete=total>.000001 and total-known<.001
-    average=product/total if complete else None
+    d_average=d_product/d_total if complete else None
+    average=float(d_average) if d_average is not None else None
     unresolved=area(unknown)
     # A complete mapped subset still cannot establish all open space on an
     # incompletely mapped parcel. Keep that average separate from property CN.
     property_cn=average if average is not None and unresolved<.001 else None
+    d_property_cn=d_average if property_cn is not None else None
     if unresolved>=.001:issues.append('Unresolved ground may contain additional open space; property-wide CN unknown')
     if not total:issues.append('No confirmed mapped open-space area; absence is not established')
     if total-known>=.001:issues.append('Open-space rows have unresolved cover, condition or soil inputs')
     output={'version':VERSION,'status':'calculated_conditional' if property_cn is not None else 'incomplete',
-        'average_cn':property_cn,'mapped_open_space_average_cn':average,'known_portion_average_cn':product/known if known else None,
+        'average_cn':property_cn,'mapped_open_space_average_cn':average,'known_portion_average_cn':float(d_product/d_known) if d_known else None,
         'mapped_open_space_sqft':total if total else None,'known_cn_area_sqft':known if total else None,
-        'unknown_cn_area_sqft':total-known if total else None,'image_candidate_area_sqft':sum(r['area_sqft'] for r in candidates) if ai.get('status')=='modeled' else None,
+        'unknown_cn_area_sqft':float(d_total-d_known) if total else None,'image_candidate_area_sqft':sum(r['area_sqft'] for r in candidates) if ai.get('status')=='modeled' else None,
         'unresolved_ground_sqft':unresolved,'total_area_times_cn':product if complete else None,
-        'credit_factor':open_space_factor(property_cn) if property_cn is not None else None,
+        'credit_factor':open_space_factor(d_property_cn) if d_property_cn is not None else None,
         'rows':rows,'issues':list(dict.fromkeys(issues)),
         'area_tolerance_sqft':.001,
         'formula':'Average CN = sum(area × CN) / total open-space area; impervious areas excluded',
@@ -173,9 +180,14 @@ def worksheet(case,gis):
         'soil_sources':deepcopy(snapshot.get('sources',[])),
         'gis_analysis_sha256':gis.get('analysis_sha256'),'gis_input_sha256':gis.get('input_sha256'),
         'claim':'Conditional mapped-soil estimate, not verified site soil, permeability, eligibility or an award. Image candidates are separate. No benefits or manual CN facts are changed.',
-        'rounding':'Fractional CN rounded upward for credit factor; pending PWD confirmation. No automatic bill savings allocation.'}
+        'rounding':'Average summed in Decimal; credit counts whole CN steps below 75 (manual 4.3.3.1), so a fractional average uses the next whole CN upward. PWD has not confirmed fractional handling. No automatic bill savings allocation.'}
     output['worksheet_sha256']=sha256(canonical(output)).hexdigest()
     return output
+
+
+def _dec(value):
+    """Area as Decimal from its shortest float repr (no binary expansion)."""
+    return Decimal(str(value))
 
 
 def _area_only(g):

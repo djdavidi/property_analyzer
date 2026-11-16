@@ -23,10 +23,12 @@ class BillingTests(unittest.TestCase):
         self.assertEqual(rounded_area(500),500);self.assertEqual(rounded_area('500.0001'),1000)
         self.assertEqual(rounded_area(0),0)
     def test_statutory_small_parcel_ia(self):
-        b=monthly_bill(4000,0);self.assertEqual(b['statutory_ia_sqft'],3400)
+        b=monthly_bill(4000,0,undeveloped=False);self.assertEqual(b['statutory_ia_sqft'],3400)
         self.assertEqual(monthly_bill(4000,3999,undeveloped=True)['statutory_ia_sqft'],1000)
+        # Unknown status is never silently "developed" (decision D6).
+        with self.assertRaisesRegex(ValueError,'Undeveloped status is unknown'):monthly_bill(4000,0)
     def test_minimum_and_fee(self):
-        self.assertEqual(monthly_bill(100,0)['monthly_total'],23.70)
+        self.assertEqual(monthly_bill(100,0,undeveloped=False)['monthly_total'],23.70)
         self.assertEqual(monthly_bill(10000,8000,ga_credit_sqft=10000,ia_credit_sqft=8000)['monthly_total'],23.70)
     def test_allocation_rounding_and_discount(self):
         a=[{'allocation':.5,'discount_factor':1},{'allocation':.5,'discount_factor':.75,'discount_verified':True}]

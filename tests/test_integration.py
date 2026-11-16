@@ -221,7 +221,8 @@ class BenefitSpatialIntegrationTests(unittest.TestCase):
         after=analyze(case)
         self.assertEqual(after['screens'][0]['status'],'requirements_failed')
         self.assertIn('physical_area_confirmed',after['screens'][0]['failed'])
-        self.assertEqual(after['billing']['combined']['status'],'blocked')
+        self.assertEqual(after['billing']['credit_only']['status'],'blocked')
+        self.assertFalse((after['billing']['combined'].get('ledger') or {}).get('new_iar_sqft'))
 
     def test_two_spatial_benefits_cannot_double_count_the_same_region(self):
         case=self.make_benefit_case()
@@ -231,7 +232,9 @@ class BenefitSpatialIntegrationTests(unittest.TestCase):
         result=analyze(case)
         self.assertEqual(result['screens'][1]['status'],'requirements_failed')
         self.assertIn('parcel_allocation_confirmed',result['screens'][1]['failed'])
-        self.assertAlmostEqual(result['billing']['combined']['ledger']['new_iar_sqft'],50*SQFT_PER_M2)
+        # The single ledger blocks overlapping claims instead of keeping the first.
+        self.assertEqual(result['billing']['combined']['status'],'blocked')
+        self.assertTrue(any('Overlapping physical allocations' in x for x in result['billing']['combined']['reasons']))
 
 
 class PersistenceIntegrationTests(unittest.TestCase):

@@ -5,7 +5,7 @@ The separate area ledger below implements Manual 4.3.5; it never adds independen
 calculated savings or applies a further seven percent to already uplifted credits.
 """
 from copy import deepcopy
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from hashlib import sha256
 from urllib.parse import urlparse
@@ -14,8 +14,10 @@ from shapely.geometry import shape
 from shapely.errors import ShapelyError
 from drainage_core.geometry import case_area_sqft, effective_features
 from drainage_core.evidence import validate_references
-from .billing import monthly_bill, default_tariff, cents, decimal
-from .rules import screen, open_space_factor, MANUAL_URL, TARIFF_URL
+from .billing import (monthly_bill, default_tariff, cents, decimal, bill_terms, undeveloped_unknown,
+                      merge_status_alternatives, STATUS_ALTERNATIVES, billed_area_check)
+from .rules import screen, open_space_factor, factor, MANUAL_URL, TARIFF_URL
+from .prerequisites import case_vetoes
 
 VERSION = 'pwd-existing-site-2026-09-v1'
 LABELS = {'green_roof':'Existing green roofs', 'permeable_pavement':'Existing permeable pavement',
@@ -23,7 +25,7 @@ LABELS = {'green_roof':'Existing green roofs', 'permeable_pavement':'Existing pe
 RULES = {'version':VERSION, 'verified_on':'2026-11-15', 'effective_from':'2026-09-01',
          'verified_through':'2027-08-31', 'manual':MANUAL_URL, 'tariff':TARIFF_URL,
          'gis_area_numerical_precision_sqft':'0.000000001',
-         'manual_sections':['4.3.2.2','4.3.4','4.3.5','4.5.1','4.5.5'],
+         'manual_sections':['4.3.2.2','4.3.3.1','4.3.3.2','4.3.4','4.3.5','4.4.1','4.5.1','4.5.5'],
          'source_snapshots':[{'url': 'https://water.phila.gov/wp-content/uploads/files/stormwater-credits-appeals-manual.pdf', 'retrieved_at': '2026-11-15T06:51:38.544003+00:00', 'sha256': '5c7b6e87ae442731625b91e278ccdd160a21e960b3460886e8349aa42f8ffb49', 'bytes': 665543}, {'url': 'https://water.phila.gov/wp-content/uploads/files/rates-and-charges-2026-09-01.pdf', 'retrieved_at': '2026-11-15T06:51:38.781280+00:00', 'sha256': '880779871b2e47c11c619d33f499752afc9b3791dda5c326793165800f4ad9e6', 'bytes': 855667}],
          'claim':'Technical screening; PWD approval and actual billed reductions are not established.'}
 COMMON = ('existing_installation','account_current','physical_area_confirmed','parcel_allocation_confirmed')
@@ -81,6 +83,82 @@ def _validate_assessment_inputs(assessment):
             if not isinstance(refs,list) or any(not isinstance(ref,dict) for ref in refs):raise ValueError('Evidence references must be a list of objects')
 
 
+def _lagging_dmr_period(facts, through, as_of, output, missing):
+    """Manual 4.3.4 / 4.5.5: compliance during the preceding twelve months, shown by
+    the required PADEP DMRs "from the previous 12 months". DMR periods end before
+    the assessment date. A lagging period is complete evidence only while the next
+    required DMR is not yet due (a sourced ``next_dmr_due`` fact); otherwise the
+    record needs an update. Stale evidence is missing, never a failed permit.
+    """
+    output.setdefault('date_notes',[])
+    due=facts.get('next_dmr_due')
+    if through>=_prior_year(as_of) and due:
+        try:
+            if _day(due)>as_of:
+                output['date_notes'].append('Latest DMR period ends '+through.isoformat()+'; next required DMR is due '+_day(due).isoformat()+', so the reporting cycle is current')
+                return True
+        except (ValueError,TypeError):return False
+    output.setdefault('needs_update',[]).append('compliance_through')
+    missing.append('compliance_through_current' if due else 'next_dmr_due')
+    output['date_notes'].append('Compliance evidence ends '+through.isoformat()+' before the assessment date; supply the reporting schedule or later DMRs (needs update, not a failed requirement)')
+    return None
+
+
+def _administratively_continued(facts, expires, output, missing, failed):
+    """25 Pa. Code 92a.7(b)-(c): an expiring NPDES permit is automatically continued
+    when the permittee submitted a timely reissuance application (92a.75(a): at least
+    180 days before expiry unless DEP permitted a later date) and DEP has not acted.
+    ``administratively_continued`` is the reviewed fact; an expired permit without it
+    lacks evidence rather than failing.
+    """
+    continued=facts.get('administratively_continued')
+    output.setdefault('date_notes',[])
+    if continued is None:
+        missing.append('administratively_continued')
+        output['date_notes'].append('Permit expiry '+expires.isoformat()+' precedes the assessment date; continuation under 25 Pa. Code 92a.7 is not established')
+        return None
+    if continued is not True:return False
+    submitted=facts.get('renewal_application_submitted_on')
+    if submitted:
+        try:
+            limit=expires-timedelta(days=180)
+            if _day(submitted)>limit and facts.get('later_renewal_date_permitted') is not True:
+                failed.append('renewal_application_submitted_on');return None
+        except (ValueError,TypeError):failed.append('renewal_application_submitted_on');return None
+    output['date_notes'].append('Expired permit treated as administratively continued under 25 Pa. Code 92a.7(b)-(c) (reviewed fact)')
+    return True
+
+
+def _managed_surfaces(record, category, geom, case, gis):
+    """Manual 4.3.2.2 / 4.3.3.2: IA credit is for IA Managed, with equivalent GA
+    underneath. A real SMP or surface-discharge drainage area may also contain open
+    space. That open space is credited only as the manual allows (4.3.3.1 notes):
+    direct discharge to surface water -> 90% GA (97% with NPDES, 4.3.5.4) regardless
+    of cover or soil; an approved SMP sized for it with PWD design pre-approval ->
+    80% GA (87% with NPDES). Unresolved surfaces are reported, never credited.
+    """
+    geometries=gis['measurement']['geometries']
+    empty={'type':'GeometryCollection','geometries':[]}
+    ia_part=geom.intersection(shape(geometries['physical_ia']))
+    open_part=geom.intersection(shape(geometries.get('pervious') or empty))
+    ia_area=case_area_sqft(ia_part,case) if not ia_part.is_empty else 0.
+    open_area=case_area_sqft(open_part,case) if not open_part.is_empty else 0.
+    total=case_area_sqft(geom,case)
+    out={'managed_ia_sqft':ia_area,'managed_open_space_sqft':open_area,
+         'managed_unresolved_sqft':max(0.,total-ia_area-open_area)}
+    facts=record.get('facts') or {}
+    if open_area<.000001:out['open_space_credit']={'status':'not_applicable'}
+    elif category=='direct_discharge':
+        out['open_space_credit']={'status':'screen_pass','basis':'manual 4.3.3.1 note: open space discharging directly to surface water, 90% regardless of cover or soil'}
+    else:
+        needed=('open_space_smp_sizing_confirmed','open_space_design_preapproval')
+        absent=[k for k in needed if facts.get(k) is None];bad=[k for k in needed if facts.get(k) is not None and facts.get(k) is not True]
+        out['open_space_credit']={'status':'requirements_failed' if bad else 'missing_evidence' if absent else 'screen_pass',
+            'missing':absent,'failed':bad,
+            'basis':'manual 4.3.3.1 note: open space managed by an approved SMP sized for it, with PWD design-phase pre-approval, may receive 80%'}
+    return out
+
+
 def _evidence(record, case):
     refs=record.get('evidence_refs') or []
     attachments={a['id'] for a in case.get('assessment',{}).get('attachments',[]) if 'id' in a}
@@ -107,6 +185,7 @@ def screen_record(record, case, gis, as_of):
     category=record['category']; facts=record.get('facts') or {}; missing=[]; failed=[]
     output={key:deepcopy(record.get(key)) for key in ('id','category','decision','basis','evidence_refs','source')}
     output.update(label=LABELS[category],missing=missing,failed=failed,managed_area_sqft=None,
+                  managed_ia_sqft=None,managed_open_space_sqft=None,managed_unresolved_sqft=None,
                   footprint_area_sqft=None,rule_version=VERSION)
     def require(name):
         if facts.get(name) is None:missing.append(name)
@@ -129,8 +208,11 @@ def screen_record(record, case, gis, as_of):
             if not facts.get(key):missing.append(key);continue
             try:
                 day=_day(facts[key])
-                valid=(day<=as_of if key=='effective_from' else day>=as_of if key in ('expires_on','compliance_through') else day<=_prior_year(as_of))
-                if not valid:failed.append(key)
+                if key=='effective_from':valid=day<=as_of
+                elif key=='compliance_from':valid=day<=_prior_year(as_of)
+                elif key=='compliance_through':valid=day>=as_of or _lagging_dmr_period(facts,day,as_of,output,missing)
+                else:valid=day>=as_of or _administratively_continued(facts,day,output,missing,failed)
+                if valid is False:failed.append(key)
             except (ValueError,TypeError):failed.append(key)
         if facts.get('terminated_on'):
             try:
@@ -144,9 +226,12 @@ def screen_record(record, case, gis, as_of):
                 geom=shape(record['geometry'])
                 if not geom.is_valid or geom.is_empty or geom.geom_type not in ('Polygon','MultiPolygon'):raise ValueError()
                 area=case_area_sqft(geom,case);output['managed_area_sqft']=area
-                parcel=shape(case['parcel']);ia=shape(gis['measurement']['geometries']['physical_ia'])
+                parcel=shape(case['parcel'])
                 if geom.difference(parcel).area>1e-8:failed.append('managed_geometry_inside_parcel')
-                if geom.difference(ia).area>1e-8:failed.append('managed_geometry_matches_physical_ia')
+                output.update(_managed_surfaces(record,category,geom,case,gis))
+                if output['managed_ia_sqft']<.000001 and output['managed_open_space_sqft']<.000001:
+                    # Only unresolved ground: neither managed IA nor open space is established.
+                    missing.append('managed_area_surface_classification')
                 if record.get('managed_area_sqft') is not None and abs(float(decimal(record['managed_area_sqft']))-area)>max(.1,area*.001):failed.append('managed_area_matches_geometry')
             except (ValueError,TypeError,KeyError,IndexError,AttributeError,ShapelyError):failed.append('managed_area_geometry')
         if record.get('footprint_geometry'):
@@ -188,6 +273,38 @@ def _blocked(reasons):
             'gross_monthly_reduction':None,'gross_annual_reduction':None,'bill':None,'ledger':None}
 
 
+# Report table rows (historical names) -> the single assessment ledger scenario.
+BILLING_VIEW=(('appeal_only','measurement_only'),('credit_only','modeled'),('combined','modeled_combined'),
+              ('documented_credit_only','documented'),('documented_combined','documented_combined'))
+
+
+def ledger_billing_view(economics):
+    """The report's billing table read from ``_economics`` (decision D7).
+
+    There is one savings path: these rows are relabelled ledger scenarios, never
+    a second calculation. Blocked scenarios carry no totals or savings.
+    """
+    base=economics.get('baseline')
+    if not isinstance(base,dict):
+        reasons=list(dict.fromkeys((economics.get('documented') or {}).get('reasons') or ['Billing baseline unavailable']))
+        return {'status':'blocked','reason':'; '.join(reasons),'reasons':reasons,'source':'assessment_economics'}
+    view={'source':'assessment_economics','baseline':deepcopy(base),
+          'claim':'Rows are the assessment ledger scenarios; alternatives, never additive.'}
+    for key in ('billed_area_check','undeveloped_status'):
+        if key in economics:view[key]=deepcopy(economics[key])
+    for legacy,key in BILLING_VIEW:
+        s=economics.get(key) or _blocked(['Scenario unavailable'])
+        calculated=s.get('status')=='calculated'
+        row={**(deepcopy(s.get('bill')) if calculated and s.get('bill') else {}),
+             'status':s.get('status'),'basis':s.get('basis'),'reasons':list(s.get('reasons',[])),
+             'monthly_savings':s.get('gross_monthly_reduction'),'annual_savings':s.get('gross_annual_reduction'),
+             'ledger':deepcopy(s.get('ledger')),'assumptions':list(s.get('assumptions',[])),'ledger_scenario':key}
+        if not calculated:row['monthly_total']=None
+        if 'alternatives' in s:row['alternatives']=deepcopy(s['alternatives'])
+        view[legacy]=row
+    return view
+
+
 def _legacy_benefits(case, gis):
     """Normalize the existing benefits into the same geometric ledger."""
     result=[]
@@ -206,52 +323,123 @@ def _legacy_benefits(case, gis):
     return result
 
 
+IA_MANAGED_CATEGORIES = ('management','direct_discharge','green_roof','permeable_pavement')
+OPEN_CATEGORIES = ('open_space','open_space_direct_discharge')
+IAR_CATEGORIES = ('canopy','roof_disconnection','pavement_disconnection')
+ECONOMIC_KEYS = ('documented','modeled','measurement_only','documented_combined','modeled_combined')
+
+
+def _factors(direct, npdes):
+    """Manual 4.3.5.1-4.3.5.4 maximum credit factors (config-loaded)."""
+    if direct:
+        return (factor('surface_discharge_npdes_factor' if npdes else 'surface_discharge_factor'),
+                factor('surface_discharge_open_space_npdes_factor' if npdes else 'surface_discharge_open_space_factor'))
+    return (factor('non_surface_management_npdes_factor' if npdes else 'non_surface_management_factor'),
+            factor('managed_open_space_npdes_factor' if npdes else 'managed_open_space_factor'))
+
+
+def _open_space_credit(area, curve_number, npdes):
+    """Table A-2 open-space GA credit. With NPDES (manual 4.3.5.2) every uncredited
+    area keeps the 7% residual; a Table A-2 factor below 7% (CN 74 -> 4.35%) would
+    lower the parcel's credit, so that area stays in the residual instead."""
+    rate=Decimal(str(open_space_factor(curve_number,npdes)))
+    if npdes and rate<factor('npdes_unmanaged_area_factor'):
+        return Decimal(0),False
+    return area*rate,rate>0
+
+
+def _allocation_surfaces(geometry, case, gis):
+    geometries=gis['measurement']['geometries']
+    empty={'type':'GeometryCollection','geometries':[]}
+    ia_part=geometry.intersection(shape(geometries['physical_ia']))
+    open_part=geometry.intersection(shape(geometries.get('pervious') or empty))
+    ia=_area_decimal(case_area_sqft(ia_part,case)) if not ia_part.is_empty else Decimal(0)
+    open_area=_area_decimal(case_area_sqft(open_part,case)) if not open_part.is_empty else Decimal(0)
+    return ia,open_area,_area_decimal(case_area_sqft(geometry,case))-ia-open_area
+
+
 def _existing_allocations(case, gis, baseline):
-    """An approved itemized ledger must reconcile every recorded existing credit."""
+    """An approved itemized ledger must reconcile every recorded existing credit.
+
+    Management/direct-discharge drainage areas may include open space (manual
+    4.3.2.2, 4.3.3.1 notes): IA credit = factor x IA Managed; GA credit is the
+    same amount, plus the open-space factor on the open part when that part was
+    credited. ``open_space_direct_discharge`` is the GA-only 90% open-space
+    surface-discharge credit of manual 4.3.3.1.
+    """
     items=case.get('assessment',{}).get('existing_credit_allocations',[])
     if not items:return [],['Detailed existing credit allocation ledger missing']
     errors=[];allocations=[];totals={key:Decimal(0) for key in ('ga_credit_sqft','ia_credit_sqft','iar_sqft')}
+    tolerance=Decimal('.000001')
     for item in items:
         try:
             if item.get('facts',{}).get('approved_ledger_confirmed') is not True or not _evidence(item,case):
                 raise ValueError('Approved existing allocation evidence missing')
             geometry=shape(item['geometry']);area=_area_decimal(case_area_sqft(geometry,case));cat=item['category']
             if geometry.is_empty or not geometry.is_valid or geometry.geom_type not in ('Polygon','MultiPolygon'):raise ValueError('Invalid existing allocation geometry')
-            target='pervious' if cat=='open_space' else 'canopy_ground_ia' if cat=='canopy' else 'physical_ia'
-            if geometry.difference(shape(gis['measurement']['geometries'][target])).area>1e-8:raise ValueError('Existing allocation is outside its physical area')
+            extra={}
+            observed={key:decimal(item.get(key,0)) for key in totals}
             if cat in ('management','direct_discharge'):
-                factor=Decimal('.8' if cat=='management' else '.9');expected={'ga_credit_sqft':area*factor,'ia_credit_sqft':area*factor,'iar_sqft':Decimal(0)}
-            elif cat=='open_space':expected={'ga_credit_sqft':area*Decimal(str(open_space_factor(item['facts']['curve_number']))),'ia_credit_sqft':Decimal(0),'iar_sqft':Decimal(0)}
-            elif cat in ('canopy','roof_disconnection','pavement_disconnection'):
-                expected={'ga_credit_sqft':Decimal(0),'ia_credit_sqft':Decimal(0),'iar_sqft':area*(Decimal('.5') if cat=='canopy' else Decimal(1))}
-            else:raise ValueError('Unsupported existing allocation category')
+                ia_part,open_part,unresolved=_allocation_surfaces(geometry,case,gis)
+                if unresolved>tolerance:raise ValueError('Existing allocation includes unresolved surfaces')
+                rate,open_rate=_factors(cat=='direct_discharge',False)
+                ia_credit=ia_part*rate
+                credited_open=open_part if open_part>0 and abs(observed['ga_credit_sqft']-ia_credit-open_part*open_rate)<=tolerance else Decimal(0)
+                expected={'ga_credit_sqft':ia_credit+credited_open*open_rate,'ia_credit_sqft':ia_credit,'iar_sqft':Decimal(0)}
+                extra={'area_sqft':float(ia_part),'open_space_area_sqft':float(credited_open),'drainage_area_sqft':float(area)}
+            else:
+                target='pervious' if cat in OPEN_CATEGORIES else 'canopy_ground_ia' if cat=='canopy' else 'physical_ia'
+                if geometry.difference(shape(gis['measurement']['geometries'][target])).area>1e-8:raise ValueError('Existing allocation is outside its physical area')
+                if cat=='open_space':expected={'ga_credit_sqft':area*Decimal(str(open_space_factor(item['facts']['curve_number']))),'ia_credit_sqft':Decimal(0),'iar_sqft':Decimal(0)}
+                elif cat=='open_space_direct_discharge':expected={'ga_credit_sqft':area*factor('surface_discharge_open_space_factor'),'ia_credit_sqft':Decimal(0),'iar_sqft':Decimal(0)}
+                elif cat in IAR_CATEGORIES:
+                    expected={'ga_credit_sqft':Decimal(0),'ia_credit_sqft':Decimal(0),'iar_sqft':area*(factor('canopy_ground_ia_overlap_iar_factor') if cat=='canopy' else Decimal(1))}
+                else:raise ValueError('Unsupported existing allocation category')
             for key,value in expected.items():
-                observed=decimal(item.get(key,0))
-                if abs(value-observed)>Decimal('.000001'):raise ValueError('Existing allocation amount does not match supported rule')
-                totals[key]+=observed
-            allocations.append({**deepcopy(item),'area_sqft':float(area),'existing':True})
+                if abs(value-observed[key])>tolerance:raise ValueError('Existing allocation amount does not match supported rule')
+                totals[key]+=observed[key]
+            allocations.append({**deepcopy(item),'area_sqft':float(area),**extra,'existing':True})
         except (ValueError,TypeError,KeyError,IndexError,AttributeError,ShapelyError) as exc:errors.append(str(exc))
     for key,total in totals.items():
-        if abs(total-decimal(baseline.get('existing_'+key,0)))>Decimal('.000001'):errors.append('Existing allocation totals do not reconcile '+key)
+        if abs(total-decimal(baseline.get('existing_'+key,0)))>tolerance:errors.append('Existing allocation totals do not reconcile '+key)
     return allocations,errors
 
 
 def _economics(case, gis, records, as_of, tariff):
+    """One ledger for every savings figure. Unknown undeveloped status on a parcel
+    under 5,000 sq ft GA yields explicit developed/undeveloped alternatives (D6)."""
     if case.get('assessment',{}).get('baseline_refresh',{}).get('status')=='pending_review':
         blocked=_blocked(['New public billing/credit facts differ from the retained baseline; review required'])
-        return {'baseline':None,**{k:deepcopy(blocked) for k in ('documented','modeled','measurement_only','documented_combined','modeled_combined')}}
+        return {'baseline':None,**{k:deepcopy(blocked) for k in ECONOMIC_KEYS}}
     baseline=case.get('baseline')
     if not baseline:return {'baseline':None,'documented':_blocked(['Billing baseline missing']),'modeled':_blocked(['Billing baseline missing'])}
-    t=tariff or default_tariff(); common={k:baseline[k] for k in ('accounts','property_type','undeveloped','bill_date') if k in baseline};common['tariff']=t
+    t=tariff or default_tariff()
+    measured_ga=(gis.get('measurement') or {}).get('ga_sqft')
+    if undeveloped_unknown(baseline,baseline.get('ga_sqft'),measured_ga,tariff=t):
+        outputs={name:_economics_once(case,{**baseline,'undeveloped':flag},gis,records,as_of,t) for name,flag in STATUS_ALTERNATIVES}
+        if any(output.get('baseline') is None for output in outputs.values()):return outputs[STATUS_ALTERNATIVES[0][0]]
+        return merge_status_alternatives(outputs,ECONOMIC_KEYS,_blocked)
+    return _economics_once(case,baseline,gis,records,as_of,t)
+
+
+def _economics_once(case, baseline, gis, records, as_of, t):
     try:
+        common,allocation=bill_terms(baseline,t)
         if not RULES['effective_from']<=as_of.isoformat()<=RULES['verified_through']:raise ValueError('Assessment date outside verified rule period')
         if not t['effective_from']<=as_of.isoformat()<=t['verified_through']:raise ValueError('Assessment date outside verified tariff period')
         ga=decimal(baseline.get('ga_sqft'));ia=decimal(baseline.get('ia_sqft'))
         cg=decimal(baseline.get('existing_ga_credit_sqft',0));ci=decimal(baseline.get('existing_ia_credit_sqft',0));ir=decimal(baseline.get('existing_iar_sqft',0));old_npdes=decimal(baseline.get('npdes_fraction',0))
-        base=monthly_bill(ga,ia,ga_credit_sqft=cg,ia_credit_sqft=ci,iar_sqft=ir,npdes_fraction=old_npdes,
-                          minimum_mode='per_account_after_credit' if cg or ci or ir or old_npdes else 'parcel',**common)
+        base=monthly_bill(ga,ia,ga_credit_sqft=cg,ia_credit_sqft=ci,iar_sqft=ir,npdes_fraction=old_npdes,**common)
     except (ValueError,KeyError) as exc:
         return {'baseline':None,'documented':_blocked([str(exc)]),'modeled':_blocked([str(exc)])}
+    if allocation:base['allocation_status']=allocation
+    for field,target in (('published_monthly_total','published_difference'),('actual_bill_total','actual_bill_difference')):
+        if baseline.get(field) is not None:
+            try:base[target]=float(cents(decimal(base['monthly_total'])-decimal(baseline[field])))
+            except ValueError:pass
+    vetoes=case_vetoes(case)
+    residual_rate=factor('npdes_unmanaged_area_factor')
+    minimum_credit_ga=factor('credit_minimum_gross_area_sqft')
     legacy=_legacy_benefits(case,gis)
     def scenario(documented, use_measure=False, use_benefits=True):
         total_ga,total_ia=ga,ia
@@ -260,6 +448,7 @@ def _economics(case, gis, records, as_of, tariff):
         legacy_active=[(b,s) for b,s in legacy if use_benefits and (not documented or b.get('basis')=='documented')]
         if not use_measure and not active and not legacy_active:return _blocked(['No passing '+('documented' if documented else 'reviewed')+' existing-site or baseline benefits'])
         errors=[];regions=[];ledger=[];new_ga=Decimal(0);new_ia=Decimal(0);new_iar=Decimal(0)
+        if active or legacy_active:errors.extend(vetoes)
         npdes=any(r['category']=='industrial_npdes' for r in active) or bool(old_npdes)
         if use_measure:
             measurement=gis.get('measurement',{})
@@ -267,77 +456,101 @@ def _economics(case, gis, records, as_of, tariff):
             else:
                 total_ga=_area_decimal(measurement.get('ga_sqft'));total_ia=_area_decimal(measurement.get('ia_sqft'))
         existing=bool(cg or ci or ir)
-        if (active or legacy_active) and total_ga<500:errors.append('Minimum parcel gross area for credit is 500 square feet')
+        if (active or legacy_active) and total_ga<minimum_credit_ga:errors.append('Minimum parcel gross area for credit is 500 square feet')
         if existing and baseline.get('existing_credits_spatially_reconciled') is not True:errors.append('Existing aggregate credits require spatial reconciliation')
         supplied_allocations=bool(case.get('assessment',{}).get('existing_credit_allocations'))
         existing_allocations,allocation_errors=_existing_allocations(case,gis,baseline) if existing or supplied_allocations else ([],[])
         if allocation_errors and (supplied_allocations or existing):errors.extend(allocation_errors)
+        uplift=bool(npdes and not old_npdes)
         if existing_allocations and not allocation_errors:
             regions.extend((item['id'],shape(item['geometry'])) for item in existing_allocations)
-            if npdes and not old_npdes:
+            if uplift:
+                # Manual 4.3.5.2/4.3.5.4: NPDES replaces 80/90% with 87/97%; the
+                # recorded amounts are removed and recomputed, never added twice.
                 new_ga=-cg;new_ia=-ci;new_iar=-ir
                 for item in existing_allocations:
-                    area=_area_decimal(item['area_sqft']);cat=item['category'];j=Decimal(0)
-                    if cat in ('management','direct_discharge'):g=i=area*Decimal('.87' if cat=='management' else '.97')
-                    elif cat=='open_space':g=area*Decimal(str(open_space_factor(item['facts']['curve_number'],True)));i=Decimal(0)
+                    area=_area_decimal(item['area_sqft']);cat=item['category'];j=Decimal(0);open_area=Decimal(0);applied=True
+                    if cat in ('management','direct_discharge'):
+                        rate,open_rate=_factors(cat=='direct_discharge',True);open_area=_area_decimal(item.get('open_space_area_sqft',0))
+                        i=area*rate;g=i+open_area*open_rate
+                    elif cat=='open_space':g,applied=_open_space_credit(area,item['facts']['curve_number'],True);i=Decimal(0)
+                    elif cat=='open_space_direct_discharge':g=area*factor('surface_discharge_open_space_npdes_factor');i=Decimal(0)
                     else:g=i=Decimal(0);j=decimal(item.get('iar_sqft',0))
                     new_ga+=g;new_ia+=i;new_iar+=j
-                    ledger.append({'id':item['id'],'category':cat,'area_sqft':float(area),'ga_credit_sqft':float(g),'ia_credit_sqft':float(i),'iar_sqft':float(j),'existing':True})
+                    ledger.append({'id':item['id'],'category':cat,'area_sqft':float(area),'open_space_area_sqft':float(open_area),
+                                   'credit_applied':applied,'ga_credit_sqft':float(g),'ia_credit_sqft':float(i),'iar_sqft':float(j),'existing':True})
         if old_npdes and (any(r['category']!='industrial_npdes' for r in active) or legacy_active or use_measure):errors.append('Existing percentage-based NPDES baseline requires approved area-ledger reconciliation; unresolved')
         for r in active:
             if r['category']=='industrial_npdes':continue
             source=originals[r['id']];region=shape(source['geometry']);regions.append((r['id'],region))
             if existing and source.get('facts',{}).get('existing_overlap_reconciled') is not True:errors.append('New benefit overlap with existing credits is unreconciled')
-            a=_area_decimal(r['managed_area_sqft']);factor=Decimal('.97' if npdes else '.90') if r['category']=='direct_discharge' else Decimal('.87' if npdes else '.80')
-            new_ga+=a*factor;new_ia+=a*factor
-            ledger.append({'id':r['id'],'category':r['category'],'area_sqft':float(a),'factor':float(factor),'ga_credit_sqft':float(a*factor),'ia_credit_sqft':float(a*factor),'iar_sqft':0})
+            managed_ia=r.get('managed_ia_sqft');a=_area_decimal(managed_ia if managed_ia is not None else r['managed_area_sqft'])
+            rate,open_rate=_factors(r['category']=='direct_discharge',npdes)
+            open_area=_area_decimal(r.get('managed_open_space_sqft') or 0) if (r.get('open_space_credit') or {}).get('status')=='screen_pass' else Decimal(0)
+            g=a*rate+open_area*open_rate;i=a*rate
+            new_ga+=g;new_ia+=i
+            ledger.append({'id':r['id'],'category':r['category'],'area_sqft':float(a),'open_space_area_sqft':float(open_area),
+                           'factor':float(rate),'open_space_factor':float(open_rate) if open_area else None,
+                           'ga_credit_sqft':float(g),'ia_credit_sqft':float(i),'iar_sqft':0})
         for b,s in legacy_active:
-            region=shape(b['geometry']);regions.append((b['id'],region));a=_area_decimal(s['area_sqft']);cat=s['category']
+            region=shape(b['geometry']);regions.append((b['id'],region));a=_area_decimal(s['area_sqft']);cat=s['category'];applied=True
             if existing and b.get('existing_overlap_reconciled') is not True:errors.append('Baseline benefit overlap with existing credits is unreconciled')
-            if cat=='management':g=i=a*Decimal('.87' if npdes else '.8');j=Decimal(0)
-            elif cat=='open_space':g=a*Decimal(str(open_space_factor(b['evidence']['curve_number'],npdes)));i=j=Decimal(0)
+            if cat=='management':g=i=a*_factors(False,npdes)[0];j=Decimal(0)
+            elif cat=='open_space':g,applied=_open_space_credit(a,b['evidence']['curve_number'],npdes);i=j=Decimal(0)
             else:g=i=Decimal(0);j=decimal(s['iar_sqft'])
             new_ga+=g;new_ia+=i;new_iar+=j
-            ledger.append({'id':b['id'],'category':cat,'area_sqft':float(a),'ga_credit_sqft':float(g),'ia_credit_sqft':float(i),'iar_sqft':float(j)})
+            ledger.append({'id':b['id'],'category':cat,'area_sqft':float(a),'credit_applied':applied,
+                           'ga_credit_sqft':float(g),'ia_credit_sqft':float(i),'iar_sqft':float(j)})
         for index,(identifier,region) in enumerate(regions):
             if any(region.intersection(other).area>1e-8 for _,other in regions[:index]):errors.append('Overlapping physical allocations: '+str(identifier))
-        managed=sum((decimal(x['area_sqft']) for x in ledger if x['category'] not in ('open_space','canopy','roof_disconnection','pavement_disconnection')),Decimal(0))
-        iar_area=sum((decimal(x['area_sqft']) for x in ledger if x['category'] in ('canopy','roof_disconnection','pavement_disconnection')),Decimal(0))
+        def total(rows,cats,key='area_sqft',only_applied=False):
+            return sum((_area_decimal(x.get(key) or 0) for x in rows if x['category'] in cats and (not only_applied or x.get('credit_applied',True))),Decimal(0))
         # Existing areas remain occupied even when their recorded credit amount
         # is preserved rather than recomputed. Percentage credits are not physical
         # area: an 800 sqft credit can reserve a full 1000 sqft management region.
-        preserved=existing_allocations if not allocation_errors and not (npdes and not old_npdes) else []
-        managed+=sum((_area_decimal(x['area_sqft']) for x in preserved if x['category'] in ('management','direct_discharge')),Decimal(0))
-        iar_area+=sum((_area_decimal(x['area_sqft']) for x in preserved if x['category'] in ('canopy','roof_disconnection','pavement_disconnection')),Decimal(0))
-        open_area=sum((_area_decimal(x['area_sqft']) for x in ledger+preserved if x['category']=='open_space'),Decimal(0))
+        preserved=existing_allocations if not allocation_errors and not uplift else []
+        rows=ledger+preserved
+        managed=total(rows,IA_MANAGED_CATEGORIES)
+        iar_area=total(rows,IAR_CATEGORIES)
+        open_area=total(rows,OPEN_CATEGORIES)+total(rows,IA_MANAGED_CATEGORIES,'open_space_area_sqft')
+        open_credited=total(ledger,OPEN_CATEGORIES,only_applied=True)+total(ledger,IA_MANAGED_CATEGORIES,'open_space_area_sqft')
         reserved_aggregate_iar=ir if allocation_errors else Decimal(0)
         if managed+iar_area>total_ia-reserved_aggregate_iar:errors.append('Allocations exceed available physical impervious area')
         if open_area>total_ga-total_ia:errors.append('Open-space allocations exceed available physical open space')
         if npdes and (ir or new_iar):errors.append('NPDES with IAR requires an approved GA allocation interpretation; unresolved')
-        if npdes and not old_npdes:
-            # Manual 4.3.5.2: 87/97% already includes uplift on managed areas.
-            # Only unmanaged IA receives the residual 7%; no second multiplier.
+        if uplift:
+            # Manual 4.3.5.2: uncredited IA receives 7% toward IA and the GA under it;
+            # with no other credit the whole parcel receives 7% of IA and GA. One base
+            # in both cases: residual GA = 7% x (GA - GA already credited by area), so
+            # adding a qualifying credit can never reduce the total (review B1).
             unmanaged=total_ia-ir-new_iar-managed
             if unmanaged<0:errors.append('NPDES residual area is negative')
-            residual_ia=max(Decimal(0),unmanaged)*Decimal('.07')
-            residual_ga=(total_ga if not ledger else max(Decimal(0),unmanaged))*Decimal('.07')
+            residual_ga_base=max(Decimal(0),total_ga-managed-open_credited)
+            residual_ia=max(Decimal(0),unmanaged)*residual_rate
+            residual_ga=residual_ga_base*residual_rate
             new_ia+=residual_ia;new_ga+=residual_ga
-            ledger.append({'id':'npdes-residual','category':'industrial_npdes','ga_credit_sqft':float(residual_ga),'ia_credit_sqft':float(residual_ia),'iar_sqft':0,'area_sqft':float(max(Decimal(0),unmanaged))})
+            ledger.append({'id':'npdes-residual','category':'industrial_npdes','ga_credit_sqft':float(residual_ga),'ia_credit_sqft':float(residual_ia),'iar_sqft':0,
+                           'area_sqft':float(max(Decimal(0),unmanaged)),'residual_ga_base_sqft':float(residual_ga_base)})
         if ci+new_ia+ir+new_iar>total_ia:errors.append('Credits exceed remaining IA')
         if cg+new_ga>total_ga:errors.append('Credits exceed GA')
         if errors:return _blocked(errors)
         try:
             bill=monthly_bill(total_ga,total_ia,ga_credit_sqft=cg+new_ga,ia_credit_sqft=ci+new_ia,iar_sqft=ir+new_iar,
-                              npdes_fraction=old_npdes,minimum_mode='per_account_after_credit' if active or legacy_active or existing or old_npdes else 'parcel',**common)
+                              npdes_fraction=old_npdes,**common)
         except ValueError as exc:return _blocked([str(exc)])
         saving=cents(decimal(base['monthly_total'])-decimal(bill['monthly_total']))
         basis='documented' if documented and baseline.get('actual_bill_verified') is True and not use_measure else 'conditional'
+        assumptions=(['Complete GIS measurements used; independent empirical validation still required'] if use_measure else [])
+        assumptions+=([] if baseline.get('actual_bill_verified') else ['Actual account bill, payer and special-rate enrollment are unverified'])
+        assumptions+=([allocation['note']] if allocation else [])
+        assumptions+=['Gross current-rate illustration; no approval, award or realized savings asserted']
         return {'status':'calculated','basis':basis,'gross_monthly_reduction':float(saving),'gross_annual_reduction':float(saving*12),
                 'bill':bill,'ledger':{'existing_ga_credit_sqft':float(cg),'existing_ia_credit_sqft':float(ci),'existing_iar_sqft':float(ir),
                 'allocations':ledger,'new_ga_credit_sqft':float(new_ga),'new_ia_credit_sqft':float(new_ia),'new_iar_sqft':float(new_iar)},
-                'assumptions':(['Complete GIS measurements used; independent empirical validation still required'] if use_measure else [])+([] if baseline.get('actual_bill_verified') else ['Actual account bill, payer and special-rate enrollment are unverified'])+['Gross current-rate illustration; no approval, award or realized savings asserted']}
+                'assumptions':assumptions}
     return {'baseline':base,'documented':scenario(True),'modeled':scenario(False),
             'measurement_only':scenario(True,True,False),'documented_combined':scenario(True,True),'modeled_combined':scenario(False,True),'tariff':t,
+            'billed_area_check':billed_area_check(baseline,base),
             'claim':'One baseline minus one reconciled final bill; annual reduction is twelve times monthly. No refund included.'}
 
 
@@ -359,6 +572,8 @@ def research_economics(case, gis, records, as_of, tariff):
     for f in effective_features(case):
         if f.get('properties',{}).get('layer')=='benefit':reserved.append(shape(f['geometry']))
     occupied=union(reserved); scenarios=[]
+    # Unknown prerequisites are assumed below; known-false ones are not (R1).
+    vetoes=case_vetoes(case)
     assumed={key:True for key in ('physical_area_confirmed','parcel_allocation_confirmed','account_current',
              'routing_confirmed','approved_record_drawings','current_condition_confirmed',
              'maintenance_documented','professional_reviewed')}
@@ -380,7 +595,9 @@ def research_economics(case, gis, records, as_of, tariff):
                 geoms={**gis['measurement']['geometries'],
                        'physical_ia':mapping(shape(gis['measurement']['geometries']['physical_ia']).union(unknown))}
                 view={**gis,'measurement':{**gis['measurement'],'geometries':geoms}}
-            if run.get('extent_sufficient') is not True:
+            if vetoes:
+                s=_blocked(vetoes)
+            elif run.get('extent_sufficient') is not True:
                 s=_blocked(['Surrounding watershed extent is unverified'])
             elif region.is_empty or case_area_sqft(region,case)<.000001:
                 s=_blocked(['No unallocated known impervious area modeled to GSI; unknown surfaces and missing connections are not zero-area evidence'])
@@ -414,6 +631,20 @@ def historical_flags(case, economics):
                           'source_basis':deepcopy(baseline.get('source',case.get('sources',[]))),
                           'missing':['Applicable historical tariff','Actual invoices and account allocations','Award/effective-period records'],
                           'refund_entitlement':None,'claim':'Review issue only; no refund or historical debt determined'})
+    checks=economics.get('billed_area_check') or {}
+    alternatives=checks.get('alternatives') if checks.get('status')=='alternatives' else None
+    consistent=[name for name,check in (alternatives or {}).items() if (check or {}).get('status')=='consistent']
+    if checks.get('status')=='mismatch' or (alternatives and not consistent and any((c or {}).get('status')=='mismatch' for c in alternatives.values())):
+        flags.append({'kind':'billed_area_discrepancy','status':'review_only','affected_from':baseline.get('bill_date'),
+                      'affected_through':baseline.get('bill_period_end',baseline.get('bill_date')),
+                      'rows':deepcopy(checks.get('rows') if not alternatives else alternatives),
+                      'basis':'PWD FinalGross/FinalImperv differ from the computed final and billed areas',
+                      'missing':['Recorded credit schedule and order','Undeveloped/statutory IA basis','Actual invoices'],
+                      'refund_entitlement':None,'claim':'Validation flag only; no correction, refund or historical debt determined'})
+    elif alternatives and consistent:
+        flags.append({'kind':'billed_area_status_evidence','status':'review_only','consistent_alternatives':consistent,
+                      'rows':deepcopy(alternatives),
+                      'claim':'PWD billed areas are consistent with the listed undeveloped-status alternative(s); confirm the status with the property record before choosing one'})
     for record in case.get('assessment',{}).get('historical_issues',[]):
         flags.append({**deepcopy(record),'status':'review_only','refund_entitlement':None,
                       'claim':'Manually recorded issue for review; excluded from ongoing savings'})

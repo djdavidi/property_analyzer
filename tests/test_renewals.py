@@ -16,10 +16,23 @@ class RenewalTests(unittest.TestCase):
                 self.assertEqual((r['status'],r['days_remaining']), (status,remaining))
 
     def test_unknown_dates_and_expired_flag_do_not_establish_award_or_term(self):
-        for event in [self.event(expires_on=None), self.event(status='expired')]:
+        # An expired flag recorded before its own expiry date stays unexplained.
+        r=credit_renewals([self.event(status='expired')], '2026-11-15')[0]
+        self.assertEqual(r['status'],'unknown_dates')
+        self.assertIsNone(r['deadline'])
+        for event in [self.event(expires_on=None,effective_from=None), self.event(status='unknown',expires_on=None)]:
             r=credit_renewals([event], '2026-11-15')[0]
             self.assertEqual(r['status'],'unknown_dates')
             self.assertIsNone(r['deadline'])
+
+    def test_effective_date_only_gives_labelled_four_year_bound(self):
+        # Tariff 4.5(f)(4) / manual 4.4.1: credits expire four years from the
+        # effective date. 2024-02-29 + 4 years = 2028-02-29 (2028 is a leap year);
+        # 2026-11-15 -> 2028-02-29 is 46 + 365 + 60 = 471 days (> 90-day lead).
+        r=credit_renewals([self.event(expires_on=None)], '2026-11-15')[0]
+        self.assertEqual((r['status'],r['deadline'],r['days_remaining']),('current','2028-02-29',471))
+        self.assertIn('no_later_than',r['deadline_basis'])
+        self.assertIn('recorded expires_on (award letter)',r['missing'])
 
     def test_renewal_supersedes_expired_award_without_erasing_it(self):
         events=[self.event(expires_on='2026-01-01'), self.event(id='renewal-2',status='renewed',
@@ -28,6 +41,11 @@ class RenewalTests(unittest.TestCase):
         self.assertEqual(r['status'],'current')
         self.assertEqual(r['history_ids'],['award-1','renewal-2'])
         events[-1]['expires_on']=None
+        # Renewal effective 2026-01-01 + four-year term -> no later than 2030-01-01.
+        r=credit_renewals(events,'2026-11-15')[0]
+        self.assertEqual((r['status'],r['deadline']),('current','2030-01-01'))
+        self.assertIn('no_later_than',r['deadline_basis'])
+        events[-1]['effective_from']=None
         self.assertEqual(credit_renewals(events,'2026-11-15')[0]['status'],'unknown_dates')
 
     def test_termination_applications_and_unknown_termination_dates(self):

@@ -45,9 +45,10 @@ class SyntheticExampleKnownAnswerTests(unittest.TestCase):
     def test_single_ledger_credits_3060_square_feet(self):
         ledger=self.economics['modeled']['ledger']
         credits=[(x['id'],x['ga_credit_sqft'],x['ia_credit_sqft']) for x in ledger['allocations']]
+        # README: IA residual 7% x (8,000 - 3,000) = 350; GA residual 7% x (10,000 - 3,000) = 490.
         self.assertEqual(credits,[('green_roof-modeled',870.0,870.0),('permeable_pavement-modeled',870.0,870.0),
-                                  ('direct_discharge-modeled',970.0,970.0),('npdes-residual',350.0,350.0)])
-        self.assertEqual((ledger['new_ga_credit_sqft'],ledger['new_ia_credit_sqft']),(3060.0,3060.0))
+                                  ('direct_discharge-modeled',970.0,970.0),('npdes-residual',490.0,350.0)])
+        self.assertEqual((ledger['new_ga_credit_sqft'],ledger['new_ia_credit_sqft']),(3200.0,3060.0))
 
     def test_final_bill_and_conditional_reduction(self):
         modeled=self.economics['modeled']
@@ -65,7 +66,7 @@ class SyntheticExampleKnownAnswerTests(unittest.TestCase):
 
     def test_readme_states_the_tested_numbers(self):
         readme=(EXAMPLE/'README.md').read_text()
-        for text in ('2026-11-15','3,060','870 + 870 + 970 + 350','$135.64','$87.33','$48.31','$579.72'):
+        for text in ('2026-11-15','3,060','3,200','870 + 870 + 970 + 350','870 + 870 + 970 + 490','$135.64','$87.33','$48.31','$579.72'):
             self.assertIn(text,readme)
 
     def test_saved_fixture_is_the_built_case(self):
