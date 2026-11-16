@@ -125,7 +125,7 @@ def render_report(case, result):
         )
     )
     terrain = case.get("terrain") or {}
-    from .assessment_report import sections
+    from .assessment_report import sections, research_section
 
     assessment_sections = sections(case, result)
     # Map evidence overlays only; never feed these polygons into GIS measurement.
@@ -167,7 +167,7 @@ def render_report(case, result):
 {assessment_sections}
 {research_sections(result)}
 {modeled_sections(result)}
-<h3>Conditional research bill-reduction alternatives</h3><p>These alternatives use the existing ledger and assume management prerequisites. Do not add them to existing assessment savings. Actual treatment capacity and approval remain unverified.</p><pre>{e(json.dumps(result.get('assessment',{}).get('research_drainage_scenarios',{}),indent=2))}</pre>
+<h3>Conditional research bill-reduction alternatives</h3><p>These alternatives use the existing ledger and assume management prerequisites. Do not add them to existing assessment savings. Actual treatment capacity and approval remain unverified.</p>{research_section(result.get('assessment',{}).get('research_drainage_scenarios'))}<pre>{e(json.dumps(result.get('assessment',{}).get('research_drainage_scenarios',{}),indent=2))}</pre>
 <h2>Missing evidence and limitations</h2><ul>{warnings}</ul>
 <h2>Drainage</h2><p>Status: {e(result['drainage'].get('status','processed'))}. Catchments: {len(result['drainage'].get('catchments',[]))}. Horizontal unit: {e(terrain.get('horizontal_unit','Unknown'))}; vertical unit: {e(terrain.get('vertical_unit','Unknown'))}; cell size: {e(terrain.get('cell_size','Unknown'))}. Off-parcel IA is unmeasured; no whole-parcel allocation is assumed. Map snapshot shows up to 250 largest non-roof catchments and sampled flow paths; full geometries are in GeoJSON. Unconnected roof cells are grouped for display, not treated as confirmed outlets.</p>
 <pre>{e(json.dumps({k:v for k,v in terrain.items() if k not in ('elevations','parcel_mask')},indent=2))}</pre>

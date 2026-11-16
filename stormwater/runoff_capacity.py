@@ -57,6 +57,19 @@ from .system_pricing import annual_values, lineage_errors, run_route, value_rang
 
 VERSION = "pwd-storage-limited-management-v2"
 STORAGE_METHODS = ("perimeter_cell_minimum", "perimeter_bilinear")
+# D2 for storage-limited rows: unseen upstream inflow can only consume the measured
+# storage, so the true storage-limited value is lower or equal, never higher. The
+# generic PARTIAL_LABEL ("true value may be higher") is for contributing-area pricing.
+STORAGE_PARTIAL_LABEL = (
+    "partial: storage-limited value may be lower or equal (unseen upstream inflow can only "
+    "use up storage)"
+)
+
+
+def _storage_label(route):
+    return STORAGE_PARTIAL_LABEL if route.get("partial_label") else None
+
+
 # (name, off-parcel runoff fraction, other on-parcel ground runoff fraction, meaning)
 LOADS = (
     (
@@ -433,7 +446,7 @@ def estimate_capacity_management(
                                 "candidate_ia_outside_bed_sqft": external_area,
                                 "system_bed_ia_excluded_sqft": bed,
                                 "route_state": route["route_state"],
-                                "partial_label": route["partial_label"],
+                                "partial_label": _storage_label(route),
                                 "volume_equivalent_is_hypothetical": True,
                                 "assumptions": assumptions,
                                 "monthly_savings": None,
@@ -497,7 +510,7 @@ def estimate_capacity_management(
                     "name": run.get("name"),
                     "route_state": route["route_state"],
                     "route_state_reason": route["route_state_reason"],
-                    "partial_label": route["partial_label"],
+                    "partial_label": _storage_label(route),
                     "off_parcel_area_sqft": off_area,
                     "load_bounded": bounded,
                     "scenarios": rows,

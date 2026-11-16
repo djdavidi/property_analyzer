@@ -357,12 +357,17 @@ class ManagementEstimateTests(unittest.TestCase):
         self.assertEqual(result["status"], "blocked")
         self.assertTrue(result["reasons"])
 
-    def test_existing_npdes_combination_remains_blocked(self):
+    def test_recorded_npdes_baseline_combines_as_area_credits(self):
+        # Fix 8: one area representation (manual 4.3.5.2). Baseline with recorded NPDES:
+        # 700 GA + 700 IA -> 9,300 each -> 19 units: $19.06 + $133.91 + $2.81 = $155.78.
+        # 1,000 managed at 87% = 870 plus 7% x (10,000 - 1,000) = 630 toward both: 1,500.
+        # 8,500 each -> 17 units: $17.05 + $119.82 + $2.81 = $139.68. $16.10/month x 12 =
+        # $193.20/year.
         c, g, e = fixture()
         c["baseline"]["npdes_fraction"] = 0.07
         result = base(run(c, g, e))
-        self.assertEqual(result["status"], "blocked")
-        self.assertIn("NPDES", " ".join(result["reasons"]))
+        self.assertEqual(result["status"], "calculated", result.get("reasons"))
+        self.assertEqual(result["annual_savings"], 193.20)
 
     def test_pending_baseline_refresh_blocks_stale_prices(self):
         c, g, e = fixture()
@@ -700,11 +705,8 @@ class ReviewHPolicyRegressionTests(unittest.TestCase):
 
     def test_one_money_path_and_undeveloped_alternatives_d6_d7(self):
         c, g, e = fixture()
-        with patch(
-            "stormwater.billing.calculate_scenarios",
-            side_effect=AssertionError("one money path (D7)"),
-        ):
-            self.assertEqual(base(run(c, g, e))["annual_savings"], 96.60)
+        # D7: billing.calculate_scenarios no longer exists; the ledger is the only path.
+        self.assertEqual(base(run(c, g, e))["annual_savings"], 96.60)
         c, g, e = fixture()
         c["baseline"].update(ga_sqft=4000, ia_sqft=4000)
         estimate = base(run(c, g, e))

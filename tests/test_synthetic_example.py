@@ -57,35 +57,38 @@ class SyntheticExampleKnownAnswerTests(unittest.TestCase):
             (bill["ga_charge"], bill["ia_charge"], bill["monthly_total"]), (20.06, 112.77, 135.64)
         )
 
-    def test_single_ledger_credits_3060_square_feet(self):
+    def test_single_ledger_credits_2225_square_feet_and_500_iar(self):
         ledger = self.economics["modeled"]["ledger"]
         credits = [
-            (x["id"], x["ga_credit_sqft"], x["ia_credit_sqft"]) for x in ledger["allocations"]
+            (x["id"], x["ga_credit_sqft"], x["ia_credit_sqft"], x["iar_sqft"])
+            for x in ledger["allocations"]
         ]
-        # README: IA residual 7% x (8,000 - 3,000) = 350; GA residual 7% x (10,000 - 3,000) = 490.
+        # README: green roof IAR = 500 sq ft footprint (manual Table 1 / 4.3.2.1); residual
+        # 7% x (8,000 - 500 IAR - 2,000 managed) = 385 toward IA and GA (manual 4.3.5.2).
         self.assertEqual(
             credits,
             [
-                ("green_roof-modeled", 870.0, 870.0),
-                ("permeable_pavement-modeled", 870.0, 870.0),
-                ("direct_discharge-modeled", 970.0, 970.0),
-                ("npdes-residual", 490.0, 350.0),
+                ("green_roof-modeled", 0.0, 0.0, 500.0),
+                ("permeable_pavement-modeled", 870.0, 870.0, 0),
+                ("direct_discharge-modeled", 970.0, 970.0, 0),
+                ("npdes-residual", 385.0, 385.0, 0),
             ],
         )
         self.assertEqual(
-            (ledger["new_ga_credit_sqft"], ledger["new_ia_credit_sqft"]), (3200.0, 3060.0)
+            (ledger["new_ga_credit_sqft"], ledger["new_ia_credit_sqft"], ledger["new_iar_sqft"]),
+            (2225.0, 2225.0, 500.0),
         )
 
     def test_final_bill_and_conditional_reduction(self):
         modeled = self.economics["modeled"]
         self.assertEqual((modeled["status"], modeled["basis"]), ("calculated", "conditional"))
         bill = modeled["bill"]
-        self.assertEqual((bill["billed_ga_sqft"], bill["billed_ia_sqft"]), (7000.0, 5000.0))
+        self.assertEqual((bill["billed_ga_sqft"], bill["billed_ia_sqft"]), (8000.0, 5500.0))
         self.assertEqual(
-            (bill["ga_charge"], bill["ia_charge"], bill["monthly_total"]), (14.04, 70.48, 87.33)
+            (bill["ga_charge"], bill["ia_charge"], bill["monthly_total"]), (16.05, 77.53, 96.39)
         )
         self.assertEqual(
-            (modeled["gross_monthly_reduction"], modeled["gross_annual_reduction"]), (48.31, 579.72)
+            (modeled["gross_monthly_reduction"], modeled["gross_annual_reduction"]), (39.25, 471.0)
         )
         self.assertEqual(self.economics["documented"]["status"], "blocked")
 
@@ -100,14 +103,13 @@ class SyntheticExampleKnownAnswerTests(unittest.TestCase):
         readme = (EXAMPLE / "README.md").read_text()
         for text in (
             "2026-11-15",
-            "3,060",
-            "3,200",
-            "870 + 870 + 970 + 350",
-            "870 + 870 + 970 + 490",
+            "2,225",
+            "500 ft² impervious area reduction",
+            "870 + 970 + 385",
             "$135.64",
-            "$87.33",
-            "$48.31",
-            "$579.72",
+            "$96.39",
+            "$39.25",
+            "$471.00",
         ):
             self.assertIn(text, readme)
 

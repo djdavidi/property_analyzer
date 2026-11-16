@@ -240,8 +240,15 @@ class RunoffCapacityPolicyUnitTests(unittest.TestCase):
         )
         result = run(case, gis, e, cap)
         self.assertEqual(result["headline"]["status"], "partial_range")
-        self.assertEqual(result["headline"]["partial_label"], "partial: true value may be higher")
-        self.assertEqual(row(result)["partial_label"], "partial: true value may be higher")
+        # D2 for storage-limited rows (final review p7): unseen inflow can only consume
+        # storage, so the label says lower or equal, never "may be higher".
+        from stormwater.runoff_capacity import STORAGE_PARTIAL_LABEL
+
+        self.assertEqual(result["headline"]["partial_label"], STORAGE_PARTIAL_LABEL)
+        self.assertEqual(row(result)["partial_label"], STORAGE_PARTIAL_LABEL)
+        self.assertIn("lower or equal", STORAGE_PARTIAL_LABEL)
+        self.assertNotIn("higher", STORAGE_PARTIAL_LABEL)
+        self.assertIn("may be lower", result["headline"]["lower_bound_withheld_reason"])
         self.assertEqual(result["headline"]["in_window_annual_savings_range"], [0.0, 193.32])
         self.assertIsNone(result["current_estimate"])
 
@@ -361,10 +368,6 @@ class RunoffCapacityPolicyUnitTests(unittest.TestCase):
         with (
             patch("drainage_core.engine.analyze", side_effect=AssertionError("no routing")),
             patch("urllib.request.urlopen", side_effect=AssertionError("no network")),
-            patch(
-                "stormwater.billing.calculate_scenarios",
-                side_effect=AssertionError("one money path (D7)"),
-            ),
         ):
             result = run(case, gis, e, cap, rebind=False)
         self.assertEqual(before, canonical([case, gis, e, cap]))

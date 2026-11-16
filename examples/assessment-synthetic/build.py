@@ -92,6 +92,9 @@ def build():
         ("direct_discharge", 12.192),
     ]:
         facts = {**common, "treatment_depth_inches": 1.5}
+        if category == "green_roof":
+            # Manual 4.5.1 (impervious area reductions): site plan and recent photographs.
+            facts.update(site_plan_documented=True, photographs_current=True)
         if category == "permeable_pavement":
             facts.update(
                 {

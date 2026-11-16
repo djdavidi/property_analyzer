@@ -20,11 +20,12 @@ from shapely.geometry import box, mapping
 from drainage_core.engine import analyze
 from stormwater.acquisition import normalize_billing
 from stormwater.assessment_policy import evaluate_assessment
-from stormwater.billing import calculate_scenarios, default_tariff, monthly_bill
+from stormwater.billing import default_tariff, monthly_bill
 from stormwater.curve_number import TABLE
 from stormwater.renewals import credit_renewals
 from stormwater.rules import RULE_CONFIG_PATH, load_rule_config, open_space_factor
 from test_assessment_policy import fixture, record, run
+from test_billing import ledger
 
 THIRDS = [
     {"allocation": "0.3333333333333333333"},
@@ -186,14 +187,13 @@ class PerAccountMinimumTests(unittest.TestCase):
         # IA 1,000 -> 2 units x $7.048 = $14.096 -> $14.10; parcel SWMS $26.14; each third
         # $8.71 < $20.89, so each account pays the minimum: 3 x ($20.89 + $2.81) = $71.10.
         # 1,000 sq ft canopy -> IAR 500 -> IA 500 -> 1 unit -> $7.05; parcel $19.09 -> thirds
-        # still below the minimum -> $71.10. Savings $0.00, never negative.
+        # still below the minimum -> $71.10. Savings $0.00, never negative. (Live ledger;
+        # billing.calculate_scenarios was deleted, final review fix 9.)
         for area in (800, 1000):
-            out = calculate_scenarios(
-                {"ga_sqft": 6000, "ia_sqft": 1000, "accounts": THIRDS}, benefits=[canopy(area)]
-            )
+            out = ledger({"ga_sqft": 6000, "ia_sqft": 1000, "accounts": THIRDS}, [canopy(area)])
             self.assertEqual(out["baseline"]["monthly_total"], 71.10)
-            self.assertEqual(out["credit_only"]["monthly_total"], 71.10)
-            self.assertEqual(out["credit_only"]["monthly_savings"], 0.0)
+            self.assertEqual(out["modeled"]["bill"]["monthly_total"], 71.10)
+            self.assertEqual(out["modeled"]["gross_monthly_reduction"], 0.0)
 
     def test_minimum_applies_only_to_accounts_whose_share_is_below_it(self):
         # PWD billing FAQ / manual 4.3.5 step 5: each account's share, then the minimum.
@@ -206,12 +206,14 @@ class PerAccountMinimumTests(unittest.TestCase):
     def test_savings_are_monotone_in_credit_area(self):
         previous = None
         for area in range(0, 1001, 50):  # canopy cannot exceed the 1,000 sq ft IA
-            out = calculate_scenarios(
+            out = ledger(
                 {"ga_sqft": 6000, "ia_sqft": 1000, "accounts": THIRDS},
-                benefits=[canopy(area)] if area else [],
+                [canopy(area)] if area else [],
             )
             total = (
-                out["credit_only"]["monthly_total"] if area else out["baseline"]["monthly_total"]
+                out["modeled"]["bill"]["monthly_total"]
+                if area
+                else out["baseline"]["monthly_total"]
             )
             if previous is not None:
                 self.assertLessEqual(total, previous)
@@ -290,8 +292,8 @@ class NpdesResidualTests(unittest.TestCase):
         ]
         return c, analyze(c)
 
-    def test_adding_a_qualifying_credit_never_reduces_the_npdes_credit(self):
-        # Review B1 (repro policy/npdes_residual_big.py). Baseline: GA 100,000 -> 200 units x
+    def test_literal_residual_after_another_credit_is_a_labelled_discontinuity(self):
+        # Fix 6 (manual 4.3.5.2 read literally). Baseline: GA 100,000 -> 200 units x
         # $1.003 = $200.60; IA 20,000 -> 40 units x $7.048 = $281.92; $482.52 + $2.81 = $485.33.
         # NPDES alone (manual 4.3.5.2): 7% x 100,000 = 7,000 GA; 7% x 20,000 = 1,400 IA.
         # Final GA 93,000 -> 186 units -> $186.558 -> $186.56; IA 18,600 -> 38 units ->
@@ -314,40 +316,56 @@ class NpdesResidualTests(unittest.TestCase):
             ),
             (457.19, 28.14),
         )
-        # Plus a 100 sq ft managed SMP: 87 IA + 7% x 19,900 = 1,480 IA; GA 87 + 7% x
-        # (100,000 - 100) = 7,080. Final GA 92,920 -> 186 units; IA 18,520 -> 38 units:
-        # the same $457.19 bill, so the reduction stays $28.14 (it was $16.11).
-        m = record()
+        # Plus a 100 sq ft managed SMP: "Any remaining uncredited IA area will receive 7%
+        # credit toward both the IA and GA square footage": 87 + 7% x (20,000 - 100) =
+        # 87 + 1,393 = 1,480 to IA and to GA. Final GA 98,520 -> 198 units -> $198.594 ->
+        # $198.59; IA 18,520 -> 38 units -> $267.82; $466.41 + $2.81 = $469.22; reduction
+        # $16.11. The GA credit falls 7,000 -> 1,480 and the bill rises above NPDES alone:
+        # reported as a manual rule discontinuity, not hidden.
+        m = record("permeable_pavement")
         m["geometry"] = m["footprint_geometry"] = mapping(box(0, 0, 0.3048, 30.48))
         m["managed_area_sqft"] = 100
         c["assessment"]["records"] = [m, record("industrial_npdes", "permit")]
         both = run(c, g)["economics"]["documented"]
-        self.assertAlmostEqual(both["ledger"]["new_ga_credit_sqft"], 7080, places=4)
+        self.assertAlmostEqual(both["ledger"]["new_ga_credit_sqft"], 1480, places=4)
         self.assertAlmostEqual(both["ledger"]["new_ia_credit_sqft"], 1480, places=4)
         self.assertEqual(
-            (both["bill"]["monthly_total"], both["gross_monthly_reduction"]), (457.19, 28.14)
+            (both["bill"]["monthly_total"], both["gross_monthly_reduction"]), (469.22, 16.11)
         )
+        note = both["manual_rule_discontinuity"]
+        self.assertEqual(note["kind"], "manual_rule_discontinuity")
+        self.assertEqual(
+            (note["npdes_alone_monthly_total"], note["scenario_monthly_total"]), (457.19, 469.22)
+        )
+        self.assertTrue(note["bill_higher_than_npdes_alone"])
+        self.assertAlmostEqual(note["scenario_ga_credit_sqft"], 1480, places=4)
+        self.assertIn("manual 4.3.5.2", note["note"])
 
-    def test_credit_totals_are_monotone_for_any_managed_area(self):
+    def test_ia_credit_is_monotone_and_every_ga_drop_is_labelled(self):
+        # IA: 0.87 M + 0.07 (20,000 - M) = 1,400 + 0.80 M >= 1,400 (NPDES alone). GA:
+        # 0.87 M + 0.07 (20,000 - M) < 7,000 for M < 7,000, so each row carries the note.
         c, g = self.big_site()
         c["assessment"]["records"] = [record("industrial_npdes")]
         alone = run(c, g)["economics"]["documented"]["ledger"]
         for width in (0.3048, 3.048, 15.24):
-            m = record()
+            m = record("permeable_pavement")
             m["geometry"] = m["footprint_geometry"] = mapping(box(0, 0, width, 30.48))
             m["managed_area_sqft"] = width / 0.3048 * 100
             c["assessment"]["records"] = [m, record("industrial_npdes", "permit")]
-            ledger = run(c, g)["economics"]["documented"]["ledger"]
-            self.assertGreaterEqual(ledger["new_ga_credit_sqft"], alone["new_ga_credit_sqft"])
-            self.assertGreaterEqual(ledger["new_ia_credit_sqft"], alone["new_ia_credit_sqft"])
+            s = run(c, g)["economics"]["documented"]
+            self.assertGreaterEqual(s["ledger"]["new_ia_credit_sqft"], alone["new_ia_credit_sqft"])
+            self.assertLess(s["ledger"]["new_ga_credit_sqft"], alone["new_ga_credit_sqft"])
+            self.assertIn("manual_rule_discontinuity", s)
 
-    def test_open_space_below_the_residual_stays_in_the_residual(self):
+    def test_table_a2_open_space_credit_replaces_the_seven_percent_on_open_space(self):
         # 10,000 GA / 8,000 IA / 2,000 lawn. NPDES alone: GA 700, IA 560. Baseline $135.64;
         # final GA 9,300 -> 19 units -> $19.057 -> $19.06; IA 7,440 -> 15 units -> $105.72;
-        # $124.78 + $2.81 = $127.59 (reduction $8.05). CN 74 with NPDES is 4.35% < 7%, so the
-        # lawn keeps the 7% residual (GA 700). CN 70 is 21.75%: 435 + 7% x (10,000 - 2,000)
-        # = 995 GA; the bill rounds to the same $127.59.
-        for cn, expected_ga in ((74, 700), (70, 995)):
+        # $124.78 + $2.81 = $127.59 (reduction $8.05). Table A-2 NPDES column read
+        # literally: CN >= 75 is 0.00 (no credit, so 7% of all GA/IA applies); CN 74 is
+        # 4.35%: 87 GA + 7% x 8,000 uncredited IA = 560 -> GA 647 < 700 (labelled
+        # discontinuity); CN 70 is 21.75%: 435 + 560 = 995. Each bill rounds to $127.59:
+        # GA 9,353 or 9,005 -> 19 units, IA 7,440 -> 15 units.
+        for cn, expected_ga, note in ((75, 700, False), (74, 647, True), (70, 995, False)):
             c, g, lawn = mixed_site()
             c["assessment"]["records"] = [record("industrial_npdes")]
             c["benefits"] = [
@@ -375,10 +393,11 @@ class NpdesResidualTests(unittest.TestCase):
             self.assertEqual(
                 (s["bill"]["monthly_total"], s["gross_monthly_reduction"]), (127.59, 8.05)
             )
+            self.assertEqual("manual_rule_discontinuity" in s, note, cn)
 
 
 class ManagedDrainageAreaTests(unittest.TestCase):
-    def smp(self, category="green_roof", geometry=None, **facts):
+    def smp(self, category="permeable_pavement", geometry=None, **facts):
         c, g, lawn = mixed_site()
         r = record(category)
         r["geometry"] = geometry or mapping(box(21.336, 0, 27.432, 30.48))
@@ -395,7 +414,7 @@ class ManagedDrainageAreaTests(unittest.TestCase):
         # Final GA 9,200 -> 19 units -> $19.06; IA 7,200 -> 15 units -> $105.72;
         # $124.78 + $2.81 = $127.59; reduction $8.05. The lawn needs sizing/pre-approval.
         out = self.smp()
-        entry = out["categories"][0]["records"][0]
+        entry = out["categories"][1]["records"][0]
         self.assertEqual(entry["status"], "screen_pass", entry)
         self.assertAlmostEqual(entry["managed_ia_sqft"], 1000, places=4)
         self.assertAlmostEqual(entry["managed_open_space_sqft"], 1000, places=4)
@@ -461,11 +480,11 @@ class ManagedDrainageAreaTests(unittest.TestCase):
         ]
         c["assessment"]["records"] = [record("industrial_npdes")]
         s = run(c, g)["economics"]["documented"]
-        # NPDES uplift (4.3.5.4): IA 97% x 1,000 = 970; GA 970 + 97% x 1,000 = 1,940; residual
-        # IA 7% x (8,000 - 1,000) = 490; GA 7% x (10,000 - 1,000 - 1,000) = 560.
+        # NPDES uplift (4.3.5.4): IA 97% x 1,000 = 970; GA 970 + 97% x 1,000 = 1,940. Residual
+        # (4.3.5.2, literal): 7% x (8,000 - 1,000 managed IA) = 490 toward IA and toward GA.
         self.assertEqual(s["status"], "calculated", s.get("reasons"))
         self.assertAlmostEqual(s["ledger"]["new_ia_credit_sqft"] + 900, 970 + 490, places=4)
-        self.assertAlmostEqual(s["ledger"]["new_ga_credit_sqft"] + 1800, 1940 + 560, places=4)
+        self.assertAlmostEqual(s["ledger"]["new_ga_credit_sqft"] + 1800, 1940 + 490, places=4)
 
 
 class NpdesDatesTests(unittest.TestCase):
@@ -609,7 +628,7 @@ class UnknownStatusAndAllocationTests(unittest.TestCase):
         # Developed (85%): IA 3,400 -> 7 units x $7.048 = $49.336 -> $49.34; $57.36 + $2.81 = $60.17.
         # Undeveloped (25%, tariff 1.0(p)): IA 1,000 -> 2 units -> $14.096 -> $14.10;
         # $22.12 >= $20.89, so $22.12 + $2.81 = $24.93.
-        out = calculate_scenarios({"ga_sqft": 4000, "ia_sqft": 0, "bill_date": "2026-11-15"})
+        out = ledger({"ga_sqft": 4000, "ia_sqft": 0, "bill_date": "2026-11-15"})
         base = out["baseline"]
         self.assertEqual(base["status"], "unverified_alternatives")
         self.assertIsNone(base["monthly_total"])
@@ -620,12 +639,12 @@ class UnknownStatusAndAllocationTests(unittest.TestCase):
             ),
             (60.17, 24.93),
         )
-        self.assertEqual(out["appeal_only"]["status"], "blocked")
-        self.assertIn("alternatives", out["appeal_only"])
+        self.assertEqual(out["measurement_only"]["status"], "blocked")
+        self.assertIn("alternatives", out["measurement_only"])
 
     def test_immaterial_unknown_status_keeps_one_bill(self):
         # GA 100: 85 or 25 sq ft both round to one IA unit; $1.00 + $7.05 < $20.89 -> $23.70.
-        out = calculate_scenarios({"ga_sqft": 100, "ia_sqft": 0})
+        out = ledger({"ga_sqft": 100, "ia_sqft": 0})
         self.assertEqual(out["baseline"]["monthly_total"], 23.70)
         self.assertEqual(out["undeveloped_status"]["status"], "unknown_immaterial")
 
@@ -638,7 +657,7 @@ class UnknownStatusAndAllocationTests(unittest.TestCase):
 
     def test_unknown_allocation_uses_labelled_equal_default(self):
         # Tariff 4.3(a)(8) default: $132.83 / 2 = $66.415 -> $66.42 each; 2 x ($66.42 + $2.81) = $138.46.
-        out = calculate_scenarios(
+        out = ledger(
             {
                 "ga_sqft": 10000,
                 "ia_sqft": 8000,
@@ -647,19 +666,21 @@ class UnknownStatusAndAllocationTests(unittest.TestCase):
         )
         self.assertEqual(out["baseline"]["monthly_total"], 138.46)
         self.assertEqual(out["baseline"]["allocation_status"]["status"], "unknown")
-        self.assertTrue(any("Account allocation unknown" in w for w in out["warnings"]))
-        with self.assertRaisesRegex(ValueError, "partial"):
-            calculate_scenarios(
-                {
-                    "ga_sqft": 10000,
-                    "ia_sqft": 8000,
-                    "accounts": [{"allocation": 0.5}, {"allocation": None}],
-                }
-            )
+        self.assertIn("Account allocation unknown", out["baseline"]["allocation_status"]["note"])
+        partial = ledger(
+            {
+                "ga_sqft": 10000,
+                "ia_sqft": 8000,
+                "accounts": [{"allocation": 0.5}, {"allocation": None}],
+            }
+        )
+        self.assertIsNone(partial["baseline"])
+        self.assertIn("partial", " ".join(partial["documented"]["reasons"]))
 
     def test_unknown_allocation_flags_minimum_sensitivity(self):
-        # $26.14 / 2 = $13.07 per account < $20.89: 2 x $23.70 = $47.40, allocation-sensitive.
-        out = calculate_scenarios(
+        # $26.14 / 2 = $13.07 per account < $20.89: 2 x $23.70 = $47.40, allocation-sensitive
+        # (ported from calculate_scenarios into the live ledger, fix 9).
+        out = ledger(
             {
                 "ga_sqft": 6000,
                 "ia_sqft": 1000,
@@ -668,16 +689,27 @@ class UnknownStatusAndAllocationTests(unittest.TestCase):
         )
         self.assertEqual(out["baseline"]["monthly_total"], 47.40)
         self.assertTrue(out["allocation_sensitive"])
+        self.assertTrue(out["baseline"]["allocation_sensitive"])
+        self.assertTrue(any("per-account minimum" in a for a in out["baseline"]["assumptions"]))
+        # A known allocation is not flagged: 0.5 / 0.5 recorded.
+        known = ledger(
+            {
+                "ga_sqft": 6000,
+                "ia_sqft": 1000,
+                "accounts": [{"allocation": 0.5}, {"allocation": 0.5}],
+            }
+        )
+        self.assertNotIn("allocation_sensitive", known)
 
 
 class BilledAreaCheckTests(unittest.TestCase):
     def test_pwd_billed_area_mismatch_is_visible(self):
         # Review G1: GA 10,000 and IA 8,000 bill as 10,000 and 8,000 sq ft (exact units).
         base = {"ga_sqft": 10000, "ia_sqft": 8000, "billed_ga_sqft": 10000, "billed_ia_sqft": 8000}
-        self.assertEqual(calculate_scenarios(base)["billed_area_check"]["status"], "consistent")
-        out = calculate_scenarios({**base, "billed_ia_sqft": 7500})
+        self.assertEqual(ledger(base)["billed_area_check"]["status"], "consistent")
+        out = ledger({**base, "billed_ia_sqft": 7500})
         self.assertEqual(out["billed_area_check"]["status"], "mismatch")
-        self.assertTrue(any("PWD billed area differs" in w for w in out["warnings"]))
+        self.assertIn("PWD billed area differs", out["billed_area_check"]["warning"])
         c, g = fixture()
         c["baseline"].update(billed_ga_sqft=10000, billed_ia_sqft=7500)
         flags = run(c, g)["historical_flags"]

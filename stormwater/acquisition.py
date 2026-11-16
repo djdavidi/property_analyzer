@@ -81,6 +81,12 @@ def normalize_billing(data):
     # Public API stores NPDESCredit as boolean/0.07 depending on response version.
     if npdes == 1:
         npdes = 0.07
+    if npdes is None:
+        # The charge summary states the same fact as a boolean; neither present stays
+        # unknown (the ledger then explains why the baseline cannot be billed).
+        applies = data.get("ChargeSummary", {}).get("NpdesCreditApplies")
+        if isinstance(applies, bool):
+            npdes = 0.07 if applies else 0.0
     return {
         "ga_sqft": number("GrossArea"),
         "ia_sqft": number("ImpervArea"),

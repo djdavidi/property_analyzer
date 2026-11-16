@@ -274,21 +274,15 @@ class PortfolioLedgerAndGateTests(unittest.TestCase):
         self.assertTrue(any("Overlapping physical allocations" in r for r in v["reasons"]))
 
     def test_canopy_cap_honours_baseline_refresh_and_one_money_path_r6(self):
-        from unittest.mock import patch
-
         c = fixture()
         c["features"]["features"] = [candidate("canopy", box(0, 0, 30.48, 30.48))]
         g = frozen_gis(c)
         a = assess(c, g)
-        with patch(
-            "stormwater.billing.calculate_scenarios",
-            side_effect=AssertionError("one money path (D7)"),
-        ):
-            m = parcel_view(
-                c,
-                {**g, "assessment": a, "billing": {"baseline": {"annualized_total": 1200}}},
-                {"parcel_id": "1", "address": "Invented", "systems": []},
-            )
+        m = parcel_view(
+            c,
+            {**g, "assessment": a, "billing": {"baseline": {"annualized_total": 1200}}},
+            {"parcel_id": "1", "address": "Invented", "systems": []},
+        )
         cap = next(x for x in m["categories"] if x["category"] == "canopy")["scenarios"][0]
         self.assertEqual(cap["status"], "calculated")
         self.assertEqual(cap["priced_by"][:24], "assessment_policy._econo")

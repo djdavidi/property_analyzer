@@ -27,12 +27,10 @@
     "https://water.phila.gov/wp-content/uploads/files/stormwater-credits-appeals-manual.pdf"
   ],
   "unsupported_combinations": [
-    "New benefits with existing NPDES without detailed approved ledger",
     "Overlapping benefit ledger IDs without resolved sequencing",
     "Aggregate existing credits with corrections or new benefits before spatial reconciliation",
-    "Standalone green-roof/porous IAR without reconciled current authorization",
-    "NPDES with IAR GA allocation unresolved",
-    "Legacy charge-based NPDES baseline with new benefits until area-ledger reconciliation"
+    "Recorded NPDES credit together with recorded aggregate GA/IA credits (whether they include the 7% NPDES area credit is unknown)",
+    "Scenarios that reconcile existing credits or compute the NPDES residual while the recorded IAR split is unknown"
   ],
   "fractional_curve_number_policy": "Whole CN steps below 75 (manual 4.3.3.1: a percent reduction for each whole number below a CN of 75), i.e. steps = floor(75 - average CN); average summed in Decimal from area x CN (Appendix A steps 3-5)",
   "money_rounding_policy": "Decimal ROUND_HALF_UP per GA/IA component, allocated account SWMS and final discounted account total; per-account minimum after allocation; reconcile with actual bill",
@@ -78,5 +76,9 @@
   "managed_open_space_factor": "0.8",
   "managed_open_space_npdes_factor": "0.87",
   "surface_discharge_open_space_factor": "0.9",
-  "surface_discharge_open_space_npdes_factor": "0.97"
+  "surface_discharge_open_space_npdes_factor": "0.97",
+  "npdes_max_compliance_lag_months": 6,
+  "npdes_max_compliance_lag_basis": "Project screening threshold, not a PWD or DEP rule: manual 4.3.4 requires compliance during the preceding twelve months and 4.5.5 the DMRs from the previous 12 months; a lagging DMR period is accepted only when no DMR has fallen due since it ended (next_dmr_due after the assessment date) and it ended within this many months.",
+  "npdes_residual_rule": "Manual 4.3.5.2 read literally: remaining uncredited IA (IA after IAR minus IA Managed) x 7% toward both IA and GA; 7% of all IA and GA only when no other GA or IA credit applies. A drop below the NPDES-alone credit is reported as a manual rule discontinuity. NPDES is applied as area credits only (no charge-percentage discount).",
+  "green_roof_rule": "Manual Table 1 and 4.3.2.1: rooftop disconnection via green roof is an impervious area reduction (IAR) equal to the green-roof footprint on mapped IA; manual 4.5.1 requires a site plan and recent photographs."
 }

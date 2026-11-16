@@ -152,7 +152,7 @@ def receiver_links(case, integrated, runs=None):
     or a record with contrary facts keeps its receiver. Returns
     {run name: {receiver_id: [{'record_id','decision','vetoes'}]}}.
     """
-    from .assessment_policy import COMMON, SMP, PAVEMENT, DIRECT
+    from .assessment_policy import COMMON, SMP, PAVEMENT, DIRECT, GREEN_ROOF_IAR
     from .prerequisites import record_vetoes
 
     links = {}
@@ -168,7 +168,11 @@ def receiver_links(case, integrated, runs=None):
             required = COMMON + (
                 DIRECT
                 if category == "direct_discharge"
-                else SMP + (PAVEMENT if category == "permeable_pavement" else ())
+                else (
+                    GREEN_ROOF_IAR
+                    if category == "green_roof"
+                    else SMP + (PAVEMENT if category == "permeable_pavement" else ())
+                )
             )
             table.setdefault(linked["catchment"]["receiver_id"], []).append(
                 {
@@ -181,14 +185,28 @@ def receiver_links(case, integrated, runs=None):
 
 
 def _conditions(record, case=None, gis=None, as_of=None):
-    from .assessment_policy import COMMON, SMP, PAVEMENT, DIRECT
+    """Known-false and assumed prerequisites of one record's what-if. ``management``
+    is the generic approved-SMP path (mapped GSI); a green roof is an IAR (manual
+    Table 1 / 4.3.2.1) needing the 4.5.1 site plan and photographs, not SMP facts."""
+    from .assessment_policy import (
+        COMMON,
+        SMP,
+        PAVEMENT,
+        DIRECT,
+        GREEN_ROOF_IAR,
+        GREEN_ROOF_PATHS,
+    )
 
     category = record["category"]
     facts = record.get("facts", {})
     required = COMMON + (
         DIRECT
         if category == "direct_discharge"
-        else SMP + (PAVEMENT if category == "permeable_pavement" else ())
+        else (
+            GREEN_ROOF_IAR
+            if category == "green_roof"
+            else SMP + (PAVEMENT if category == "permeable_pavement" else ())
+        )
     )
     failed = [k for k in required if facts.get(k) is not None and facts.get(k) is not True]
     assumed = [k for k in required if facts.get(k) is not True]
@@ -196,7 +214,10 @@ def _conditions(record, case=None, gis=None, as_of=None):
         failed.append("Proposed-only system; existing installation not established")
     if facts.get("installed") is False:
         failed.append("Installation recorded false")
-    if category != "direct_discharge":
+    if category == "green_roof":
+        if facts.get("credit_path") not in GREEN_ROOF_PATHS:
+            failed.append("Unsupported credit path")
+    elif category != "direct_discharge":
         value = facts.get("treatment_depth_inches")
         threshold = 1 if facts.get("old_standard_renewal_verified") is True else 1.5
         if value is None:
@@ -435,7 +456,7 @@ def catchment_alternatives(case, gis, screened, as_of, tariff, occupied, record_
             )
             source = (receiver or {}).get("source", {})
             failed, _ = _conditions(
-                {"category": "green_roof", "facts": {**source, **source.get("facts", {})}},
+                {"category": "management", "facts": {**source, **source.get("facts", {})}},
                 as_of=as_of,
             )
             failed = vetoes + [reason for l in linked for reason in l["vetoes"]] + failed

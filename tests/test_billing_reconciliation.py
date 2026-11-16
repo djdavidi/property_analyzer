@@ -108,7 +108,7 @@ class ReconcileTests(unittest.TestCase):
         )
         assumed = reconcile(baseline(10000, 8000, 10000, 7000, ia_credit=1000, iar=None))[0]
         self.assertEqual(assumed["status"], "consistent")
-        self.assertTrue(any("IAR split unknown" in n for n in assumed["notes"]))
+        self.assertTrue(any("IA-side credit split unknown" in n for n in assumed["notes"]))
         self.assertIsNone(assumed["existing_iar_sqft"])
         odd = reconcile(baseline(10000, 6000, 10000, 6000, bill_date="2025-09-01"))[0]
         self.assertTrue(any("outside the verified tariff period" in n for n in odd["notes"]))
