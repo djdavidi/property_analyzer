@@ -401,6 +401,59 @@ class ImageGreenRoofCandidateTests(unittest.TestCase):
         self.assertEqual(info["record_basis"], "image_candidate")
 
 
+class CatchmentStorageCheckTests(unittest.TestCase):
+    # Frozen pilot result for system 62571 (5300 Whitaker Ave, 2026-11-16): surface storage
+    # 2.39-2.87 cu ft below the perimeter spill level, flag vertical_unit_status_unrecorded.
+    PILOT_62571 = {
+        "version": "frozen-pilot",
+        "status": "estimated",
+        "storage_range_cuft": [2.3862877914026983, 2.8719966287712815],
+        "storage_range_scenarios": ["perimeter_cell_minimum", "perimeter_bilinear"],
+        "review_flags": [{"code": "vertical_unit_status_unrecorded", "message": "x"}],
+        "reason": None,
+    }
+
+    def run_case(self, system_type):
+        from test_modeled_assessment_unit import fake_research, frozen_gis
+
+        c = lead_case(system_feature("G1", gsi_system_type=system_type))
+        with patch(
+            "drainage_core.runoff_capacity.estimate_capacity", return_value=self.PILOT_62571
+        ) as cap:
+            r = assess(c, frozen_gis(c, fake_research(c)))
+        rows = r["modeled_integration"]["catchment_scenarios"]
+        return rows, cap
+
+    def test_surface_system_row_carries_the_terrain_storage_check(self):
+        rows, cap = self.run_case("Rain Garden")
+        v = next(v for v in rows if v["receiver_id"] == "G1" and v["bound"] == "upper")
+        # The dollar figure is unchanged (test_modeled_assessment_unit: $112.71/month).
+        self.assertEqual(v["gross_monthly_reduction"], 112.71)
+        check = v["storage_check"]
+        self.assertEqual(
+            check["label"], "Assumes full 1.5-inch treatment; terrain cannot see engineered storage"
+        )
+        self.assertTrue(check["applies"])
+        self.assertEqual(check["status"], "estimated")
+        self.assertEqual(check["review_flags"], ["vertical_unit_status_unrecorded"])
+        # 9,000 sq ft managed IA x 1.5 in = 1,125 cu ft required; 2.39-2.87 cu ft visible.
+        self.assertAlmostEqual(check["required_treatment_volume_cuft"], 1125)
+        self.assertFalse(check["terrain_storage_covers_required"])
+        self.assertIn("below the 1.5-inch volume", check["flag"])
+        self.assertEqual(cap.call_count, 1)  # once per receiver, reused across bounds
+        union = next(
+            v for v in rows if v["receiver_id"] == "all_unassigned_gsi" and v["bound"] == "upper"
+        )
+        self.assertEqual(union["storage_checks"][0]["receiver_id"], "G1")
+
+    def test_subsurface_system_is_labelled_not_applicable(self):
+        rows, cap = self.run_case("Subsurface Basin")
+        v = next(v for v in rows if v["receiver_id"] == "G1" and v["bound"] == "upper")
+        self.assertFalse(v["storage_check"]["applies"])
+        self.assertEqual(v["storage_check"]["status"], "not_applicable")
+        cap.assert_not_called()
+
+
 class ResearchRouteScopeTests(unittest.TestCase):
     def test_off_parcel_catchment_edge_contact_does_not_mark_on_parcel_figure_partial(self):
         from datetime import date

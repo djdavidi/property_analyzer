@@ -444,9 +444,11 @@ def catchment_alternatives(case, gis, screened, as_of, tariff, occupied, record_
 
     from .system_pricing import catchment_route, combine_routes
 
+    checks = {}
     for run in integrated["runs"]:
         unions = {}
         union_routes = {}
+        union_ids = {}
         for c in run["catchments"]:
             linked = links.get(run["name"], {}).get(c["receiver_id"], [])
             if c["kind"] != "gsi" or c["composition"]["region_area_sqft"] < 0.000001:
@@ -488,12 +490,14 @@ def catchment_alternatives(case, gis, screened, as_of, tariff, occupied, record_
                 if not failed:
                     unions.setdefault(bound, []).append(region)
                     union_routes.setdefault(bound, []).append(route)
+                    union_ids.setdefault(bound, []).append(c["receiver_id"])
+                area = case_area_sqft(region, case)
                 out.append(
                     {
                         "name": run["name"],
                         "receiver_id": c["receiver_id"],
                         "bound": bound,
-                        "area_sqft": case_area_sqft(region, case),
+                        "area_sqft": area,
                         "on_parcel_contributing_sqft": c["composition"]["region_area_sqft"],
                         "system_bed_ia_excluded_sqft": bed_area,
                         **(_blocked(failed) if failed else value(region)),
@@ -506,6 +510,11 @@ def catchment_alternatives(case, gis, screened, as_of, tariff, occupied, record_
                             "No verified inlet, ownership, treatment performance or award is established",
                         ]
                         + _bound_assumptions(bound),
+                        # Fix 8: the terrain-visible storage next to the dollar row; the
+                        # figure itself is unchanged and still assumes full treatment.
+                        "storage_check": _with_volume(
+                            storage_check(case, gis, c["receiver_id"], checks), area
+                        ),
                     }
                 )
         for bound, regions in unions.items():
@@ -519,8 +528,88 @@ def catchment_alternatives(case, gis, screened, as_of, tariff, occupied, record_
                         **value(union(regions)),
                         **_route_fields(combine_routes(union_routes[bound])),
                         "basis": "conditional combined mapped-GSI alternative; deduplicated union, not sum of savings",
+                        "storage_checks": [
+                            {"receiver_id": rid, **checks[rid]}
+                            for rid in dict.fromkeys(union_ids.get(bound, []))
+                            if rid in checks
+                        ],
                     }
                 )
+    return out
+
+
+STORAGE_LABEL = "Assumes full 1.5-inch treatment; terrain cannot see engineered storage"
+TREATMENT_DEPTH_FT = 1.5 / 12
+
+
+def _receiver_type(case, receiver_id):
+    from drainage_core.geometry import effective_features
+
+    for f in effective_features(case):
+        p = f.get("properties") or {}
+        if p.get("kind") == "system_footprint" and system_identity(
+            p.get("gsi_system_id")
+        ) == system_identity(receiver_id):
+            return p.get("gsi_system_type")
+    return None
+
+
+def storage_check(case, gis, receiver_id, cache=None):
+    """Fix 8: the saved-DEM surface storage of one receiving system
+    (``drainage_core.runoff_capacity.estimate_capacity``, the pilot's check), shown
+    beside the app's management dollar row; it never replaces that figure."""
+    cache = {} if cache is None else cache
+    if receiver_id in cache:
+        return cache[receiver_id]
+    from .management_pilot import surface_storage_system
+
+    kind = _receiver_type(case, receiver_id)
+    out = {"label": STORAGE_LABEL, "system_type": kind}
+    if not surface_storage_system(kind):
+        out.update(
+            applies=False,
+            status="not_applicable",
+            reason=(
+                "Not a surface rain garden/bioretention: engineered or subsurface storage is "
+                "not visible in terrain"
+            ),
+            storage_range_cuft=None,
+            review_flags=[],
+        )
+    else:
+        from drainage_core.runoff_capacity import estimate_capacity
+
+        try:
+            cap = estimate_capacity(case, gis, receiver_id)
+        except (ValueError, KeyError, TypeError) as exc:
+            cap = {"status": "unavailable", "reason": str(exc), "review_flags": []}
+        out.update(
+            applies=True,
+            status=cap.get("status"),
+            reason=cap.get("reason"),
+            storage_range_cuft=deepcopy(cap.get("storage_range_cuft")),
+            storage_range_scenarios=deepcopy(cap.get("storage_range_scenarios")),
+            review_flags=[f.get("code") for f in cap.get("review_flags") or []],
+            method_version=cap.get("version"),
+            basis=cap.get("basis"),
+        )
+    cache[receiver_id] = out
+    return out
+
+
+def _with_volume(check, managed_ia_sqft):
+    """The row's 1.5-inch treatment volume against the terrain-visible storage range."""
+    required = max(0.0, float(managed_ia_sqft or 0)) * TREATMENT_DEPTH_FT
+    out = {**deepcopy(check), "required_treatment_volume_cuft": required}
+    storage = check.get("storage_range_cuft")
+    if check.get("status") == "estimated" and storage and required > 0:
+        out["terrain_visible_share_of_required"] = [min(storage) / required, max(storage) / required]
+        out["terrain_storage_covers_required"] = min(storage) >= required
+        if max(storage) < required:
+            out["flag"] = (
+                "Terrain-visible storage is below the 1.5-inch volume this figure assumes; the "
+                "dollar row holds only if engineered storage (media, underdrain, subsurface) supplies the rest"
+            )
     return out
 
 
