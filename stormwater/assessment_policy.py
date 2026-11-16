@@ -28,6 +28,7 @@ from .billing import (
     IAR_SPLIT_BLOCK,
     undeveloped_unknown,
     merge_status_alternatives,
+    minimum_discontinuity,
     STATUS_ALTERNATIVES,
     billed_area_check,
 )
@@ -948,8 +949,9 @@ def _economics(case, gis, records, as_of, tariff, hypothetical=None):
 
 
 ALLOCATION_SENSITIVE = (
-    "A per-account minimum applies under the assumed equal allocation; the unknown actual "
-    "allocation (Form A-1, manual 2.2.6) can change the total."
+    "The parcel minimum binds and each account is billed it under the assumed equal allocation; "
+    "the unknown actual allocation (Form A-1, manual 2.2.6; a 0% account is billed nothing) can "
+    "change the total."
 )
 BASELINE_AREAS = {
     "ga_sqft": "recorded gross area (GrossArea)",
@@ -1338,6 +1340,10 @@ def _economics_once(case, baseline, gis, records, as_of, t, hypothetical=None):
             note = _discontinuity_note(total_ga, total_ia, literal, bill, common)
             if note:
                 notes.append(note)
+        # Fix 9: a credit that pushes a multi-account parcel below the minimum.
+        note = minimum_discontinuity(base, bill)
+        if note:
+            notes.append(note)
         saving = cents(decimal(base["monthly_total"]) - decimal(bill["monthly_total"]))
         basis = (
             "documented"
@@ -1379,6 +1385,8 @@ def _economics_once(case, baseline, gis, records, as_of, t, hypothetical=None):
         }
         if notes:
             out["manual_rule_discontinuity"] = notes[0]
+            if len(notes) > 1:
+                out["manual_rule_discontinuities"] = notes
         return out
 
     output = {

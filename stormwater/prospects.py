@@ -72,6 +72,15 @@ OWNER_ABBREVIATIONS = {
     "COMMN": "COMMISSION",
     "INDUST": "INDUSTRIAL",
     "INDUS": "INDUSTRIAL",
+    # Misspellings recorded in PWD/OPA owner fields (2026-11-16 snapshot scan, fix 11).
+    "AUTHORTY": "AUTHORITY",
+    "AUTORITY": "AUTHORITY",
+    "PHLADELPHIA": "PHILADELPHIA",
+    "PHILADEPLPHIA": "PHILADELPHIA",
+    "INDUSTRAIL": "INDUSTRIAL",
+    "DEVELOPMT": "DEVELOPMENT",
+    "REDEVELOPMEN": "REDEVELOPMENT",
+    "DEL": "DELAWARE",
 }
 GOVERNMENT_BODIES = (
     "CITY OF PHILADELPHIA",
@@ -135,6 +144,10 @@ GOVERNMENT_BODIES = (
     "PHILADELPHIA COMMUNITY COLLEGE",
     "FREE LIBRARY OF PHILADELPHIA",
     "FAIRMOUNT PARK COMMISSION",
+    "FAIRMOUNT PARK COMM",
+    "PAID",
+    "PAID INC",
+    "GENERAL STATE AUTHORITY",
     "SOUTHEASTERN PENNSYLVANIA TRANSPORTATION AUTHORITY",
     "SEPTA",
     "DELAWARE RIVER PORT AUTHORITY",
@@ -152,6 +165,18 @@ GOVERNMENT_BODIES = (
 _SOVEREIGN = r"(?:CITY OF PHILADELPHIA|CITY AND COUNTY OF PHILADELPHIA|COUNTY OF PHILADELPHIA|COMMONWEALTH OF PENNSYLVANIA|PENNSYLVANIA|UNITED STATES OF AMERICA|US OF AMERICA|UNITED STATES|USA|US)"
 GOVERNMENT_AGENCY = re.compile(
     _SOVEREIGN + r" (?:DEPARTMENT|DIVISION|BUREAU|OFFICE|BOARD|COMMISSION|AGENCY) OF(?: [A-Z0-9]+)+"
+)
+# A sovereign City/Commonwealth/federal name followed by a department, facility or
+# "FOR <purpose>" qualifier is that body ("CITY OF PHILA FOR PORT", "CITY OF PHILA
+# WATER"); a bare unexplained suffix stays a prefix-only review signal (D8).
+GOVERNMENT_QUALIFIED = re.compile(
+    r"(?:CITY OF PHILADELPHIA|CITY AND COUNTY OF PHILADELPHIA|COMMONWEALTH OF PENNSYLVANIA|"
+    r"UNITED STATES OF AMERICA|US OF AMERICA) (?:FOR|BLDG|BUILDING|WATER|PARK|PARKS|PORT|AIRPORT|"
+    r"FIRE|POLICE|PRISONS|STREETS|PUBLIC PROPERTY|DEPARTMENT|DIVISION|BUREAU|OFFICE)\b.*"
+)
+# PAID's owner-field variants: "PHILA AUTH (AND|FOR|F/) IND DEV(...)".
+PAID_VARIANT = re.compile(
+    r"PHILADELPHIA AUTHORITY (?:AND |FOR |F )?(?:IND|INDUSTRIAL) DEV[A-Z]*(?: [A-Z0-9 ]*)?"
 )
 # Prefix-only signals: held for review (D8), never excluded.
 REVIEW_OWNER = (
@@ -173,6 +198,8 @@ REVIEW_OWNER = (
     r"^PENN STATE\b",
     r"^UNKNOWN\b",
     r"^OWNER OF RECORD\b",
+    # Girard Estate: held in trust by the City (Board of Directors of City Trusts).
+    r"\bSTEPHEN GIRARD\b",
 )
 # Bodies too short or generic to act as a prefix signal on their own.
 _NO_PREFIX = {"US", "USA", "UNITED STATES"}
@@ -322,15 +349,34 @@ def owner_name(value):
 def _government_match(name):
     if name in GOVERNMENT_BODIES or GOVERNMENT_AGENCY.fullmatch(name):
         return "Exact public-body owner name: " + name
-    # PWD owner fields are fixed-width; a long cut-off name that is the start of
-    # exactly a listed body (e.g. "PHILADELPHIA AUTHORITY FO") is that body.
+    if GOVERNMENT_QUALIFIED.fullmatch(name):
+        return "Public body with a department/facility qualifier: " + name
+    if PAID_VARIANT.fullmatch(name):
+        return "Philadelphia Authority for Industrial Development owner-field variant: " + name
+    # PWD owner fields are fixed-width; a cut-off name of three or more words that is
+    # the start of a listed body (e.g. "PHILADELPHIA AUTHORITY FO", "FAIRMOUNT PARK
+    # COMM") is that body.
     if (
-        len(name) >= 20
+        len(name) >= 15
         and len(name.split()) >= 3
         and any(body.startswith(name) for body in GOVERNMENT_BODIES)
     ):
         return "Truncated public-body owner name: " + name
     return None
+
+
+def _raw_owner_names(value):
+    """Normalized names of one raw owner field: the whole field and, when a multi-word
+    public body is followed by "/" or "-" (a sub-designation such as "CITY OF PHILA
+    /BLDG #8" or "CITY OF PHILA-PARK"), that body. Ownership percentages are dropped."""
+    text = re.sub(r"\b\d+(?:\.\d+)?\s*%", " ", str(value))
+    names = [owner_name(text)]
+    head = re.split(r"[/-]", text, maxsplit=1)[0]
+    if head != text:
+        name = owner_name(head)
+        if name in GOVERNMENT_BODIES and len(name.split()) >= 3:
+            names.append(name)
+    return names
 
 
 def _review_match(name):
@@ -344,11 +390,17 @@ def _review_match(name):
 
 
 def owner_status(*owners):
-    names = [owner_name(s) for s in owners if s and str(s).strip()]
+    fields = [str(s) for s in owners if s and str(s).strip()]
+    names = [owner_name(s) for s in fields]
     names = [n for n in names if n]
     if not names:
         return {"status": "unknown", "reason": "Owner missing from public record"}
-    for name in names:
+    candidates = [n for s in fields for n in _raw_owner_names(s) if n]
+    # A body name split across the fixed-width owner fields ("SCHOOL DISTRICT OF" /
+    # "PHILADELPHIA") is matched as one name; it must still be an exact body.
+    if len(fields) > 1:
+        candidates.append(owner_name(" ".join(re.sub(r"\b\d+(?:\.\d+)?\s*%", " ", s) for s in fields)))
+    for name in candidates:
         reason = _government_match(name)
         if reason:
             return {"status": "government", "reason": reason}

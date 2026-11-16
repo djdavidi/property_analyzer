@@ -5,15 +5,26 @@ artifacts. Unsupported account treatment or unreconciled overlap blocks scenario
 Rates, the minimum, the collection charge and the small-parcel statutory IA rule
 are read from ``config/rules-pwd-2026-09.json``.
 
-Minimum charge (one rule for baseline and every scenario): each account's SWMS
-share is ``max(parcel SWMS x allocation, minimum)``. Sources: tariff 2026-09-01
-section 4.3(a)(6) (minimum), 4.3(a)(8) (equal division among accounts, each also
-billed the Billing & Collection charge), 4.5(b) (minimum applies after credits);
-manual section 4.3.5 step 5 ("each account will be subject to the Non-residential
-minimum monthly charge"); PWD stormwater billing FAQ, water.phila.gov/stormwater/
-billing/, retrieved 2026-11-16 ("each water/sewer account will be assigned 25% of
-the total monthly SWMS charge. If that value is less than the Minimum Charge, then
-the minimum will apply."). A credit therefore can never raise a bill.
+Minimum charge (one rule for baseline and every scenario; final LIVE-SAVINGS fix 9):
+manual section 4.3.5 step 5 read literally -- "If, after the application of all
+applicable credits, a parcel's monthly total SWMS charge ... is less than the
+non-residential minimum monthly charge, then each account will be subject to the
+Non-residential minimum monthly charge" -- with tariff 2026-09-01 section 4.3(a)(6)
+(minimum), 4.3(a)(8) (division among accounts, each billed Billing & Collection) and
+4.5(b) (minimum after credits). The test is the PARCEL's SWMS; an account share below
+$20.89 on a parcel at or above it is billed as is. PWD's published calculation follows
+this reading on all 7 multi-account snapshot parcels that distinguish it from the
+former per-account reading (2026-11-16 snapshot, 2,590 parcels; docs/RULES.md). A
+credit that pushes a multi-account parcel below the minimum can therefore raise the
+bill; that scenario carries a ``manual_rule_discontinuity`` note (``minimum_discontinuity``).
+An account with an explicit 0 allocation (approved Form A-1 reallocation) is billed no
+SWMS share and no Billing & Collection charge, as all 60 such accounts are in the snapshot.
+
+Money rounding (fix 10): PWD rounds each money step in binary floating point, scaled
+by 100 and rounded half to even (the .NET ``Math.Round(double, 2)`` default):
+``pwd_cents``. It reproduces every current-year GrossCharge, ImpervCharge,
+AccountSubtotal and DistributedAccountSubtotal of the 5,983 nonresidential/condominium
+accounts in the snapshot; exact-decimal half-up did not (it missed 119 GA charges).
 
 NPDES (one representation): manual section 4.3.5.2 applies the NPDES credit as area
 credits ("a 7% credit towards both the IA and GA square footage"); tariff 4.5(e)
@@ -29,8 +40,25 @@ from .rules import MANUAL_URL, TARIFF_URL, factor, load_rule_config
 
 D = Decimal
 MINIMUM_RULE = (
-    "per_account: each account SWMS = max(allocated share, minimum); tariff 4.3(a)(6), 4.3(a)(8), "
-    "4.5(b); manual 4.3.5 step 5; PWD billing FAQ"
+    "parcel_then_each_account: when the parcel SWMS after credits is below the minimum, each "
+    "account is billed the minimum SWMS; otherwise each account pays its allocated share, even "
+    "below the minimum. Manual 4.3.5 step 5 (literal); tariff 4.3(a)(6), 4.3(a)(8), 4.5(b); "
+    "followed by PWD's published totals on all 7 distinguishing snapshot parcels"
+)
+MONEY_ROUNDING = (
+    "PWD binary floating point: each GA/IA charge, the parcel SWMS, each allocated share and each "
+    "account total = round_half_even(double x 100) / 100 (reproduces the 2026-11-16 snapshot)"
+)
+MINIMUM_EACH_ACCOUNT_UNVERIFIED = (
+    "The parcel SWMS is below the minimum and the parcel has several accounts: each account is "
+    "billed the minimum (manual 4.3.5 step 5, literal). Tariff 4.3(a)(6) says the minimum is "
+    "'billed to the Property'; the 2026-11-16 snapshot has no multi-account parcel below the "
+    "minimum, so PWD's handling of this case is unverified."
+)
+ZERO_ALLOCATION_NOTE = (
+    "An account with a 0% allocation (approved Form A-1 reallocation, manual 2.2.6) is billed no SWMS "
+    "share and no Billing & Collection charge, as PWD's published calculation does for all 60 such "
+    "accounts in the 2026-11-16 snapshot."
 )
 UNDEVELOPED_UNKNOWN = (
     "Undeveloped status is unknown for a parcel under 5,000 sq ft GA; tariff 1.0(p) and "
@@ -56,6 +84,17 @@ def cents(value):
     return value.quantize(D(".01"), rounding=ROUND_HALF_UP)
 
 
+def pwd_cents(value):
+    """Round one money step as PWD's published calculation does (fix 10).
+
+    ``value`` is evaluated in binary floating point (pass the product/sum of
+    ``float`` operands, as PWD computes it); the double is scaled by 100 and
+    rounded half to even on its exact binary value (.NET ``Math.Round(double, 2)``).
+    Returns an exact two-place Decimal.
+    """
+    return D(round(float(value) * 100.0)) / D(100)
+
+
 def default_tariff(config_path=None):
     """Tariff 2026-09-01 sections 4.3(a)(2)-(6), from the versioned rule config."""
     c = load_rule_config(config_path)
@@ -76,7 +115,7 @@ def default_tariff(config_path=None):
         "tariff_source": TARIFF_URL,
         "manual_source": MANUAL_URL,
         "config_source": "config/rules-pwd-2026-09.json",
-        "money_rounding": "ROUND_HALF_UP each component and allocated account charge",
+        "money_rounding": MONEY_ROUNDING,
     }
 
 
@@ -253,41 +292,56 @@ def monthly_bill(
     final_ga, final_ia = ga - cg, statutory_ia - ir - ci
     billed_ga, billed_ia = rounded_area(final_ga, t), rounded_area(final_ia, t)
     u = decimal(t["unit_sqft"])
-    gross_charge = cents(billed_ga / u * decimal(t["ga_rate"]))
-    impervious_charge = cents(billed_ia / u * decimal(t["ia_rate"]))
-    area_charge = gross_charge + impervious_charge
+    # Fix 10: every money step in PWD's double arithmetic and rounding (``pwd_cents``).
+    gross_charge = pwd_cents(float(billed_ga / u) * float(decimal(t["ga_rate"])))
+    impervious_charge = pwd_cents(float(billed_ia / u) * float(decimal(t["ia_rate"])))
+    area_charge = pwd_cents(float(gross_charge) + float(impervious_charge))
     minimum = decimal(t["minimum_swms"])
+    collection = decimal(t["collection_charge"])
     accounts = accounts if accounts is not None else [{"allocation": 1, "discount_factor": 1}]
     if not accounts:
         raise ValueError("At least one account is required")
-    allocations = [decimal(a.get("allocation"), "allocation") for a in accounts]
-    if abs(sum(allocations) - 1) > D(".000000001"):
+    raw_allocations = [decimal(a.get("allocation"), "allocation") for a in accounts]
+    if abs(sum(raw_allocations) - 1) > D(".000000001"):
         raise ValueError("Account allocations must sum to one")
-    # Normalize only tiny representation error in thirds/twelfths.
-    allocations = [x / sum(allocations) for x in allocations]
+    # Normalize only tiny representation error in thirds/twelfths (reported value);
+    # the money product uses the recorded double, as PWD's AccountPercentOfCharge.
+    allocations = [x / sum(raw_allocations) for x in raw_allocations]
+    # Fix 9: manual 4.3.5 step 5 tests the PARCEL's SWMS against the minimum.
+    parcel_minimum = area_charge < minimum
+    billed_accounts = sum(1 for x in raw_allocations if x > 0)
     lines = []
-    for i, (a, allocation) in enumerate(zip(accounts, allocations)):
+    for i, (a, allocation, raw) in enumerate(zip(accounts, allocations, raw_allocations)):
         discount = decimal(a.get("discount_factor", 1), "discount_factor")
         if discount not in [D("1"), D(".75")]:
             raise ValueError("Only standard and verified 75% special rates are supported")
         if discount == D(".75") and a.get("discount_verified") is not True:
             raise ValueError("Special discount requires verified account evidence")
-        share = cents(area_charge * allocation)
-        allocated = max(share, minimum)
-        account_total = cents((allocated + decimal(t["collection_charge"])) * discount)
+        zero = raw == 0
+        share = pwd_cents(float(area_charge) * float(raw))
+        allocated = D(0) if zero else (minimum if parcel_minimum else share)
+        fee = D(0) if zero else collection
+        account_total = pwd_cents((float(allocated) + float(fee)) * float(discount))
         lines.append(
             {
                 "account_index": i,
                 "allocation": float(allocation),
                 "allocated_share": float(share),
                 "swms": float(allocated),
-                "minimum_applied": share < minimum,
-                "collection_charge": float(decimal(t["collection_charge"])),
+                "minimum_applied": parcel_minimum and not zero,
+                "below_minimum_share_billed": (not parcel_minimum and not zero and share < minimum),
+                "zero_allocation": zero,
+                "collection_charge": float(fee),
                 "discount_factor": float(discount),
                 "total": float(account_total),
             }
         )
     total = sum(decimal(x["total"]) for x in lines)
+    notes = []
+    if parcel_minimum and billed_accounts > 1:
+        notes.append(MINIMUM_EACH_ACCOUNT_UNVERIFIED)
+    if any(x["zero_allocation"] for x in lines):
+        notes.append(ZERO_ALLOCATION_NOTE)
     return {
         "status": "calculated",
         "monthly_total": float(total),
@@ -302,13 +356,48 @@ def monthly_bill(
         "ga_charge": float(gross_charge),
         "ia_charge": float(impervious_charge),
         "parcel_swms_charge": float(area_charge),
-        "minimum_applied": any(x["minimum_applied"] for x in lines),
-        "minimum_mode": "per_account",
+        "minimum_applied": parcel_minimum,
+        "minimum_mode": "parcel_then_each_account",
         "minimum_rule": MINIMUM_RULE,
+        "money_rounding": MONEY_ROUNDING,
+        "billing_notes": notes,
         "accounts": lines,
         "undeveloped": undeveloped,
         "tariff_version": t["version"],
         "warning": "Annualized current-rate illustration; not a historical invoice.",
+    }
+
+
+def minimum_discontinuity(base, bill):
+    """Fix 9: manual 4.3.5 step 5 read literally is discontinuous for a multi-account
+    parcel. Above the minimum each account pays its share (possibly below $20.89);
+    once credits push the parcel SWMS below the minimum, every account is billed the
+    minimum, so a credit can raise the bill. Returns a ``manual_rule_discontinuity``
+    note when that happens (scenario bill above the baseline), else None."""
+    if not isinstance(base, dict) or not isinstance(bill, dict):
+        return None
+    if not bill.get("minimum_applied") or base.get("minimum_applied"):
+        return None
+    billed = [a for a in bill.get("accounts", []) if not a.get("zero_allocation")]
+    if len(billed) < 2 or bill["monthly_total"] <= base["monthly_total"]:
+        return None
+    return {
+        "kind": "manual_rule_discontinuity",
+        "rule": "manual 4.3.5 step 5; tariff 4.3(a)(6)",
+        "note": (
+            "Manual rule discontinuity (manual 4.3.5 step 5 read literally): this credit lowers the "
+            f"parcel SWMS from ${base['parcel_swms_charge']:,.2f} to ${bill['parcel_swms_charge']:,.2f}, "
+            f"below the ${bill['accounts'][0]['swms'] if billed else 0:,.2f} minimum, so each of the "
+            f"{len(billed)} accounts is billed the minimum and the monthly total rises from "
+            f"${base['monthly_total']:,.2f} to ${bill['monthly_total']:,.2f}. PWD confirmation is needed; "
+            "the customer may decline the credit or seek a Form A-1 reallocation."
+        ),
+        "baseline_parcel_swms": base["parcel_swms_charge"],
+        "scenario_parcel_swms": bill["parcel_swms_charge"],
+        "baseline_monthly_total": base["monthly_total"],
+        "scenario_monthly_total": bill["monthly_total"],
+        "accounts_billed_minimum": len(billed),
+        "bill_higher_than_baseline": True,
     }
 
 

@@ -1,0 +1,575 @@
+{
+ "description": "Trimmed excerpts of public PWD stormwater parcel details responses (current FY2027 rate rows only). Account numbers, customer/owner names, addresses, BRT/TenCode identifiers, geometry, report links and historical rate rows were removed; every retained value is copied unchanged. Chosen to pin PWD's money rounding (538963: GA charge tie 1,318.945; 328676: two-account share tie 4,696.815), the parcel-level minimum (206992, 496856: account shares below $20.89 billed as is; 537400: parcel below the minimum) and zero-allocation accounts (133710). Offline tests only (final LIVE-SAVINGS fixes 9-10).",
+ "parcels": [
+  {
+   "ChargeSummary": {
+    "GrossCreditSqFt": 0,
+    "ImpervCreditSqFt": 0,
+    "MinimumParcelChargeAlwaysApplied": false,
+    "NpdesCreditApplies": false,
+    "ParcelAccounts": [
+     {
+      "AccountPercentOfCharge": 1.0,
+      "YearlyAccountCharges": [
+       {
+        "AccountSubtotal": 9135.17,
+        "AccountSubtotalMin": 9135.17,
+        "AccountSubtotalNpdes": 9135.17,
+        "BilledGrossSqFt": 657500,
+        "BilledImpervSqFt": 554500,
+        "DistributedAccountSubtotal": 9135.17,
+        "GrossCharge": 1318.94,
+        "GrossCreditSqFt": 0,
+        "ImpervCharge": 7816.23,
+        "ImpervCreditSqFt": 0,
+        "MinimumParcelChargeApplied": false,
+        "NpdesCredit": 0.0,
+        "ParcelBillingCharge": 2.81,
+        "RateSchedule": {
+         "EndDate": "2027-08-31T00:00:00",
+         "IsCurrent": true,
+         "StartDate": "2026-09-01T00:00:00"
+        },
+        "TotalWeightedCharge": 9137.98
+       }
+      ]
+     }
+    ]
+   },
+   "Parcel": {
+    "BldgType": "NonRes",
+    "FinalGross": 657500,
+    "FinalImperv": 554500,
+    "GrossArea": 657054,
+    "GrossCredit": 0,
+    "ImpervArea": 554025,
+    "ImpervCredit": 0,
+    "NPDESCredit": 0,
+    "ParcelID": 538963
+   }
+  },
+  {
+   "ChargeSummary": {
+    "GrossCreditSqFt": 0,
+    "ImpervCreditSqFt": 0,
+    "MinimumParcelChargeAlwaysApplied": false,
+    "NpdesCreditApplies": false,
+    "ParcelAccounts": [
+     {
+      "AccountPercentOfCharge": 0.5,
+      "YearlyAccountCharges": [
+       {
+        "AccountSubtotal": 9393.63,
+        "AccountSubtotalMin": 9393.63,
+        "AccountSubtotalNpdes": 9393.63,
+        "BilledGrossSqFt": 958500,
+        "BilledImpervSqFt": 530000,
+        "DistributedAccountSubtotal": 4696.81,
+        "GrossCharge": 1922.75,
+        "GrossCreditSqFt": 0,
+        "ImpervCharge": 7470.88,
+        "ImpervCreditSqFt": 0,
+        "MinimumParcelChargeApplied": false,
+        "NpdesCredit": 0.0,
+        "ParcelBillingCharge": 2.81,
+        "RateSchedule": {
+         "EndDate": "2027-08-31T00:00:00",
+         "IsCurrent": true,
+         "StartDate": "2026-09-01T00:00:00"
+        },
+        "TotalWeightedCharge": 4699.62
+       }
+      ]
+     },
+     {
+      "AccountPercentOfCharge": 0.5,
+      "YearlyAccountCharges": [
+       {
+        "AccountSubtotal": 9393.63,
+        "AccountSubtotalMin": 9393.63,
+        "AccountSubtotalNpdes": 9393.63,
+        "BilledGrossSqFt": 958500,
+        "BilledImpervSqFt": 530000,
+        "DistributedAccountSubtotal": 4696.81,
+        "GrossCharge": 1922.75,
+        "GrossCreditSqFt": 0,
+        "ImpervCharge": 7470.88,
+        "ImpervCreditSqFt": 0,
+        "MinimumParcelChargeApplied": false,
+        "NpdesCredit": 0.0,
+        "ParcelBillingCharge": 2.81,
+        "RateSchedule": {
+         "EndDate": "2027-08-31T00:00:00",
+         "IsCurrent": true,
+         "StartDate": "2026-09-01T00:00:00"
+        },
+        "TotalWeightedCharge": 4699.62
+       }
+      ]
+     }
+    ]
+   },
+   "Parcel": {
+    "BldgType": "NonRes",
+    "FinalGross": 958500,
+    "FinalImperv": 530000,
+    "GrossArea": 958399,
+    "GrossCredit": 0,
+    "ImpervArea": 529936,
+    "ImpervCredit": 0,
+    "NPDESCredit": 0,
+    "ParcelID": 328676
+   }
+  },
+  {
+   "ChargeSummary": {
+    "GrossCreditSqFt": 134967,
+    "ImpervCreditSqFt": 14160,
+    "MinimumParcelChargeAlwaysApplied": false,
+    "NpdesCreditApplies": false,
+    "ParcelAccounts": [
+     {
+      "AccountPercentOfCharge": 0.25,
+      "YearlyAccountCharges": [
+       {
+        "AccountSubtotal": 71.35,
+        "AccountSubtotalMin": 71.35,
+        "AccountSubtotalNpdes": 71.35,
+        "BilledGrossSqFt": 18000,
+        "BilledImpervSqFt": 2500,
+        "DistributedAccountSubtotal": 17.84,
+        "GrossCharge": 36.11,
+        "GrossCreditSqFt": 134967,
+        "ImpervCharge": 35.24,
+        "ImpervCreditSqFt": 14160,
+        "MinimumParcelChargeApplied": false,
+        "NpdesCredit": 0.0,
+        "ParcelBillingCharge": 2.81,
+        "RateSchedule": {
+         "EndDate": "2027-08-31T00:00:00",
+         "IsCurrent": true,
+         "StartDate": "2026-09-01T00:00:00"
+        },
+        "TotalWeightedCharge": 20.65
+       }
+      ]
+     },
+     {
+      "AccountPercentOfCharge": 0.25,
+      "YearlyAccountCharges": [
+       {
+        "AccountSubtotal": 71.35,
+        "AccountSubtotalMin": 71.35,
+        "AccountSubtotalNpdes": 71.35,
+        "BilledGrossSqFt": 18000,
+        "BilledImpervSqFt": 2500,
+        "DistributedAccountSubtotal": 17.84,
+        "GrossCharge": 36.11,
+        "GrossCreditSqFt": 134967,
+        "ImpervCharge": 35.24,
+        "ImpervCreditSqFt": 14160,
+        "MinimumParcelChargeApplied": false,
+        "NpdesCredit": 0.0,
+        "ParcelBillingCharge": 2.81,
+        "RateSchedule": {
+         "EndDate": "2027-08-31T00:00:00",
+         "IsCurrent": true,
+         "StartDate": "2026-09-01T00:00:00"
+        },
+        "TotalWeightedCharge": 20.65
+       }
+      ]
+     },
+     {
+      "AccountPercentOfCharge": 0.25,
+      "YearlyAccountCharges": [
+       {
+        "AccountSubtotal": 71.35,
+        "AccountSubtotalMin": 71.35,
+        "AccountSubtotalNpdes": 71.35,
+        "BilledGrossSqFt": 18000,
+        "BilledImpervSqFt": 2500,
+        "DistributedAccountSubtotal": 17.84,
+        "GrossCharge": 36.11,
+        "GrossCreditSqFt": 134967,
+        "ImpervCharge": 35.24,
+        "ImpervCreditSqFt": 14160,
+        "MinimumParcelChargeApplied": false,
+        "NpdesCredit": 0.0,
+        "ParcelBillingCharge": 2.81,
+        "RateSchedule": {
+         "EndDate": "2027-08-31T00:00:00",
+         "IsCurrent": true,
+         "StartDate": "2026-09-01T00:00:00"
+        },
+        "TotalWeightedCharge": 20.65
+       }
+      ]
+     },
+     {
+      "AccountPercentOfCharge": 0.25,
+      "YearlyAccountCharges": [
+       {
+        "AccountSubtotal": 71.35,
+        "AccountSubtotalMin": 71.35,
+        "AccountSubtotalNpdes": 71.35,
+        "BilledGrossSqFt": 18000,
+        "BilledImpervSqFt": 2500,
+        "DistributedAccountSubtotal": 17.84,
+        "GrossCharge": 36.11,
+        "GrossCreditSqFt": 134967,
+        "ImpervCharge": 35.24,
+        "ImpervCreditSqFt": 14160,
+        "MinimumParcelChargeApplied": false,
+        "NpdesCredit": 0.0,
+        "ParcelBillingCharge": 2.81,
+        "RateSchedule": {
+         "EndDate": "2027-08-31T00:00:00",
+         "IsCurrent": true,
+         "StartDate": "2026-09-01T00:00:00"
+        },
+        "TotalWeightedCharge": 20.65
+       }
+      ]
+     }
+    ]
+   },
+   "Parcel": {
+    "BldgType": "NonRes",
+    "FinalGross": 18000,
+    "FinalImperv": 2500,
+    "GrossArea": 152762,
+    "GrossCredit": 134967,
+    "ImpervArea": 16318,
+    "ImpervCredit": 14160,
+    "NPDESCredit": 0,
+    "ParcelID": 206992
+   }
+  },
+  {
+   "ChargeSummary": {
+    "GrossCreditSqFt": 0,
+    "ImpervCreditSqFt": 0,
+    "MinimumParcelChargeAlwaysApplied": false,
+    "NpdesCreditApplies": false,
+    "ParcelAccounts": [
+     {
+      "AccountPercentOfCharge": 0.0295,
+      "YearlyAccountCharges": [
+       {
+        "AccountSubtotal": 1707.82,
+        "AccountSubtotalMin": 1707.82,
+        "AccountSubtotalNpdes": 1707.82,
+        "BilledGrossSqFt": 106500,
+        "BilledImpervSqFt": 106000,
+        "DistributedAccountSubtotal": 50.38,
+        "GrossCharge": 213.64,
+        "GrossCreditSqFt": 0,
+        "ImpervCharge": 1494.18,
+        "ImpervCreditSqFt": 0,
+        "MinimumParcelChargeApplied": false,
+        "NpdesCredit": 0.0,
+        "ParcelBillingCharge": 2.81,
+        "RateSchedule": {
+         "EndDate": "2027-08-31T00:00:00",
+         "IsCurrent": true,
+         "StartDate": "2026-09-01T00:00:00"
+        },
+        "TotalWeightedCharge": 53.19
+       }
+      ]
+     },
+     {
+      "AccountPercentOfCharge": 0.0231,
+      "YearlyAccountCharges": [
+       {
+        "AccountSubtotal": 1707.82,
+        "AccountSubtotalMin": 1707.82,
+        "AccountSubtotalNpdes": 1707.82,
+        "BilledGrossSqFt": 106500,
+        "BilledImpervSqFt": 106000,
+        "DistributedAccountSubtotal": 39.45,
+        "GrossCharge": 213.64,
+        "GrossCreditSqFt": 0,
+        "ImpervCharge": 1494.18,
+        "ImpervCreditSqFt": 0,
+        "MinimumParcelChargeApplied": false,
+        "NpdesCredit": 0.0,
+        "ParcelBillingCharge": 2.81,
+        "RateSchedule": {
+         "EndDate": "2027-08-31T00:00:00",
+         "IsCurrent": true,
+         "StartDate": "2026-09-01T00:00:00"
+        },
+        "TotalWeightedCharge": 42.26
+       }
+      ]
+     },
+     {
+      "AccountPercentOfCharge": 0.0275,
+      "YearlyAccountCharges": [
+       {
+        "AccountSubtotal": 1707.82,
+        "AccountSubtotalMin": 1707.82,
+        "AccountSubtotalNpdes": 1707.82,
+        "BilledGrossSqFt": 106500,
+        "BilledImpervSqFt": 106000,
+        "DistributedAccountSubtotal": 46.97,
+        "GrossCharge": 213.64,
+        "GrossCreditSqFt": 0,
+        "ImpervCharge": 1494.18,
+        "ImpervCreditSqFt": 0,
+        "MinimumParcelChargeApplied": false,
+        "NpdesCredit": 0.0,
+        "ParcelBillingCharge": 2.81,
+        "RateSchedule": {
+         "EndDate": "2027-08-31T00:00:00",
+         "IsCurrent": true,
+         "StartDate": "2026-09-01T00:00:00"
+        },
+        "TotalWeightedCharge": 49.78
+       }
+      ]
+     },
+     {
+      "AccountPercentOfCharge": 0.0087,
+      "YearlyAccountCharges": [
+       {
+        "AccountSubtotal": 1707.82,
+        "AccountSubtotalMin": 1707.82,
+        "AccountSubtotalNpdes": 1707.82,
+        "BilledGrossSqFt": 106500,
+        "BilledImpervSqFt": 106000,
+        "DistributedAccountSubtotal": 14.86,
+        "GrossCharge": 213.64,
+        "GrossCreditSqFt": 0,
+        "ImpervCharge": 1494.18,
+        "ImpervCreditSqFt": 0,
+        "MinimumParcelChargeApplied": false,
+        "NpdesCredit": 0.0,
+        "ParcelBillingCharge": 2.81,
+        "RateSchedule": {
+         "EndDate": "2027-08-31T00:00:00",
+         "IsCurrent": true,
+         "StartDate": "2026-09-01T00:00:00"
+        },
+        "TotalWeightedCharge": 17.67
+       }
+      ]
+     },
+     {
+      "AccountPercentOfCharge": 0.9112,
+      "YearlyAccountCharges": [
+       {
+        "AccountSubtotal": 1707.82,
+        "AccountSubtotalMin": 1707.82,
+        "AccountSubtotalNpdes": 1707.82,
+        "BilledGrossSqFt": 106500,
+        "BilledImpervSqFt": 106000,
+        "DistributedAccountSubtotal": 1556.17,
+        "GrossCharge": 213.64,
+        "GrossCreditSqFt": 0,
+        "ImpervCharge": 1494.18,
+        "ImpervCreditSqFt": 0,
+        "MinimumParcelChargeApplied": false,
+        "NpdesCredit": 0.0,
+        "ParcelBillingCharge": 2.81,
+        "RateSchedule": {
+         "EndDate": "2027-08-31T00:00:00",
+         "IsCurrent": true,
+         "StartDate": "2026-09-01T00:00:00"
+        },
+        "TotalWeightedCharge": 1558.98
+       }
+      ]
+     }
+    ]
+   },
+   "Parcel": {
+    "BldgType": "NonRes",
+    "FinalGross": 106500,
+    "FinalImperv": 106000,
+    "GrossArea": 106232,
+    "GrossCredit": 0,
+    "ImpervArea": 105817,
+    "ImpervCredit": 0,
+    "NPDESCredit": 0,
+    "ParcelID": 496856
+   }
+  },
+  {
+   "ChargeSummary": {
+    "GrossCreditSqFt": 287764,
+    "ImpervCreditSqFt": 287764,
+    "MinimumParcelChargeAlwaysApplied": false,
+    "NpdesCreditApplies": false,
+    "ParcelAccounts": [
+     {
+      "AccountPercentOfCharge": 1.0,
+      "YearlyAccountCharges": [
+       {
+        "AccountSubtotal": 4910.08,
+        "AccountSubtotalMin": 4910.08,
+        "AccountSubtotalNpdes": 4910.08,
+        "BilledGrossSqFt": 308000,
+        "BilledImpervSqFt": 304500,
+        "DistributedAccountSubtotal": 4910.08,
+        "GrossCharge": 617.85,
+        "GrossCreditSqFt": 287764,
+        "ImpervCharge": 4292.23,
+        "ImpervCreditSqFt": 287764,
+        "MinimumParcelChargeApplied": false,
+        "NpdesCredit": 0.0,
+        "ParcelBillingCharge": 2.81,
+        "RateSchedule": {
+         "EndDate": "2027-08-31T00:00:00",
+         "IsCurrent": true,
+         "StartDate": "2026-09-01T00:00:00"
+        },
+        "TotalWeightedCharge": 4912.89
+       }
+      ]
+     },
+     {
+      "AccountPercentOfCharge": 0.0,
+      "YearlyAccountCharges": [
+       {
+        "AccountSubtotal": 4910.08,
+        "AccountSubtotalMin": 4910.08,
+        "AccountSubtotalNpdes": 4910.08,
+        "BilledGrossSqFt": 308000,
+        "BilledImpervSqFt": 304500,
+        "DistributedAccountSubtotal": 0.0,
+        "GrossCharge": 617.85,
+        "GrossCreditSqFt": 287764,
+        "ImpervCharge": 4292.23,
+        "ImpervCreditSqFt": 287764,
+        "MinimumParcelChargeApplied": false,
+        "NpdesCredit": 0.0,
+        "ParcelBillingCharge": 0.0,
+        "RateSchedule": {
+         "EndDate": "2027-08-31T00:00:00",
+         "IsCurrent": true,
+         "StartDate": "2026-09-01T00:00:00"
+        },
+        "TotalWeightedCharge": 0.0
+       }
+      ]
+     },
+     {
+      "AccountPercentOfCharge": 0.0,
+      "YearlyAccountCharges": [
+       {
+        "AccountSubtotal": 4910.08,
+        "AccountSubtotalMin": 4910.08,
+        "AccountSubtotalNpdes": 4910.08,
+        "BilledGrossSqFt": 308000,
+        "BilledImpervSqFt": 304500,
+        "DistributedAccountSubtotal": 0.0,
+        "GrossCharge": 617.85,
+        "GrossCreditSqFt": 287764,
+        "ImpervCharge": 4292.23,
+        "ImpervCreditSqFt": 287764,
+        "MinimumParcelChargeApplied": false,
+        "NpdesCredit": 0.0,
+        "ParcelBillingCharge": 0.0,
+        "RateSchedule": {
+         "EndDate": "2027-08-31T00:00:00",
+         "IsCurrent": true,
+         "StartDate": "2026-09-01T00:00:00"
+        },
+        "TotalWeightedCharge": 0.0
+       }
+      ]
+     },
+     {
+      "AccountPercentOfCharge": 0.0,
+      "YearlyAccountCharges": [
+       {
+        "AccountSubtotal": 4910.08,
+        "AccountSubtotalMin": 4910.08,
+        "AccountSubtotalNpdes": 4910.08,
+        "BilledGrossSqFt": 308000,
+        "BilledImpervSqFt": 304500,
+        "DistributedAccountSubtotal": 0.0,
+        "GrossCharge": 617.85,
+        "GrossCreditSqFt": 287764,
+        "ImpervCharge": 4292.23,
+        "ImpervCreditSqFt": 287764,
+        "MinimumParcelChargeApplied": false,
+        "NpdesCredit": 0.0,
+        "ParcelBillingCharge": 0.0,
+        "RateSchedule": {
+         "EndDate": "2027-08-31T00:00:00",
+         "IsCurrent": true,
+         "StartDate": "2026-09-01T00:00:00"
+        },
+        "TotalWeightedCharge": 0.0
+       }
+      ]
+     }
+    ]
+   },
+   "Parcel": {
+    "BldgType": "NonRes",
+    "FinalGross": 308000,
+    "FinalImperv": 304500,
+    "GrossArea": 595273,
+    "GrossCredit": 287764,
+    "ImpervArea": 592248,
+    "ImpervCredit": 287764,
+    "NPDESCredit": 0,
+    "ParcelID": 133710
+   }
+  },
+  {
+   "ChargeSummary": {
+    "GrossCreditSqFt": 565097,
+    "ImpervCreditSqFt": 405350,
+    "MinimumParcelChargeAlwaysApplied": false,
+    "NpdesCreditApplies": false,
+    "ParcelAccounts": [
+     {
+      "AccountPercentOfCharge": 1.0,
+      "YearlyAccountCharges": [
+       {
+        "AccountSubtotal": 0.0,
+        "AccountSubtotalMin": 20.89,
+        "AccountSubtotalNpdes": 0.0,
+        "BilledGrossSqFt": 0,
+        "BilledImpervSqFt": 0,
+        "DistributedAccountSubtotal": 20.89,
+        "GrossCharge": 0.0,
+        "GrossCreditSqFt": 565097,
+        "ImpervCharge": 0.0,
+        "ImpervCreditSqFt": 405350,
+        "MinimumParcelChargeApplied": true,
+        "NpdesCredit": 0.0,
+        "ParcelBillingCharge": 2.81,
+        "RateSchedule": {
+         "EndDate": "2027-08-31T00:00:00",
+         "IsCurrent": true,
+         "StartDate": "2026-09-01T00:00:00"
+        },
+        "TotalWeightedCharge": 23.7
+       }
+      ]
+     }
+    ]
+   },
+   "Parcel": {
+    "BldgType": "NonRes",
+    "FinalGross": 0,
+    "FinalImperv": 0,
+    "GrossArea": 565097,
+    "GrossCredit": 565097,
+    "ImpervArea": 405350,
+    "ImpervCredit": 405350,
+    "NPDESCredit": 0,
+    "ParcelID": 537400
+   }
+  }
+ ],
+ "snapshot": "data/pwd-snapshot/raw (retrieved 2026-11-16, reference/pwd/parcels-ga100000-2026-11-16.csv.manifest.json)",
+ "source_url_pattern": "https://stormwater.phila.gov/PwdWebApi/api/v1/parcel/{ParcelID}/details"
+}
