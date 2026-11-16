@@ -6,8 +6,15 @@ from stormwater.drainage import compare_labels, route_grid
 
 
 def fixture(elevations, **overrides):
-    result = {"elevations": elevations, "cell_size": 1, "horizontal_unit": "m", "vertical_unit": "m",
-        "origin": [0, 10], "crs": "EPSG:2272", "settings": {"extent_sufficient": True}}
+    result = {
+        "elevations": elevations,
+        "cell_size": 1,
+        "horizontal_unit": "m",
+        "vertical_unit": "m",
+        "origin": [0, 10],
+        "crs": "EPSG:2272",
+        "settings": {"extent_sufficient": True},
+    }
     result.update(overrides)
     return result
 
@@ -18,19 +25,28 @@ class DrainageTests(unittest.TestCase):
         result = route_grid(grid)
         self.assertEqual(result["counts"], {"inlet:A": 9})
         self.assertEqual(result["next_cells"][1][0], [1, 1])
-        self.assertAlmostEqual(result["outlets"][0]["area_sqft"], 9 / .3048**2)
+        self.assertAlmostEqual(result["outlets"][0]["area_sqft"], 9 / 0.3048**2)
         self.assertIn("downstream treatment", " ".join(result["warnings"]))
 
     def test_ridge_separates_catchments(self):
-        result = route_grid(fixture([[0, 1, 3, 1, 0]] * 3,
-            inlets=[{"id": "west", "cell": [1, 0]}, {"id": "east", "cell": [1, 4]}]))
+        result = route_grid(
+            fixture(
+                [[0, 1, 3, 1, 0]] * 3,
+                inlets=[{"id": "west", "cell": [1, 0]}, {"id": "east", "cell": [1, 4]}],
+            )
+        )
         self.assertEqual(result["counts"], {"inlet:east": 6, "inlet:west": 9})
         self.assertEqual(result["labels"][1][1], "inlet:west")
         self.assertEqual(result["labels"][1][3], "inlet:east")
 
     def test_barrier_diverts_and_prevents_corner_cutting(self):
-        result = route_grid(fixture([[4, 3, 2], [4, 3, 1], [4, 3, 0]], barriers=[[1, 1]],
-            inlets=[{"id": "drain", "cell": [2, 2]}]))
+        result = route_grid(
+            fixture(
+                [[4, 3, 2], [4, 3, 1], [4, 3, 0]],
+                barriers=[[1, 1]],
+                inlets=[{"id": "drain", "cell": [2, 2]}],
+            )
+        )
         self.assertEqual(result["labels"][1][1], "barrier")
         self.assertEqual(result["next_cells"][1][0], [0, 0])
         self.assertEqual(result["labels"][1][0], "inlet:drain")
@@ -38,8 +54,11 @@ class DrainageTests(unittest.TestCase):
             self.assertNotIn([1, 1], path["cells"])
 
     def test_documented_inlet_pipe_transfers_but_unknown_stops(self):
-        grid = fixture([[2, 1]], inlets=[{"id": "A", "cell": [0, 1]}],
-            connections=[{"from": "A", "to": "B", "evidence": "documented"}])
+        grid = fixture(
+            [[2, 1]],
+            inlets=[{"id": "A", "cell": [0, 1]}],
+            connections=[{"from": "A", "to": "B", "evidence": "documented"}],
+        )
         self.assertEqual(route_grid(grid)["counts"], {"outlet:B": 2})
         grid["connections"][0]["evidence"] = "unknown"
         result = route_grid(grid)
@@ -47,15 +66,31 @@ class DrainageTests(unittest.TestCase):
         self.assertEqual(result["unresolved_cells"], 2)
 
     def test_scenario_pipe_remains_scenario_through_documented_link(self):
-        grid = fixture([[3, 2, 1]], inlets=[{"id": "A", "cell": [0, 1]}, {"id": "B", "cell": [0, 2]}],
-            connections=[{"from": "A", "to": "B", "evidence": "scenario"},
-                         {"from": "B", "to": "garden", "evidence": "documented"}])
+        grid = fixture(
+            [[3, 2, 1]],
+            inlets=[{"id": "A", "cell": [0, 1]}, {"id": "B", "cell": [0, 2]}],
+            connections=[
+                {"from": "A", "to": "B", "evidence": "scenario"},
+                {"from": "B", "to": "garden", "evidence": "documented"},
+            ],
+        )
         result = route_grid(grid)
-        self.assertEqual(result["labels"][0], ["scenario:outlet:garden", "scenario:outlet:garden", "outlet:garden"])
+        self.assertEqual(
+            result["labels"][0],
+            ["scenario:outlet:garden", "scenario:outlet:garden", "outlet:garden"],
+        )
 
     def test_pipe_cycle_is_unresolved(self):
-        result = route_grid(fixture([[2, 1]], inlets=[{"id": "A", "cell": [0, 0]}, {"id": "B", "cell": [0, 1]}],
-            connections=[{"from": "A", "to": "B", "evidence": "documented"}, {"from": "B", "to": "A", "evidence": "documented"}]))
+        result = route_grid(
+            fixture(
+                [[2, 1]],
+                inlets=[{"id": "A", "cell": [0, 0]}, {"id": "B", "cell": [0, 1]}],
+                connections=[
+                    {"from": "A", "to": "B", "evidence": "documented"},
+                    {"from": "B", "to": "A", "evidence": "documented"},
+                ],
+            )
+        )
         self.assertEqual(result["unresolved_cells"], 2)
         self.assertIn("connection_cycle", result["labels"][0][0])
 
@@ -89,7 +124,7 @@ class DrainageTests(unittest.TestCase):
         self.assertEqual(result["nodata_cells"], 1)
         self.assertFalse(result["coverage_complete"])
         self.assertIn("unresolved:nodata", result["labels"][1][1])
-        self.assertAlmostEqual(result["nodata_area_sqft"], 1 / .3048**2)
+        self.assertAlmostEqual(result["nodata_area_sqft"], 1 / 0.3048**2)
         self.assertEqual(sum(result["counts"].values()), 9)
 
     def test_edge_and_extent_reported(self):
@@ -103,24 +138,39 @@ class DrainageTests(unittest.TestCase):
         grid = fixture([[3, 2, 1]], inlets=[{"id": "A", "cell": [0, 2]}])
         metric = route_grid(grid)
         feet = copy.deepcopy(grid)
-        feet.update(cell_size=1 / .3048, horizontal_unit="ft", vertical_unit="us-ft")
+        feet.update(cell_size=1 / 0.3048, horizontal_unit="ft", vertical_unit="us-ft")
         feet["elevations"] = [[v / (1200 / 3937) for v in row] for row in feet["elevations"]]
         alternate = route_grid(feet)
         self.assertEqual(metric["labels"], alternate["labels"])
-        self.assertAlmostEqual(metric["outlets"][0]["area_sqft"], alternate["outlets"][0]["area_sqft"])
+        self.assertAlmostEqual(
+            metric["outlets"][0]["area_sqft"], alternate["outlets"][0]["area_sqft"]
+        )
         self.assertEqual(metric["next_cells"], alternate["next_cells"])
 
     def test_off_parcel_contributions_remain_separate(self):
-        result = route_grid(fixture([[3, 2, 1]], inlets=[{"id": "A", "cell": [0, 2]}], parcel_mask=[[False, True, True]]))
+        result = route_grid(
+            fixture(
+                [[3, 2, 1]], inlets=[{"id": "A", "cell": [0, 2]}], parcel_mask=[[False, True, True]]
+            )
+        )
         outlet = result["outlets"][0]
-        self.assertAlmostEqual(outlet["on_parcel_area_sqft"], 2 / .3048**2)
-        self.assertAlmostEqual(outlet["off_parcel_area_sqft"], 1 / .3048**2)
-        self.assertAlmostEqual(outlet["area_sqft"], outlet["on_parcel_area_sqft"] + outlet["off_parcel_area_sqft"])
+        self.assertAlmostEqual(outlet["on_parcel_area_sqft"], 2 / 0.3048**2)
+        self.assertAlmostEqual(outlet["off_parcel_area_sqft"], 1 / 0.3048**2)
+        self.assertAlmostEqual(
+            outlet["area_sqft"], outlet["on_parcel_area_sqft"] + outlet["off_parcel_area_sqft"]
+        )
 
     def test_invalid_grid_and_features_rejected(self):
-        bad = [fixture([[1], [1, 2]]), fixture([[math.nan]]), fixture([[True]]), fixture([[1]], vertical_unit=None),
-            fixture([[1]], barriers=[[0, 1]]), fixture([[None]], inlets=[{"id": "A", "cell": [0, 0]}]),
-            fixture([[1]], roofs=[[0, 0]], barriers=[[0, 0]]), fixture([[1]], cell_size=0)]
+        bad = [
+            fixture([[1], [1, 2]]),
+            fixture([[math.nan]]),
+            fixture([[True]]),
+            fixture([[1]], vertical_unit=None),
+            fixture([[1]], barriers=[[0, 1]]),
+            fixture([[None]], inlets=[{"id": "A", "cell": [0, 0]}]),
+            fixture([[1]], roofs=[[0, 0]], barriers=[[0, 0]]),
+            fixture([[1]], cell_size=0),
+        ]
         for grid in bad:
             with self.subTest(grid=grid), self.assertRaises(ValueError):
                 route_grid(grid)

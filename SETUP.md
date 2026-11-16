@@ -36,6 +36,9 @@ If extraction lost executable bits: `chmod +x gis credits run-gis.command run.co
 
 ## Checks
 
+Code style: `.venv/bin/python -m black drainage_core stormwater tests examples scripts`
+(configured in `pyproject.toml`; formatting never changes interpretation versions).
+
 ```sh
 .venv/bin/python -m unittest discover -s tests
 node --check drainage_core/web/app.js

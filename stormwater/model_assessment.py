@@ -1,4 +1,5 @@
 """Per-record policy interpretation of frozen AI/drainage estimates; no rerouting."""
+
 from copy import deepcopy
 from math import isfinite
 from shapely.geometry import shape, mapping
@@ -8,32 +9,41 @@ from drainage_core.model_integration import composition, ia_bounds, EMPTY
 
 
 def _region(value):
-    if not value:return None
+    if not value:
+        return None
     try:
-        g=shape(value)
-        return g if g.is_valid and not g.is_empty and g.geom_type in ('Polygon','MultiPolygon') else None
-    except (ValueError,TypeError,KeyError,ShapelyError):return None
+        g = shape(value)
+        return (
+            g
+            if g.is_valid and not g.is_empty and g.geom_type in ("Polygon", "MultiPolygon")
+            else None
+        )
+    except (ValueError, TypeError, KeyError, ShapelyError):
+        return None
 
 
-def footprint(record,case):
-    if record.get('footprint_geometry'):return _region(record['footprint_geometry'])
-    if record.get('source',{}).get('crs')==case['crs'] and 'footprint' in str(record.get('public_geometry_role','')):
-        return _region(record.get('public_geometry'))
+def footprint(record, case):
+    if record.get("footprint_geometry"):
+        return _region(record["footprint_geometry"])
+    if record.get("source", {}).get("crs") == case["crs"] and "footprint" in str(
+        record.get("public_geometry_role", "")
+    ):
+        return _region(record.get("public_geometry"))
     return None
 
 
-SYSTEM_ID_FIELDS=('gsi_system_id','gsi_id','system_id','smp_id','smpid')
-ID_CONTAINERS=('facts','raw_record','source','properties')
+SYSTEM_ID_FIELDS = ("gsi_system_id", "gsi_id", "system_id", "smp_id", "smpid")
+ID_CONTAINERS = ("facts", "raw_record", "source", "properties")
 
 
 def system_identity(value):
     """Canonical system ID text: surrounding space removed, leading zeros of an
     all-digit ID removed ('062571' and '62571' are one system)."""
-    text=str(value if value is not None else '').strip()
+    text = str(value if value is not None else "").strip()
     return str(int(text)) if text.isdigit() else text
 
 
-def system_ids(item,generic_id=False):
+def system_ids(item, generic_id=False):
     """Explicit system identities of a record or feature: the one resolver (H1/H10).
 
     Reads every system-ID field (``SYSTEM_ID_FIELDS``) on the item and on its
@@ -42,148 +52,300 @@ def system_ids(item,generic_id=False):
     only when ``generic_id`` is set and no system-ID field exists, so an unrelated
     feature whose OBJECTID equals a system number cannot claim that system.
     """
-    found=set()
-    if not isinstance(item,dict):return found
-    for container in (item,)+tuple(item.get(k) for k in ID_CONTAINERS):
-        if not isinstance(container,dict):continue
+    found = set()
+    if not isinstance(item, dict):
+        return found
+    for container in (item,) + tuple(item.get(k) for k in ID_CONTAINERS):
+        if not isinstance(container, dict):
+            continue
         for key in SYSTEM_ID_FIELDS:
-            value=container.get(key)
-            if value is not None and not isinstance(value,(dict,list,bool)) and str(value).strip():
+            value = container.get(key)
+            if (
+                value is not None
+                and not isinstance(value, (dict, list, bool))
+                and str(value).strip()
+            ):
                 found.add(system_identity(value))
-    if not found and generic_id and item.get('id') is not None and str(item['id']).strip():
-        found.add(system_identity(item['id']))
+    if not found and generic_id and item.get("id") is not None and str(item["id"]).strip():
+        found.add(system_identity(item["id"]))
     return found
 
 
-def match(record,case,integration,run):
+def match(record, case, integration, run):
     """Identity first; a unique actual receiving-footprint overlap is a candidate."""
-    facts=record.get('facts') or {}
-    category=record.get('category');kind='outlet' if category=='direct_discharge' else 'gsi'
-    wanted={str(v).strip() for v in [facts.get('outfall_id'),record.get('outfall_id')] if v is not None and str(v).strip()} \
-        if kind=='outlet' else system_ids(record)
-    if len(wanted)>1:return {'status':'ambiguous','reason':'Conflicting receiver identifiers','candidate_ids':sorted(wanted)}
+    facts = record.get("facts") or {}
+    category = record.get("category")
+    kind = "outlet" if category == "direct_discharge" else "gsi"
+    wanted = (
+        {
+            str(v).strip()
+            for v in [facts.get("outfall_id"), record.get("outfall_id")]
+            if v is not None and str(v).strip()
+        }
+        if kind == "outlet"
+        else system_ids(record)
+    )
+    if len(wanted) > 1:
+        return {
+            "status": "ambiguous",
+            "reason": "Conflicting receiver identifiers",
+            "candidate_ids": sorted(wanted),
+        }
     if wanted:
-        matches=[c for c in run['catchments'] if c['kind']==kind and
-                 (system_identity(c['receiver_id']) if kind=='gsi' else str(c['receiver_id'])) in wanted]
-        if len(matches)==1:return {'status':'linked','basis':'explicit '+kind+' identity','catchment':matches[0]}
-        return {'status':'missing','reason':'Explicit receiver has no modeled catchment','candidate_ids':sorted(wanted)}
-    if kind=='outlet':return {'status':'missing','reason':'No explicit outfall identity; proximity does not establish discharge'}
-    fp=footprint(record,case)
-    if fp is None:return {'status':'missing','reason':'No receiver identity or usable system footprint'}
-    ids={system_identity(f['gsi_id']) for f in integration.get('receiving_features',[])
-         if case_area_sqft(fp.intersection(shape(f['geometry'])),case)>.000001}
-    matches=[c for c in run['catchments'] if c['kind']=='gsi' and system_identity(c['receiver_id']) in ids]
-    if len(ids)==1 and len(matches)==1:return {'status':'linked','basis':'unique receiving-footprint overlap; unverified','catchment':matches[0]}
-    return {'status':'ambiguous' if len(ids)>1 else 'missing',
-        'reason':'Multiple overlapping receiving systems' if len(ids)>1 else 'No uniquely linked receiving catchment',
-        'candidate_ids':sorted(ids)}
+        matches = [
+            c
+            for c in run["catchments"]
+            if c["kind"] == kind
+            and (system_identity(c["receiver_id"]) if kind == "gsi" else str(c["receiver_id"]))
+            in wanted
+        ]
+        if len(matches) == 1:
+            return {
+                "status": "linked",
+                "basis": "explicit " + kind + " identity",
+                "catchment": matches[0],
+            }
+        return {
+            "status": "missing",
+            "reason": "Explicit receiver has no modeled catchment",
+            "candidate_ids": sorted(wanted),
+        }
+    if kind == "outlet":
+        return {
+            "status": "missing",
+            "reason": "No explicit outfall identity; proximity does not establish discharge",
+        }
+    fp = footprint(record, case)
+    if fp is None:
+        return {"status": "missing", "reason": "No receiver identity or usable system footprint"}
+    ids = {
+        system_identity(f["gsi_id"])
+        for f in integration.get("receiving_features", [])
+        if case_area_sqft(fp.intersection(shape(f["geometry"])), case) > 0.000001
+    }
+    matches = [
+        c
+        for c in run["catchments"]
+        if c["kind"] == "gsi" and system_identity(c["receiver_id"]) in ids
+    ]
+    if len(ids) == 1 and len(matches) == 1:
+        return {
+            "status": "linked",
+            "basis": "unique receiving-footprint overlap; unverified",
+            "catchment": matches[0],
+        }
+    return {
+        "status": "ambiguous" if len(ids) > 1 else "missing",
+        "reason": (
+            "Multiple overlapping receiving systems"
+            if len(ids) > 1
+            else "No uniquely linked receiving catchment"
+        ),
+        "candidate_ids": sorted(ids),
+    }
 
 
-def receiver_links(case,integrated,runs=None):
+def receiver_links(case, integrated, runs=None):
     """Receiver identity from source records, independent of scenario creation (R2).
 
     Every non-permit record is matched, whatever its decision, so a rejected record
     or a record with contrary facts keeps its receiver. Returns
     {run name: {receiver_id: [{'record_id','decision','vetoes'}]}}.
     """
-    from .assessment_policy import COMMON,SMP,PAVEMENT,DIRECT
+    from .assessment_policy import COMMON, SMP, PAVEMENT, DIRECT
     from .prerequisites import record_vetoes
-    links={}
-    for run in runs if runs is not None else (integrated.get('runs') or []):
-        table=links.setdefault(run['name'],{})
-        for record in case.get('assessment',{}).get('records',[]):
-            if record.get('category')=='industrial_npdes':continue
-            linked=match(record,case,integrated,run)
-            if linked['status']!='linked':continue
-            category=record.get('category')
-            required=COMMON+(DIRECT if category=='direct_discharge' else SMP+(PAVEMENT if category=='permeable_pavement' else ()))
-            table.setdefault(linked['catchment']['receiver_id'],[]).append({'record_id':record['id'],
-                'decision':record.get('decision','candidate'),'vetoes':record_vetoes(record,required)})
+
+    links = {}
+    for run in runs if runs is not None else (integrated.get("runs") or []):
+        table = links.setdefault(run["name"], {})
+        for record in case.get("assessment", {}).get("records", []):
+            if record.get("category") == "industrial_npdes":
+                continue
+            linked = match(record, case, integrated, run)
+            if linked["status"] != "linked":
+                continue
+            category = record.get("category")
+            required = COMMON + (
+                DIRECT
+                if category == "direct_discharge"
+                else SMP + (PAVEMENT if category == "permeable_pavement" else ())
+            )
+            table.setdefault(linked["catchment"]["receiver_id"], []).append(
+                {
+                    "record_id": record["id"],
+                    "decision": record.get("decision", "candidate"),
+                    "vetoes": record_vetoes(record, required),
+                }
+            )
     return links
 
 
-def _conditions(record,case=None,gis=None,as_of=None):
-    from .assessment_policy import COMMON,SMP,PAVEMENT,DIRECT
-    category=record['category'];facts=record.get('facts',{})
-    required=COMMON+(DIRECT if category=='direct_discharge' else SMP+ (PAVEMENT if category=='permeable_pavement' else ()))
-    failed=[k for k in required if facts.get(k) is not None and facts.get(k) is not True]
-    assumed=[k for k in required if facts.get(k) is not True]
-    if facts.get('proposed_only') is True:failed.append('Proposed-only system; existing installation not established')
-    if facts.get('installed') is False:failed.append('Installation recorded false')
-    if category!='direct_discharge':
-        value=facts.get('treatment_depth_inches');threshold=1 if facts.get('old_standard_renewal_verified') is True else 1.5
-        if value is None:assumed.append('treatment_depth_inches >= '+str(threshold))
+def _conditions(record, case=None, gis=None, as_of=None):
+    from .assessment_policy import COMMON, SMP, PAVEMENT, DIRECT
+
+    category = record["category"]
+    facts = record.get("facts", {})
+    required = COMMON + (
+        DIRECT
+        if category == "direct_discharge"
+        else SMP + (PAVEMENT if category == "permeable_pavement" else ())
+    )
+    failed = [k for k in required if facts.get(k) is not None and facts.get(k) is not True]
+    assumed = [k for k in required if facts.get(k) is not True]
+    if facts.get("proposed_only") is True:
+        failed.append("Proposed-only system; existing installation not established")
+    if facts.get("installed") is False:
+        failed.append("Installation recorded false")
+    if category != "direct_discharge":
+        value = facts.get("treatment_depth_inches")
+        threshold = 1 if facts.get("old_standard_renewal_verified") is True else 1.5
+        if value is None:
+            assumed.append("treatment_depth_inches >= " + str(threshold))
         else:
             try:
-                if not isfinite(float(value)) or float(value)<threshold:failed.append('Insufficient recorded treatment depth')
-            except (TypeError,ValueError):failed.append('Invalid recorded treatment depth')
-        if facts.get('credit_path') not in (None,'management'):failed.append('Unsupported credit path')
+                if not isfinite(float(value)) or float(value) < threshold:
+                    failed.append("Insufficient recorded treatment depth")
+            except (TypeError, ValueError):
+                failed.append("Invalid recorded treatment depth")
+        if facts.get("credit_path") not in (None, "management"):
+            failed.append("Unsupported credit path")
     else:
-        if facts.get('upstream_smp_present') is True:
-            for key in ('upstream_smp_compliant','upstream_smp_functional'):
-                if facts.get(key) is False:failed.append(key)
-                elif facts.get(key) is not True:assumed.append(key)
-        for key in ('waterway_name','outfall_id','upstream_smp_present'):
-            if facts.get(key) is None:assumed.append(key)
+        if facts.get("upstream_smp_present") is True:
+            for key in ("upstream_smp_compliant", "upstream_smp_functional"):
+                if facts.get(key) is False:
+                    failed.append(key)
+                elif facts.get(key) is not True:
+                    assumed.append(key)
+        for key in ("waterway_name", "outfall_id", "upstream_smp_present"):
+            if facts.get(key) is None:
+                assumed.append(key)
     from drainage_core.installation import installation_issues
-    failed+=installation_issues(facts,as_of)
+
+    failed += installation_issues(facts, as_of)
     if case is not None:
         from .assessment_policy import screen_record
+
         # Modeled IA may differ from observed IA; all other known contradictory
         # geometry/evidence facts remain failures, not assumed successes.
-        evaluated=screen_record(record,case,gis,as_of)
-        failed += [k for k in evaluated['failed'] if k!='managed_geometry_matches_physical_ia']
-        if 'source_update_review' in evaluated['missing']:failed.append('Unreconciled public source update')
-    return list(dict.fromkeys(failed)),assumed
+        evaluated = screen_record(record, case, gis, as_of)
+        failed += [k for k in evaluated["failed"] if k != "managed_geometry_matches_physical_ia"]
+        if "source_update_review" in evaluated["missing"]:
+            failed.append("Unreconciled public source update")
+    return list(dict.fromkeys(failed)), assumed
 
 
-def _counterfactual(case,gis,screened,recipes,as_of,tariff):
+def _counterfactual(case, gis, screened, recipes, as_of, tariff):
     """Reuse one existing ledger. No source facts or verified screens are edited."""
-    from .assessment_policy import _economics,_blocked
-    if not recipes:return _blocked(['No linked, positive modeled area for this scenario'])
-    failures=[reason for recipe in recipes for reason in recipe['failed']]
-    if failures:return _blocked(failures)
-    working=deepcopy(case);source_records={r['id']:r for r in working.get('assessment',{}).get('records',[])}
-    replacements={};assumptions=[];areas={}
-    all_ia=shape(gis['modeled_integration']['measurement']['geometries']['physical_ia'])
+    from .assessment_policy import _economics, _blocked
+
+    if not recipes:
+        return _blocked(["No linked, positive modeled area for this scenario"])
+    failures = [reason for recipe in recipes for reason in recipe["failed"]]
+    if failures:
+        return _blocked(failures)
+    working = deepcopy(case)
+    source_records = {r["id"]: r for r in working.get("assessment", {}).get("records", [])}
+    replacements = {}
+    assumptions = []
+    areas = {}
+    all_ia = shape(gis["modeled_integration"]["measurement"]["geometries"]["physical_ia"])
     for recipe in recipes:
-        record=source_records[recipe['id']];region=recipe['region'];area=case_area_sqft(region,case)
-        if area<.000001:return _blocked(['Modeled area unavailable for '+recipe['id']+'; missing evidence is not zero savings'])
-        record['geometry']=mapping(region);record['managed_area_sqft']=area
+        record = source_records[recipe["id"]]
+        region = recipe["region"]
+        area = case_area_sqft(region, case)
+        if area < 0.000001:
+            return _blocked(
+                [
+                    "Modeled area unavailable for "
+                    + recipe["id"]
+                    + "; missing evidence is not zero savings"
+                ]
+            )
+        record["geometry"] = mapping(region)
+        record["managed_area_sqft"] = area
         # Geometric reservations are excluded below; aggregate/account proof still
         # has to pass the existing allocation-reconciliation code.
-        record.setdefault('facts',{})['existing_overlap_reconciled']=True
-        replacements[recipe['id']]={'id':recipe['id'],'category':record['category'],'basis':'modeled',
-            'status':'screen_pass','managed_area_sqft':area}
-        all_ia=all_ia.union(region);areas[recipe['id']]=area
-        assumptions.extend(recipe['assumed'])
-    entries=[replacements.get(r['id'],r) for r in screened]
-    m=gis['modeled_integration']['measurement'];view={**gis,'measurement':{**m,
-        'geometries':{**m['geometries'],'physical_ia':mapping(all_ia)}}}
-    economics=_economics(working,view,entries,as_of,tariff);s=economics['modeled']
-    return {**s,'basis':'conditional AI/catchment alternative','record_areas_sqft':areas,
-        'financial_scope':'credits only against retained recorded areas; not net of area correction',
-        'net_with_area_correction':economics.get('modeled_combined'),
-        'assumed_prerequisites':sorted(set(assumptions)),
-        'claim':'Alternative under stated source/model/ground and eligibility assumptions; not a verified screen, approval or award. Do not add to other scenarios.'}
+        record.setdefault("facts", {})["existing_overlap_reconciled"] = True
+        replacements[recipe["id"]] = {
+            "id": recipe["id"],
+            "category": record["category"],
+            "basis": "modeled",
+            "status": "screen_pass",
+            "managed_area_sqft": area,
+        }
+        all_ia = all_ia.union(region)
+        areas[recipe["id"]] = area
+        assumptions.extend(recipe["assumed"])
+    entries = [replacements.get(r["id"], r) for r in screened]
+    m = gis["modeled_integration"]["measurement"]
+    view = {
+        **gis,
+        "measurement": {**m, "geometries": {**m["geometries"], "physical_ia": mapping(all_ia)}},
+    }
+    economics = _economics(working, view, entries, as_of, tariff)
+    s = economics["modeled"]
+    return {
+        **s,
+        "basis": "conditional AI/catchment alternative",
+        "record_areas_sqft": areas,
+        "financial_scope": "credits only against retained recorded areas; not net of area correction",
+        "net_with_area_correction": economics.get("modeled_combined"),
+        "assumed_prerequisites": sorted(set(assumptions)),
+        "claim": "Alternative under stated source/model/ground and eligibility assumptions; not a verified screen, approval or award. Do not add to other scenarios.",
+    }
 
 
-def _canopy_value(case,gis,screened,region,as_of,tariff):
+def _canopy_value(case, gis, screened, region, as_of, tariff):
     """Canopy alternative priced by the one assessment ledger (D7), not a second engine."""
     from .assessment_policy import _economics
     from shapely.geometry import mapping as to_geojson
-    working=deepcopy(case);area=case_area_sqft(region,case)
-    evidence={k:True for k in ('physical_area_confirmed','parcel_allocation_confirmed','account_current','ground_impervious_overlap_confirmed')}
-    working['features']['features'].append({'type':'Feature','id':'ai-canopy-alternative','geometry':to_geojson(region),
-        'properties':{'layer':'benefit','benefit':{'id':'ai-canopy-alternative','category':'canopy','area_sqft':area,
-            'basis':'modeled','existing_overlap_reconciled':True,'evidence':evidence}}})
-    m=gis['modeled_integration']['measurement']
-    view={**gis,'measurement':{**m,'geometries':{**m['geometries'],
-        'canopy_ground_ia':to_geojson(shape(m['geometries']['canopy_ground_ia']).union(region))}}}
-    return _economics(working,view,screened,as_of,tariff)['modeled']
+
+    working = deepcopy(case)
+    area = case_area_sqft(region, case)
+    evidence = {
+        k: True
+        for k in (
+            "physical_area_confirmed",
+            "parcel_allocation_confirmed",
+            "account_current",
+            "ground_impervious_overlap_confirmed",
+        )
+    }
+    working["features"]["features"].append(
+        {
+            "type": "Feature",
+            "id": "ai-canopy-alternative",
+            "geometry": to_geojson(region),
+            "properties": {
+                "layer": "benefit",
+                "benefit": {
+                    "id": "ai-canopy-alternative",
+                    "category": "canopy",
+                    "area_sqft": area,
+                    "basis": "modeled",
+                    "existing_overlap_reconciled": True,
+                    "evidence": evidence,
+                },
+            },
+        }
+    )
+    m = gis["modeled_integration"]["measurement"]
+    view = {
+        **gis,
+        "measurement": {
+            **m,
+            "geometries": {
+                **m["geometries"],
+                "canopy_ground_ia": to_geojson(
+                    shape(m["geometries"]["canopy_ground_ia"]).union(region)
+                ),
+            },
+        },
+    }
+    return _economics(working, view, screened, as_of, tariff)["modeled"]
 
 
-def catchment_alternatives(case,gis,screened,as_of,tariff,occupied,record_infos,links=None):
+def catchment_alternatives(case, gis, screened, as_of, tariff, occupied, record_infos, links=None):
     """Show existing mapped GSI value even where it is not one of the five record types.
 
     A receiver linked to a non-rejected source record is priced by that record's own
@@ -191,260 +353,584 @@ def catchment_alternatives(case,gis,screened,as_of,tariff,occupied,record_infos,
     prerequisites, is blocked here with those reasons; it is never re-priced as an
     unassigned system (R2). Known-false parcel facts block every row (R1).
     """
-    from .assessment_policy import _economics,_blocked
+    from .assessment_policy import _economics, _blocked
     from .prerequisites import case_vetoes
-    integrated=gis['modeled_integration'];out=[]
-    links=receiver_links(case,integrated) if links is None else links
-    vetoes=case_vetoes(case)
-    facts={k:True for k in ('physical_area_confirmed','parcel_allocation_confirmed','account_current','routing_confirmed',
-        'approved_record_drawings','current_condition_confirmed','maintenance_documented','professional_reviewed')}
-    facts['treatment_depth_inches']=1.5
+
+    integrated = gis["modeled_integration"]
+    out = []
+    links = receiver_links(case, integrated) if links is None else links
+    vetoes = case_vetoes(case)
+    facts = {
+        k: True
+        for k in (
+            "physical_area_confirmed",
+            "parcel_allocation_confirmed",
+            "account_current",
+            "routing_confirmed",
+            "approved_record_drawings",
+            "current_condition_confirmed",
+            "maintenance_documented",
+            "professional_reviewed",
+        )
+    }
+    facts["treatment_depth_inches"] = 1.5
+
     def value(region):
-        if case_area_sqft(region,case)<.000001:return _blocked(['No unallocated modeled IA in this catchment'])
-        working=deepcopy(case)
-        working['features']['features'].append({'id':'ai-gsi-management-alternative','geometry':mapping(region),
-            'properties':{'layer':'benefit','benefit':{'id':'ai-gsi-management-alternative','category':'management',
-                'area_sqft':case_area_sqft(region,case),'basis':'modeled','evidence':facts,'existing_overlap_reconciled':True}}})
-        m=integrated['measurement'];view={**gis,'measurement':{**m,'geometries':{**m['geometries'],
-            'physical_ia':mapping(shape(m['geometries']['physical_ia']).union(region))}}}
-        e=_economics(working,view,screened,as_of,tariff)
-        return {**e['modeled'],'financial_scope':'credits only against retained recorded areas; not net of area correction',
-            'net_with_area_correction':e.get('modeled_combined')}
-    from .system_pricing import catchment_route,combine_routes
-    for run in integrated['runs']:
-        unions={};union_routes={}
-        for c in run['catchments']:
-            linked=links.get(run['name'],{}).get(c['receiver_id'],[])
-            if c['kind']!='gsi' or c['composition']['region_area_sqft']<.000001:continue
-            if any(l['decision']!='rejected' for l in linked):continue
-            receiver=next((f for f in integrated.get('receiving_features',[]) if str(f['gsi_id'])==c['receiver_id']),None)
-            source=(receiver or {}).get('source',{})
-            failed,_=_conditions({'category':'green_roof','facts':{**source,**source.get('facts',{})}},as_of=as_of)
-            failed=vetoes+[reason for l in linked for reason in l['vetoes']]+failed
+        if case_area_sqft(region, case) < 0.000001:
+            return _blocked(["No unallocated modeled IA in this catchment"])
+        working = deepcopy(case)
+        working["features"]["features"].append(
+            {
+                "id": "ai-gsi-management-alternative",
+                "geometry": mapping(region),
+                "properties": {
+                    "layer": "benefit",
+                    "benefit": {
+                        "id": "ai-gsi-management-alternative",
+                        "category": "management",
+                        "area_sqft": case_area_sqft(region, case),
+                        "basis": "modeled",
+                        "evidence": facts,
+                        "existing_overlap_reconciled": True,
+                    },
+                },
+            }
+        )
+        m = integrated["measurement"]
+        view = {
+            **gis,
+            "measurement": {
+                **m,
+                "geometries": {
+                    **m["geometries"],
+                    "physical_ia": mapping(shape(m["geometries"]["physical_ia"]).union(region)),
+                },
+            },
+        }
+        e = _economics(working, view, screened, as_of, tariff)
+        return {
+            **e["modeled"],
+            "financial_scope": "credits only against retained recorded areas; not net of area correction",
+            "net_with_area_correction": e.get("modeled_combined"),
+        }
+
+    from .system_pricing import catchment_route, combine_routes
+
+    for run in integrated["runs"]:
+        unions = {}
+        union_routes = {}
+        for c in run["catchments"]:
+            linked = links.get(run["name"], {}).get(c["receiver_id"], [])
+            if c["kind"] != "gsi" or c["composition"]["region_area_sqft"] < 0.000001:
+                continue
+            if any(l["decision"] != "rejected" for l in linked):
+                continue
+            receiver = next(
+                (
+                    f
+                    for f in integrated.get("receiving_features", [])
+                    if str(f["gsi_id"]) == c["receiver_id"]
+                ),
+                None,
+            )
+            source = (receiver or {}).get("source", {})
+            failed, _ = _conditions(
+                {"category": "green_roof", "facts": {**source, **source.get("facts", {})}},
+                as_of=as_of,
+            )
+            failed = vetoes + [reason for l in linked for reason in l["vetoes"]] + failed
             # D2: per-catchment extent test, the same rule as the pilot.
-            route=catchment_route(c,run.get('invariants'))
-            failed+=route['blocked_reasons']
-            if receiver is None:failed.append('Receiving feature source is unavailable')
+            route = catchment_route(c, run.get("invariants"))
+            failed += route["blocked_reasons"]
+            if receiver is None:
+                failed.append("Receiving feature source is unavailable")
             # H16: the receiver's own bed (surface GSI footprint) is never contributing IA.
-            bed=_region((receiver or {}).get('geometry'))
-            for bound,region in ia_bounds(case,integrated,shape(c['geometry'])).items():
-                region=region.difference(occupied)
-                bed_area=case_area_sqft(region.intersection(bed),case) if bed is not None else 0.
-                if bed is not None:region=region.difference(bed)
+            bed = _region((receiver or {}).get("geometry"))
+            for bound, region in ia_bounds(case, integrated, shape(c["geometry"])).items():
+                region = region.difference(occupied)
+                bed_area = (
+                    case_area_sqft(region.intersection(bed), case) if bed is not None else 0.0
+                )
+                if bed is not None:
+                    region = region.difference(bed)
                 if not failed:
-                    unions.setdefault(bound,[]).append(region);union_routes.setdefault(bound,[]).append(route)
-                out.append({'name':run['name'],'receiver_id':c['receiver_id'],'bound':bound,
-                    'area_sqft':case_area_sqft(region,case),'on_parcel_contributing_sqft':c['composition']['region_area_sqft'],
-                    'system_bed_ia_excluded_sqft':bed_area,
-                    **(_blocked(failed) if failed else value(region)),'basis':'conditional mapped-GSI management alternative',
-                    **_route_fields(route),
-                    'assumptions':['Mapped receiver is an existing eligible system and serves this parcel',
-                        'All management prerequisites, 1.5-inch treatment and approved allocation are assumed',
-                        'AI classes and modeled flow are unvalidated; upper adds unresolved ground as impervious',
-                        'No verified inlet, ownership, treatment performance or award is established']+_bound_assumptions(bound)})
-        for bound,regions in unions.items():
-            if regions:out.append({'name':run['name'],'receiver_id':'all_unassigned_gsi','bound':bound,
-                'area_sqft':case_area_sqft(union(regions),case),**value(union(regions)),
-                **_route_fields(combine_routes(union_routes[bound])),
-                'basis':'conditional combined mapped-GSI alternative; deduplicated union, not sum of savings'})
+                    unions.setdefault(bound, []).append(region)
+                    union_routes.setdefault(bound, []).append(route)
+                out.append(
+                    {
+                        "name": run["name"],
+                        "receiver_id": c["receiver_id"],
+                        "bound": bound,
+                        "area_sqft": case_area_sqft(region, case),
+                        "on_parcel_contributing_sqft": c["composition"]["region_area_sqft"],
+                        "system_bed_ia_excluded_sqft": bed_area,
+                        **(_blocked(failed) if failed else value(region)),
+                        "basis": "conditional mapped-GSI management alternative",
+                        **_route_fields(route),
+                        "assumptions": [
+                            "Mapped receiver is an existing eligible system and serves this parcel",
+                            "All management prerequisites, 1.5-inch treatment and approved allocation are assumed",
+                            "AI classes and modeled flow are unvalidated; upper adds unresolved ground as impervious",
+                            "No verified inlet, ownership, treatment performance or award is established",
+                        ]
+                        + _bound_assumptions(bound),
+                    }
+                )
+        for bound, regions in unions.items():
+            if regions:
+                out.append(
+                    {
+                        "name": run["name"],
+                        "receiver_id": "all_unassigned_gsi",
+                        "bound": bound,
+                        "area_sqft": case_area_sqft(union(regions), case),
+                        **value(union(regions)),
+                        **_route_fields(combine_routes(union_routes[bound])),
+                        "basis": "conditional combined mapped-GSI alternative; deduplicated union, not sum of savings",
+                    }
+                )
     return out
 
 
-def permit_alternatives(case,gis,screened,as_of,tariff):
+def permit_alternatives(case, gis, screened, as_of, tariff):
     """Explicit what-if only; discovery status and source facts stay unchanged."""
-    from .assessment_policy import _economics,_blocked,NPDES
-    out=[]
-    for r in case.get('assessment',{}).get('records',[]):
-        if r['category']!='industrial_npdes' or r.get('decision')=='rejected':continue
+    from .assessment_policy import _economics, _blocked, NPDES
+
+    out = []
+    for r in case.get("assessment", {}).get("records", []):
+        if r["category"] != "industrial_npdes" or r.get("decision") == "rejected":
+            continue
         from .assessment_policy import screen_record
-        facts=r.get('facts',{})
+
+        facts = r.get("facts", {})
         from .prerequisites import case_vetoes
-        evaluated=screen_record(r,case,gis,as_of)
-        failed=case_vetoes(case)+evaluated['failed']
-        if r.get('source_update',{}).get('status')=='pending_review':failed.append('Unreconciled public source update')
-        if failed:s=_blocked(failed)
+
+        evaluated = screen_record(r, case, gis, as_of)
+        failed = case_vetoes(case) + evaluated["failed"]
+        if r.get("source_update", {}).get("status") == "pending_review":
+            failed.append("Unreconciled public source update")
+        if failed:
+            s = _blocked(failed)
         else:
-            hypothetical=[{**x,'basis':'modeled','status':'screen_pass'} if x['id']==r['id'] else x for x in screened]
-            s=_economics(case,gis,hypothetical,as_of,tariff)['modeled']
-        out.append({'record_id':r['id'],'permit_id':facts.get('permit_id'),**s,'basis':'conditional industrial-coverage what-if',
-            'assumed_prerequisites':list(evaluated['missing']),'date_notes':list(evaluated.get('date_notes',[])),
-            'assumptions':['Only if this permit is applicable active industrial coverage for this site/operator',
-                'Account and previous-12-month compliance/reporting prerequisites are assumed, not established',
-                'Do not add to canopy/management alternatives; combined benefits require their shared ledger']})
+            hypothetical = [
+                {**x, "basis": "modeled", "status": "screen_pass"} if x["id"] == r["id"] else x
+                for x in screened
+            ]
+            s = _economics(case, gis, hypothetical, as_of, tariff)["modeled"]
+        out.append(
+            {
+                "record_id": r["id"],
+                "permit_id": facts.get("permit_id"),
+                **s,
+                "basis": "conditional industrial-coverage what-if",
+                "assumed_prerequisites": list(evaluated["missing"]),
+                "date_notes": list(evaluated.get("date_notes", [])),
+                "assumptions": [
+                    "Only if this permit is applicable active industrial coverage for this site/operator",
+                    "Account and previous-12-month compliance/reporting prerequisites are assumed, not established",
+                    "Do not add to canopy/management alternatives; combined benefits require their shared ledger",
+                ],
+            }
+        )
     return out
 
 
 def _route_fields(route):
-    return {k:route[k] for k in ('route_state','route_state_reason','partial_label')}
+    return {k: route[k] for k in ("route_state", "route_state_reason", "partial_label")}
 
 
 def _bound_assumptions(bound):
     """Labels of the shared class table's extra app bound (D3)."""
-    from drainage_core.class_interpretation import APP_LABELLED_BOUNDS,SCENARIOS
-    labelled=dict(APP_LABELLED_BOUNDS)
-    if bound not in labelled:return []
-    scenario=SCENARIOS[labelled[bound]]
-    return [scenario['label']]+list(scenario['assumptions'])
+    from drainage_core.class_interpretation import APP_LABELLED_BOUNDS, SCENARIOS
+
+    labelled = dict(APP_LABELLED_BOUNDS)
+    if bound not in labelled:
+        return []
+    scenario = SCENARIOS[labelled[bound]]
+    return [scenario["label"]] + list(scenario["assumptions"])
 
 
-def integrate(case,gis,screened,as_of,tariff):
-    from .assessment_policy import _blocked,_area_decimal,RULES
-    from .system_pricing import catchment_route,combine_routes
+def integrate(case, gis, screened, as_of, tariff):
+    from .assessment_policy import _blocked, _area_decimal, RULES
+    from .system_pricing import catchment_route, combine_routes
     from .billing import default_tariff
-    integrated=gis.get('modeled_integration')
-    if not integrated:return {'status':'unavailable','records':[],'combined':[]}
+
+    integrated = gis.get("modeled_integration")
+    if not integrated:
+        return {"status": "unavailable", "records": [], "combined": []}
     from drainage_core.quality import artifact_quality
-    quality=artifact_quality(gis)
-    if quality['status']=='outdated':return {'status':'outdated','records':[],'combined':[],
-        'claim':quality['reason'],'reason':quality['reason'],'recompute_available':True}
-    if case.get('assessment',{}).get('baseline_refresh',{}).get('status')=='pending_review':
-        return {'status':'blocked','records':[],'combined':[],'claim':'Public billing baseline changed; reconcile before calculating savings'}
-    parcel=shape(case['parcel']);sources=case.get('assessment',{}).get('records',[])
-    items=[];recipes_by_key={}
-    reserved=[]
-    for r in case.get('assessment',{}).get('existing_credit_allocations',[]):
-        if (g:=_region(r.get('geometry'))) is not None:reserved.append(g)
+
+    quality = artifact_quality(gis)
+    if quality["status"] == "outdated":
+        return {
+            "status": "outdated",
+            "records": [],
+            "combined": [],
+            "claim": quality["reason"],
+            "reason": quality["reason"],
+            "recompute_available": True,
+        }
+    if case.get("assessment", {}).get("baseline_refresh", {}).get("status") == "pending_review":
+        return {
+            "status": "blocked",
+            "records": [],
+            "combined": [],
+            "claim": "Public billing baseline changed; reconcile before calculating savings",
+        }
+    parcel = shape(case["parcel"])
+    sources = case.get("assessment", {}).get("records", [])
+    items = []
+    recipes_by_key = {}
+    reserved = []
+    for r in case.get("assessment", {}).get("existing_credit_allocations", []):
+        if (g := _region(r.get("geometry"))) is not None:
+            reserved.append(g)
     # Retain existing legacy benefit allocations too. The ledger checks unsupported
     # overlap/reconciliation even when an item lacks usable geometry.
     from drainage_core.geometry import effective_features
-    reserved.extend(shape(f['geometry']) for f in effective_features(case) if f.get('properties',{}).get('layer')=='benefit')
-    occupied=union(reserved)
-    runs=integrated.get('runs') or [{'name':'no_terrain','catchments':[]}]
+
+    reserved.extend(
+        shape(f["geometry"])
+        for f in effective_features(case)
+        if f.get("properties", {}).get("layer") == "benefit"
+    )
+    occupied = union(reserved)
+    runs = integrated.get("runs") or [{"name": "no_terrain", "catchments": []}]
     from .prerequisites import case_vetoes
-    vetoes=case_vetoes(case)
-    links=receiver_links(case,integrated,runs)
+
+    vetoes = case_vetoes(case)
+    links = receiver_links(case, integrated, runs)
     for record in sources:
-        rid=record['id'];category=record['category'];fp=footprint(record,case)
-        info={'record_id':rid,'basis':'modeled AI/drainage context','runs':[],
-            'source_lineage':deepcopy(integrated['ai']['sources']),
-            'prediction_sha256':integrated['ai']['prediction_sha256'],
-            'input_lineage_sha256':integrated['input_lineage_sha256'],
-            'uncertainty':deepcopy(integrated['ai']['uncertainty']),
-            'footprint_composition':composition(case,integrated['ai'],integrated['measurement'],mapping(fp)) if fp is not None else None}
-        if category=='industrial_npdes':
-            info.update(status='not_applicable',reason='AI/drainage does not establish permit coverage, operator identity or compliance')
-            items.append(info);continue
-        info['linked_receiver_ids']={name:sorted(r for r,rows in table.items() if any(x['record_id']==rid for x in rows)) for name,table in links.items()}
-        if record.get('decision')=='rejected':
-            info.update(status='rejected',reason='Manual rejection retained; no new modeled allocation; linked receivers are not re-priced as unassigned systems')
-            items.append(info);continue
-        failed,assumed=_conditions(record,case,gis,as_of)
-        failed=list(dict.fromkeys(vetoes+failed))
-        if record.get('facts',{}).get('existing_overlap_reconciled') is False:failed.append('Existing overlap explicitly unreconciled')
-        info['status']='modeled';info['known_failed_prerequisites']=failed
-        info['unverified_prerequisites']=assumed
+        rid = record["id"]
+        category = record["category"]
+        fp = footprint(record, case)
+        info = {
+            "record_id": rid,
+            "basis": "modeled AI/drainage context",
+            "runs": [],
+            "source_lineage": deepcopy(integrated["ai"]["sources"]),
+            "prediction_sha256": integrated["ai"]["prediction_sha256"],
+            "input_lineage_sha256": integrated["input_lineage_sha256"],
+            "uncertainty": deepcopy(integrated["ai"]["uncertainty"]),
+            "footprint_composition": (
+                composition(case, integrated["ai"], integrated["measurement"], mapping(fp))
+                if fp is not None
+                else None
+            ),
+        }
+        if category == "industrial_npdes":
+            info.update(
+                status="not_applicable",
+                reason="AI/drainage does not establish permit coverage, operator identity or compliance",
+            )
+            items.append(info)
+            continue
+        info["linked_receiver_ids"] = {
+            name: sorted(r for r, rows in table.items() if any(x["record_id"] == rid for x in rows))
+            for name, table in links.items()
+        }
+        if record.get("decision") == "rejected":
+            info.update(
+                status="rejected",
+                reason="Manual rejection retained; no new modeled allocation; linked receivers are not re-priced as unassigned systems",
+            )
+            items.append(info)
+            continue
+        failed, assumed = _conditions(record, case, gis, as_of)
+        failed = list(dict.fromkeys(vetoes + failed))
+        if record.get("facts", {}).get("existing_overlap_reconciled") is False:
+            failed.append("Existing overlap explicitly unreconciled")
+        info["status"] = "modeled"
+        info["known_failed_prerequisites"] = failed
+        info["unverified_prerequisites"] = assumed
         for run in runs:
-            linked=match(record,case,integrated,run);region=None;area_basis=None
-            declared=_region(record.get('geometry'))
-            if linked['status']=='linked':
-                region=shape(linked['catchment']['geometry']).intersection(parcel);area_basis='linked research catchment'
-            elif linked['status']!='ambiguous' and declared is not None:
-                region=declared.intersection(parcel);area_basis='source-declared managed geometry; research connection unverified'
-            elif linked['status']!='ambiguous' and fp is not None and category in ('green_roof','permeable_pavement'):
-                region=fp.intersection(parcel);area_basis='direct rainfall on mapped footprint only; upstream contributing area unknown'
-            output={'name':run['name'],'catchment_match':{k:v for k,v in linked.items() if k!='catchment'},
-                'area_basis':area_basis,'managed_geometry':mapping(region) if region is not None else None,'scenarios':[]}
-            if linked.get('catchment'):
-                output['receiver_id']=linked['catchment']['receiver_id']
-                output['off_parcel_area_sqft']=linked['catchment']['off_parcel_area_sqft']
+            linked = match(record, case, integrated, run)
+            region = None
+            area_basis = None
+            declared = _region(record.get("geometry"))
+            if linked["status"] == "linked":
+                region = shape(linked["catchment"]["geometry"]).intersection(parcel)
+                area_basis = "linked research catchment"
+            elif linked["status"] != "ambiguous" and declared is not None:
+                region = declared.intersection(parcel)
+                area_basis = "source-declared managed geometry; research connection unverified"
+            elif (
+                linked["status"] != "ambiguous"
+                and fp is not None
+                and category in ("green_roof", "permeable_pavement")
+            ):
+                region = fp.intersection(parcel)
+                area_basis = (
+                    "direct rainfall on mapped footprint only; upstream contributing area unknown"
+                )
+            output = {
+                "name": run["name"],
+                "catchment_match": {k: v for k, v in linked.items() if k != "catchment"},
+                "area_basis": area_basis,
+                "managed_geometry": mapping(region) if region is not None else None,
+                "scenarios": [],
+            }
+            if linked.get("catchment"):
+                output["receiver_id"] = linked["catchment"]["receiver_id"]
+                output["off_parcel_area_sqft"] = linked["catchment"]["off_parcel_area_sqft"]
             if region is not None:
-                output['composition']=composition(case,integrated['ai'],integrated['measurement'],mapping(region))
-                bounds=ia_bounds(case,integrated,region)
+                output["composition"] = composition(
+                    case, integrated["ai"], integrated["measurement"], mapping(region)
+                )
+                bounds = ia_bounds(case, integrated, region)
                 # A mapped vegetated roof/permeable surface can be misclassified
                 # by the generic model. The upper scenario explicitly assumes
                 # unconfirmed ground in this region is qualifying IA.
-                observed_pervious=shape(integrated['observed_pervious_geometry'])
-                bounds['upper']=bounds['upper'].union(region.difference(observed_pervious))
+                observed_pervious = shape(integrated["observed_pervious_geometry"])
+                bounds["upper"] = bounds["upper"].union(region.difference(observed_pervious))
                 # D2: a linked research catchment carries the per-catchment extent test.
-                route=catchment_route(linked['catchment'],run.get('invariants')) if linked['status']=='linked' else None
-                if route:output.update(_route_fields(route))
-                for bound,geom in bounds.items():
-                    geom=geom.difference(occupied)
-                    assumptions=assumed+['AI class accuracy and modeled drainage are unverified',area_basis,
-                        'Required approval, condition and treatment evidence must cover the modeled area, not only an earlier recorded area']
-                    if bound=='upper':assumptions+=['All unconfirmed ground in this region assumed impervious; not a confidence bound']
-                    if bound=='lower':assumptions+=['Observed IA plus eroded AI boundaries; classification error remains unbounded']
-                    assumptions+=_bound_assumptions(bound)
-                    route_failed=route['blocked_reasons'] if route else []
-                    recipe={'id':rid,'region':geom,'failed':failed+route_failed,'assumed':assumptions,'route':route}
-                    s=_counterfactual(case,gis,screened,[recipe],as_of,tariff)
-                    output['scenarios'].append({'bound':bound,'area_sqft':case_area_sqft(geom,case),**s,
-                                                **(_route_fields(route) if route else {})})
-                    recipes_by_key.setdefault((run['name'],bound),[]).append(recipe)
-            else:output['scenarios'].append({'bound':'unavailable',**_blocked([linked.get('reason','Catchment unavailable')])})
-            info['runs'].append(output)
+                route = (
+                    catchment_route(linked["catchment"], run.get("invariants"))
+                    if linked["status"] == "linked"
+                    else None
+                )
+                if route:
+                    output.update(_route_fields(route))
+                for bound, geom in bounds.items():
+                    geom = geom.difference(occupied)
+                    assumptions = assumed + [
+                        "AI class accuracy and modeled drainage are unverified",
+                        area_basis,
+                        "Required approval, condition and treatment evidence must cover the modeled area, not only an earlier recorded area",
+                    ]
+                    if bound == "upper":
+                        assumptions += [
+                            "All unconfirmed ground in this region assumed impervious; not a confidence bound"
+                        ]
+                    if bound == "lower":
+                        assumptions += [
+                            "Observed IA plus eroded AI boundaries; classification error remains unbounded"
+                        ]
+                    assumptions += _bound_assumptions(bound)
+                    route_failed = route["blocked_reasons"] if route else []
+                    recipe = {
+                        "id": rid,
+                        "region": geom,
+                        "failed": failed + route_failed,
+                        "assumed": assumptions,
+                        "route": route,
+                    }
+                    s = _counterfactual(case, gis, screened, [recipe], as_of, tariff)
+                    output["scenarios"].append(
+                        {
+                            "bound": bound,
+                            "area_sqft": case_area_sqft(geom, case),
+                            **s,
+                            **(_route_fields(route) if route else {}),
+                        }
+                    )
+                    recipes_by_key.setdefault((run["name"], bound), []).append(recipe)
+            else:
+                output["scenarios"].append(
+                    {
+                        "bound": "unavailable",
+                        **_blocked([linked.get("reason", "Catchment unavailable")]),
+                    }
+                )
+            info["runs"].append(output)
         items.append(info)
-    combined=[]
-    for (run,bound),recipes in recipes_by_key.items():
-        usable=[r for r in recipes if not r['failed'] and case_area_sqft(r['region'],case)>.000001]
-        excluded=[{'record_id':r['id'],'reasons':r['failed'] or ['No positive on-parcel modeled area; not zero savings']} for r in recipes if r not in usable]
-        routes=[r['route'] for r in usable if r.get('route')]
-        combined.append({'name':run,'bound':bound,**_counterfactual(case,gis,screened,usable,as_of,tariff),
-            **(_route_fields(combine_routes(routes)) if routes else {}),
-            'scope':'calculable subset' if excluded else 'listed record alternatives',
-            'excluded_records':excluded,'complete_opportunity':False})
-    surface={};t=tariff or default_tariff()
-    finance_allowed=RULES['effective_from']<=as_of.isoformat()<=RULES['verified_through'] and t['effective_from']<=as_of.isoformat()<=t['verified_through']
-    if not finance_allowed:surface={'status':'blocked','reason':'Assessment date outside verified rule/tariff period'}
-    elif case.get('baseline') and integrated['ai']['status']=='modeled':
+    combined = []
+    for (run, bound), recipes in recipes_by_key.items():
+        usable = [
+            r for r in recipes if not r["failed"] and case_area_sqft(r["region"], case) > 0.000001
+        ]
+        excluded = [
+            {
+                "record_id": r["id"],
+                "reasons": r["failed"] or ["No positive on-parcel modeled area; not zero savings"],
+            }
+            for r in recipes
+            if r not in usable
+        ]
+        routes = [r["route"] for r in usable if r.get("route")]
+        combined.append(
+            {
+                "name": run,
+                "bound": bound,
+                **_counterfactual(case, gis, screened, usable, as_of, tariff),
+                **(_route_fields(combine_routes(routes)) if routes else {}),
+                "scope": "calculable subset" if excluded else "listed record alternatives",
+                "excluded_records": excluded,
+                "complete_opportunity": False,
+            }
+        )
+    surface = {}
+    t = tariff or default_tariff()
+    finance_allowed = (
+        RULES["effective_from"] <= as_of.isoformat() <= RULES["verified_through"]
+        and t["effective_from"] <= as_of.isoformat() <= t["verified_through"]
+    )
+    if not finance_allowed:
+        surface = {
+            "status": "blocked",
+            "reason": "Assessment date outside verified rule/tariff period",
+        }
+    elif case.get("baseline") and integrated["ai"]["status"] == "modeled":
         # Appeal alternatives use the same assessment ledger as every credit (D7).
-        from .assessment_policy import _economics,ledger_billing_view
+        from .assessment_policy import _economics, ledger_billing_view
+
         def appeal(measurement):
-            view=ledger_billing_view(_economics(case,{**gis,'measurement':measurement},[],as_of,tariff))
-            if view.get('status')=='blocked':raise ValueError(view['reason'])
-            return view['appeal_only']
+            view = ledger_billing_view(
+                _economics(case, {**gis, "measurement": measurement}, [], as_of, tariff)
+            )
+            if view.get("status") == "blocked":
+                raise ValueError(view["reason"])
+            return view["appeal_only"]
+
         try:
-            measured={**integrated['measurement'],**{k:float(_area_decimal(integrated['measurement'][k])) for k in ('ga_sqft','ia_sqft')}}
-            surface={'status':'conditional','measurement_only':appeal(measured),
-                'claim':'AI-based surface correction alternative only; imagery classes and legal/billed areas are unverified. Do not add to credit alternatives.'}
-            surface['area_alternatives']=[]
-            baseline=case['baseline'];m=integrated['measurement']
-            options=[('gross_area_only',m['ga_sqft'],baseline['ia_sqft'],[]),
-                ('ia_unknown_assumed_pervious',baseline['ga_sqft'],m['ia_sqft'],['Unclassified/canopy-hidden ground assumed pervious']),
-                ('ia_unknown_assumed_impervious',baseline['ga_sqft'],m['ia_sqft']+m['unknown_sqft'],['All unclassified/canopy-hidden ground assumed impervious'])]
-            for name,ga,ia,assumptions in options:
-                trial={**m,'ga_sqft':float(_area_decimal(ga)),'ia_sqft':float(_area_decimal(ia)),'complete':True}
-                scenario=appeal(trial)
-                surface['area_alternatives'].append({'name':name,'ga_sqft':trial['ga_sqft'],'ia_sqft':trial['ia_sqft'],
-                    'assumptions':assumptions+['Counterfactual completed cover assumption, not a complete measured survey or a supported appeal'],
-                    **scenario})
-        except ValueError as exc:surface={'status':'blocked','reason':str(exc)}
+            measured = {
+                **integrated["measurement"],
+                **{
+                    k: float(_area_decimal(integrated["measurement"][k]))
+                    for k in ("ga_sqft", "ia_sqft")
+                },
+            }
+            surface = {
+                "status": "conditional",
+                "measurement_only": appeal(measured),
+                "claim": "AI-based surface correction alternative only; imagery classes and legal/billed areas are unverified. Do not add to credit alternatives.",
+            }
+            surface["area_alternatives"] = []
+            baseline = case["baseline"]
+            m = integrated["measurement"]
+            options = [
+                ("gross_area_only", m["ga_sqft"], baseline["ia_sqft"], []),
+                (
+                    "ia_unknown_assumed_pervious",
+                    baseline["ga_sqft"],
+                    m["ia_sqft"],
+                    ["Unclassified/canopy-hidden ground assumed pervious"],
+                ),
+                (
+                    "ia_unknown_assumed_impervious",
+                    baseline["ga_sqft"],
+                    m["ia_sqft"] + m["unknown_sqft"],
+                    ["All unclassified/canopy-hidden ground assumed impervious"],
+                ),
+            ]
+            for name, ga, ia, assumptions in options:
+                trial = {
+                    **m,
+                    "ga_sqft": float(_area_decimal(ga)),
+                    "ia_sqft": float(_area_decimal(ia)),
+                    "complete": True,
+                }
+                scenario = appeal(trial)
+                surface["area_alternatives"].append(
+                    {
+                        "name": name,
+                        "ga_sqft": trial["ga_sqft"],
+                        "ia_sqft": trial["ia_sqft"],
+                        "assumptions": assumptions
+                        + [
+                            "Counterfactual completed cover assumption, not a complete measured survey or a supported appeal"
+                        ],
+                        **scenario,
+                    }
+                )
+        except ValueError as exc:
+            surface = {"status": "blocked", "reason": str(exc)}
     # Image context is not a permeability or green-roof detector.
-    roof_shapes=[shape(f['geometry']) for f in effective_features(case) if f.get('properties',{}).get('class')=='roof' and f.get('properties',{}).get('layer')=='surface']
-    roof_shapes.append(shape(integrated['ai']['roof_supplement_geometry']))
-    vegetation=shape(integrated['ai']['geometries']['canopy']).union(shape(integrated['ai']['geometries']['grass_shrub']))
-    roof_vegetation=vegetation.intersection(union(roof_shapes))
-    canopy_scenarios=[]
-    if case.get('baseline') and integrated['ai']['status']=='modeled':
-        m=integrated['measurement'];canopy=shape(m['geometries']['canopy'])
-        known_overlap=shape(m['geometries']['canopy_ground_ia'])
-        hidden_overlap=canopy.intersection(shape(m['geometries']['unknown']))
-        for name,region in [('modeled_overlap',known_overlap),('hidden_ground_assumed_impervious',known_overlap.union(hidden_overlap))]:
-            region=region.difference(occupied);area=float(_area_decimal(case_area_sqft(region,case)))
-            assumptions=['Canopy classification and overlap are modeled; eligibility/actual account bill remain unverified']
-            if name.startswith('hidden'):assumptions.append('All unresolved ground below predicted canopy assumed impervious')
-            if not finance_allowed:s=_blocked(['Assessment date outside verified rule/tariff period'])
-            elif vetoes:s=_blocked(vetoes)
-            elif area<.000001:s=_blocked(['No supported modeled ground-IA overlap; canopy-hidden ground remains unknown'])
-            else:s=_canopy_value(case,gis,screened,region,as_of,tariff)
-            canopy_scenarios.append({**s,'name':name,'area_sqft':area,'basis':'conditional AI canopy alternative',
-                'assumptions':assumptions+list(s.get('assumptions',[]))})
-    available=integrated['ai']['status']=='modeled'
-    pavement=shape(integrated['ai']['geometries']['road']).union(shape(integrated['ai']['geometries']['developed_space']))
-    categories={
-        'green_roof':{'possible_roof_vegetation_sqft':case_area_sqft(roof_vegetation,case) if available else None,
-            'claim':'Image vegetation on roof outlines nominates a possible feature; tree overhang and other causes remain possible. No green roof is established.'},
-        'permeable_pavement':{'developed_or_road_appearance_sqft':case_area_sqft(pavement,case) if available else None,
-            'permeability':'Unknown','claim':'Developed-space/road appearance is not a pavement measurement or permeability class.'},
-        'direct_discharge':{'explicit_outlet_candidates':[{'receiver_id':c['receiver_id'],'composition':c['composition']}
-            for c in (integrated.get('runs') or [{}])[0].get('catchments',[]) if c['kind']=='outlet'],
-            'claim':'Only supplied outlet connections are traced. Water destination, private ownership and qualifying discharge remain unverified.'}}
-    return {'status':integrated['status'],'records':items,'combined':combined,'surface_scenario':surface,
-        'catchment_scenarios':catchment_alternatives(case,gis,screened,as_of,tariff,occupied,items,links),
-        'permit_scenarios':permit_alternatives(case,gis,screened,as_of,tariff),
-        'category_context':categories,
-        'canopy_scenarios':canopy_scenarios,
-        'image_context':{'possible_roof_vegetation_geometry':mapping(roof_vegetation),
-            'possible_roof_vegetation_sqft':case_area_sqft(roof_vegetation,case) if integrated['ai']['status']=='modeled' else None,
-            'claim':'Roof vegetation may be overhanging trees. Pavement classes do not establish permeability; no new treatment is confirmed.'},
-        'claim':'Record-specific modeled alternatives alongside unchanged evidence-based findings. Combined scenarios use one ledger; unresolved overlaps block calculation.'}
+    roof_shapes = [
+        shape(f["geometry"])
+        for f in effective_features(case)
+        if f.get("properties", {}).get("class") == "roof"
+        and f.get("properties", {}).get("layer") == "surface"
+    ]
+    roof_shapes.append(shape(integrated["ai"]["roof_supplement_geometry"]))
+    vegetation = shape(integrated["ai"]["geometries"]["canopy"]).union(
+        shape(integrated["ai"]["geometries"]["grass_shrub"])
+    )
+    roof_vegetation = vegetation.intersection(union(roof_shapes))
+    canopy_scenarios = []
+    if case.get("baseline") and integrated["ai"]["status"] == "modeled":
+        m = integrated["measurement"]
+        canopy = shape(m["geometries"]["canopy"])
+        known_overlap = shape(m["geometries"]["canopy_ground_ia"])
+        hidden_overlap = canopy.intersection(shape(m["geometries"]["unknown"]))
+        for name, region in [
+            ("modeled_overlap", known_overlap),
+            ("hidden_ground_assumed_impervious", known_overlap.union(hidden_overlap)),
+        ]:
+            region = region.difference(occupied)
+            area = float(_area_decimal(case_area_sqft(region, case)))
+            assumptions = [
+                "Canopy classification and overlap are modeled; eligibility/actual account bill remain unverified"
+            ]
+            if name.startswith("hidden"):
+                assumptions.append(
+                    "All unresolved ground below predicted canopy assumed impervious"
+                )
+            if not finance_allowed:
+                s = _blocked(["Assessment date outside verified rule/tariff period"])
+            elif vetoes:
+                s = _blocked(vetoes)
+            elif area < 0.000001:
+                s = _blocked(
+                    ["No supported modeled ground-IA overlap; canopy-hidden ground remains unknown"]
+                )
+            else:
+                s = _canopy_value(case, gis, screened, region, as_of, tariff)
+            canopy_scenarios.append(
+                {
+                    **s,
+                    "name": name,
+                    "area_sqft": area,
+                    "basis": "conditional AI canopy alternative",
+                    "assumptions": assumptions + list(s.get("assumptions", [])),
+                }
+            )
+    available = integrated["ai"]["status"] == "modeled"
+    pavement = shape(integrated["ai"]["geometries"]["road"]).union(
+        shape(integrated["ai"]["geometries"]["developed_space"])
+    )
+    categories = {
+        "green_roof": {
+            "possible_roof_vegetation_sqft": (
+                case_area_sqft(roof_vegetation, case) if available else None
+            ),
+            "claim": "Image vegetation on roof outlines nominates a possible feature; tree overhang and other causes remain possible. No green roof is established.",
+        },
+        "permeable_pavement": {
+            "developed_or_road_appearance_sqft": (
+                case_area_sqft(pavement, case) if available else None
+            ),
+            "permeability": "Unknown",
+            "claim": "Developed-space/road appearance is not a pavement measurement or permeability class.",
+        },
+        "direct_discharge": {
+            "explicit_outlet_candidates": [
+                {"receiver_id": c["receiver_id"], "composition": c["composition"]}
+                for c in (integrated.get("runs") or [{}])[0].get("catchments", [])
+                if c["kind"] == "outlet"
+            ],
+            "claim": "Only supplied outlet connections are traced. Water destination, private ownership and qualifying discharge remain unverified.",
+        },
+    }
+    return {
+        "status": integrated["status"],
+        "records": items,
+        "combined": combined,
+        "surface_scenario": surface,
+        "catchment_scenarios": catchment_alternatives(
+            case, gis, screened, as_of, tariff, occupied, items, links
+        ),
+        "permit_scenarios": permit_alternatives(case, gis, screened, as_of, tariff),
+        "category_context": categories,
+        "canopy_scenarios": canopy_scenarios,
+        "image_context": {
+            "possible_roof_vegetation_geometry": mapping(roof_vegetation),
+            "possible_roof_vegetation_sqft": (
+                case_area_sqft(roof_vegetation, case)
+                if integrated["ai"]["status"] == "modeled"
+                else None
+            ),
+            "claim": "Roof vegetation may be overhanging trees. Pavement classes do not establish permeability; no new treatment is confirmed.",
+        },
+        "claim": "Record-specific modeled alternatives alongside unchanged evidence-based findings. Combined scenarios use one ledger; unresolved overlaps block calculation.",
+    }

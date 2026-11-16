@@ -4,6 +4,23 @@ Newest entries first. Current truth belongs in STATE; the active bounded task be
 in TASK. These records preserve changes, decisions, evidence, unresolved issues and
 handoffs. Do not rewrite past results to match later runs.
 
+## 2026-11-16 — D10 formatting-only pass
+
+`black` 25.9.0 (AST-equivalence checked; `[tool.black]` line-length 100 in
+`pyproject.toml`) was run over `drainage_core`, `stormwater`, `tests`, `examples` and
+`scripts`. It changed 140 files with no logic changes. Semicolon-packed statements
+are split. The 47 lines still over 200 characters are string literals (HTML/CSS
+templates).
+
+**Checks.**
+- Full suite: Ran 823, OK (skipped=1); `data/` untouched.
+- Node harnesses pass.
+- `examples/assessment-public/replay.py` and `examples/automatic-public/replay.py`
+  pass.
+
+Interpretation versions are unchanged. Since Phase 1, formatting no longer
+invalidates saved results.
+
 ## 2026-11-16 — Fix plan Phase 4b merged: pricing, pilot and portfolio
 
 Commit `14ae380`, merged on top of Phases 6 and 7. Full suite: Ran 823, OK

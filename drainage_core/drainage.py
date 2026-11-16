@@ -4,6 +4,7 @@ This is a topographic screening model, not a hydraulic or pipe-capacity model.
 No automatic depression filling, roof assignment, or inferred pipe links occur.
 Coordinates use a north-up grid: origin is its upper-left corner; row increases south.
 """
+
 from collections import Counter, deque
 import math
 
@@ -34,7 +35,12 @@ def route_grid(grid):
     with respect to downstream disposition, but the inlet catchment is preserved.
     """
     elevations = grid.get("elevations")
-    if not isinstance(elevations, list) or not elevations or not isinstance(elevations[0], list) or not elevations[0]:
+    if (
+        not isinstance(elevations, list)
+        or not elevations
+        or not isinstance(elevations[0], list)
+        or not elevations[0]
+    ):
         raise ValueError("elevations must be a nonempty rectangular list")
     rows, cols = len(elevations), len(elevations[0])
     if rows * cols > 1_000_000:
@@ -71,7 +77,13 @@ def route_grid(grid):
         if not isinstance(value, (list, tuple)) or len(value) != 2:
             raise ValueError("cell must contain row and column")
         r, c = value
-        if isinstance(r, bool) or isinstance(c, bool) or not isinstance(r, int) or not isinstance(c, int) or not (0 <= r < rows and 0 <= c < cols):
+        if (
+            isinstance(r, bool)
+            or isinstance(c, bool)
+            or not isinstance(r, int)
+            or not isinstance(c, int)
+            or not (0 <= r < rows and 0 <= c < cols)
+        ):
             raise ValueError(f"cell outside grid or noninteger: {value}")
         return r, c
 
@@ -83,7 +95,10 @@ def route_grid(grid):
     if (barriers | roofs | storage) & nodata:
         raise ValueError("feature cells require valid elevation; NoData cannot be imputed")
     parcel_mask = grid.get("parcel_mask")
-    if parcel_mask is not None and (len(parcel_mask) != rows or any(len(row) != cols or any(type(v) is not bool for v in row) for row in parcel_mask)):
+    if parcel_mask is not None and (
+        len(parcel_mask) != rows
+        or any(len(row) != cols or any(type(v) is not bool for v in row) for row in parcel_mask)
+    ):
         raise ValueError("parcel_mask must be a same-shape boolean matrix")
     inlets = {}
     inlet_cells = {}
@@ -176,7 +191,11 @@ def route_grid(grid):
         terminal[p] = connection_label(identifier)
 
     for p in sorted(ground - set(terminal)):
-        candidates = [( (z[p] - z[n]) / distance, n) for n, distance in neighbours(p) if z[p] - z[n] > tolerance]
+        candidates = [
+            ((z[p] - z[n]) / distance, n)
+            for n, distance in neighbours(p)
+            if z[p] - z[n] > tolerance
+        ]
         if candidates:
             # Stable tie break is row then column, independent of dict iteration.
             _, next_cell[p] = min(candidates, key=lambda candidate: (-candidate[0], candidate[1]))
@@ -204,7 +223,9 @@ def route_grid(grid):
         exits = sorted(p for p in component if p in terminal or p in next_cell)
         if not exits:
             edges = sorted(p for p in component if edge(p))
-            adjacent_nodata = any((p[0] + dr, p[1] + dc) in nodata for p in component for dr, dc in _NEIGHBOURS)
+            adjacent_nodata = any(
+                (p[0] + dr, p[1] + dc) in nodata for p in component for dr, dc in _NEIGHBOURS
+            )
             sink = edges[0] if edges else min(component)
             if adjacent_nodata:
                 terminal[sink] = f"unresolved:nodata:{sink[0]}:{sink[1]}"
@@ -228,6 +249,7 @@ def route_grid(grid):
         remaining -= pending
 
     labels = dict(terminal)
+
     def resolve(p):
         trail = []
         seen = set()
@@ -246,6 +268,7 @@ def route_grid(grid):
         for item in trail:
             labels[item] = label
         return label
+
     for p in sorted(z):
         resolve(p)
 
@@ -262,27 +285,48 @@ def route_grid(grid):
     outlets = []
     for label in sorted(counts):
         if label not in {"barrier", "nodata"}:
-            outlets.append({"label": label, "cells": counts[label], "area_sqft": counts[label] * cell_area,
-                            "on_parcel_area_sqft": on_counts[label] * cell_area,
-                            "off_parcel_area_sqft": off_counts[label] * cell_area,
-                            "evidence": "scenario" if label.startswith("scenario:") else "unresolved" if label.startswith("unresolved:") else "topographic"})
+            outlets.append(
+                {
+                    "label": label,
+                    "cells": counts[label],
+                    "area_sqft": counts[label] * cell_area,
+                    "on_parcel_area_sqft": on_counts[label] * cell_area,
+                    "off_parcel_area_sqft": off_counts[label] * cell_area,
+                    "evidence": (
+                        "scenario"
+                        if label.startswith("scenario:")
+                        else "unresolved" if label.startswith("unresolved:") else "topographic"
+                    ),
+                }
+            )
     warnings = []
     if nodata:
-        warnings.append("NoData cells remain unknown; adjacent flow paths may change with missing terrain.")
+        warnings.append(
+            "NoData cells remain unknown; adjacent flow paths may change with missing terrain."
+        )
     if any(label.startswith("edge:") for label in counts):
         warnings.append("Flow reaches the raster edge; downstream destination is unknown.")
     if any(label.startswith("unresolved:roof:") for label in counts):
-        warnings.append("Roof drainage connections are unresolved; roofs are excluded from ground routing.")
+        warnings.append(
+            "Roof drainage connections are unresolved; roofs are excluded from ground routing."
+        )
     if any(label.startswith("inlet:") for label in counts):
-        warnings.append("Inlet collection is delineated but downstream treatment/pipe disposition is unverified.")
+        warnings.append(
+            "Inlet collection is delineated but downstream treatment/pipe disposition is unverified."
+        )
     if any(label.startswith("scenario:") for label in counts):
         warnings.append("Scenario connections are assumptions, not documented managed area.")
     if not settings.get("extent_sufficient", False):
         warnings.append("Sufficient surrounding routing extent has not been verified.")
     if not grid.get("crs"):
         warnings.append("Routing CRS is missing; map alignment has not been verified.")
-    if any(label.startswith("unresolved:depression:") or label.startswith("unresolved:flat:") for label in counts):
-        warnings.append("Pits/flats without a known exit are retained unresolved; no depression filling was applied.")
+    if any(
+        label.startswith("unresolved:depression:") or label.startswith("unresolved:flat:")
+        for label in counts
+    ):
+        warnings.append(
+            "Pits/flats without a known exit are retained unresolved; no depression filling was applied."
+        )
     path_limit = settings.get("max_flow_paths", 100)
     if type(path_limit) is not int or path_limit < 0 or path_limit > 10000:
         raise ValueError("max_flow_paths must be an integer from 0 to 10000")
@@ -298,21 +342,50 @@ def route_grid(grid):
                 break
             path.append(nxt)
             seen.add(nxt)
-        paths.append({"label": labels[start], "cells": [list(p) for p in path], "coordinates": [[origin[0] + (p[1] + .5) * cell_size, origin[1] - (p[0] + .5) * cell_size] for p in path]})
+        paths.append(
+            {
+                "label": labels[start],
+                "cells": [list(p) for p in path],
+                "coordinates": [
+                    [origin[0] + (p[1] + 0.5) * cell_size, origin[1] - (p[0] + 0.5) * cell_size]
+                    for p in path
+                ],
+            }
+        )
     unresolved_cells = sum(n for label, n in counts.items() if label.startswith("unresolved:"))
-    return {"model": "urban-d8-conservative-v1", "rows": rows, "cols": cols,
-            "crs": grid.get("crs"), "origin": origin, "cell_size": cell_size,
-            "horizontal_unit": horizontal, "vertical_unit": vertical,
-            "cell_area_sqft": cell_area,
-            "labels": [[labels[(r, c)] for c in range(cols)] for r in range(rows)],
-            "next_cells": [[list(next_cell[(r, c)]) if (r, c) in next_cell else None for c in range(cols)] for r in range(rows)],
-            "outlets": outlets, "flow_paths": paths, "counts": dict(sorted(counts.items())),
-            "nodata_cells": len(nodata), "nodata_area_sqft": len(nodata) * cell_area,
-            "unresolved_cells": unresolved_cells, "unresolved_area_sqft": unresolved_cells * cell_area,
-            "coverage_complete": not nodata, "extent_sufficient": bool(settings.get("extent_sufficient", False)),
-            "warnings": warnings, "settings": {"flat_tolerance": tolerance / _METRES[vertical], "depression_filling": False,
-                "flat_policy": "shortest equal-elevation route to known lower exit; preserve closed plateaus",
-                "corner_cutting": False, "max_flow_paths": path_limit}}
+    return {
+        "model": "urban-d8-conservative-v1",
+        "rows": rows,
+        "cols": cols,
+        "crs": grid.get("crs"),
+        "origin": origin,
+        "cell_size": cell_size,
+        "horizontal_unit": horizontal,
+        "vertical_unit": vertical,
+        "cell_area_sqft": cell_area,
+        "labels": [[labels[(r, c)] for c in range(cols)] for r in range(rows)],
+        "next_cells": [
+            [list(next_cell[(r, c)]) if (r, c) in next_cell else None for c in range(cols)]
+            for r in range(rows)
+        ],
+        "outlets": outlets,
+        "flow_paths": paths,
+        "counts": dict(sorted(counts.items())),
+        "nodata_cells": len(nodata),
+        "nodata_area_sqft": len(nodata) * cell_area,
+        "unresolved_cells": unresolved_cells,
+        "unresolved_area_sqft": unresolved_cells * cell_area,
+        "coverage_complete": not nodata,
+        "extent_sufficient": bool(settings.get("extent_sufficient", False)),
+        "warnings": warnings,
+        "settings": {
+            "flat_tolerance": tolerance / _METRES[vertical],
+            "depression_filling": False,
+            "flat_policy": "shortest equal-elevation route to known lower exit; preserve closed plateaus",
+            "corner_cutting": False,
+            "max_flow_paths": path_limit,
+        },
+    }
 
 
 def compare_labels(prediction, reference):
@@ -322,9 +395,19 @@ def compare_labels(prediction, reference):
     excluded and reported. Catchment IoU is reported per reference outlet along
     with a confusion table; total-area agreement cannot conceal route errors.
     """
-    if not prediction or not reference or len(prediction) != len(reference) or any(len(p) != len(r) for p, r in zip(prediction, reference)):
+    if (
+        not prediction
+        or not reference
+        or len(prediction) != len(reference)
+        or any(len(p) != len(r) for p, r in zip(prediction, reference))
+    ):
         raise ValueError("Prediction and reference grids must have the same shape")
-    pairs = Counter((p, r) for prow, rrow in zip(prediction, reference) for p, r in zip(prow, rrow) if r is not None)
+    pairs = Counter(
+        (p, r)
+        for prow, rrow in zip(prediction, reference)
+        for p, r in zip(prow, rrow)
+        if r is not None
+    )
     total = sum(pairs.values())
     if not total:
         return {"status": "blocked", "reason": "No independently labelled reference cells"}
@@ -334,11 +417,21 @@ def compare_labels(prediction, reference):
         actual = sum(n for (_, r), n in pairs.items() if r == target)
         intersection = pairs[(target, target)]
         union = predicted + actual - intersection
-        results[target] = {"predicted_cells": predicted, "reference_cells": actual,
-            "area_error_cells": predicted - actual, "area_error_fraction": (predicted - actual) / actual,
-            "intersection_over_union": intersection / union if union else None}
-    return {"status": "measured", "reference_cells": total,
-            "excluded_reference_cells": sum(len(row) for row in reference) - total,
-            "routing_disagreement_cells": sum(n for (p, r), n in pairs.items() if p != r),
-            "routing_disagreement_fraction": sum(n for (p, r), n in pairs.items() if p != r) / total,
-            "catchments": results, "confusion": [{"predicted": p, "reference": r, "cells": n} for (p, r), n in sorted(pairs.items())]}
+        results[target] = {
+            "predicted_cells": predicted,
+            "reference_cells": actual,
+            "area_error_cells": predicted - actual,
+            "area_error_fraction": (predicted - actual) / actual,
+            "intersection_over_union": intersection / union if union else None,
+        }
+    return {
+        "status": "measured",
+        "reference_cells": total,
+        "excluded_reference_cells": sum(len(row) for row in reference) - total,
+        "routing_disagreement_cells": sum(n for (p, r), n in pairs.items() if p != r),
+        "routing_disagreement_fraction": sum(n for (p, r), n in pairs.items() if p != r) / total,
+        "catchments": results,
+        "confusion": [
+            {"predicted": p, "reference": r, "cells": n} for (p, r), n in sorted(pairs.items())
+        ],
+    }

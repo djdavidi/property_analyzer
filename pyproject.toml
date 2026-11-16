@@ -22,3 +22,7 @@ include = ["drainage_core*", "stormwater*"]
 [tool.setuptools.package-data]
 drainage_core = ["web/*.html", "web/*.js", "web/*.css"]
 stormwater = ["web/*.html", "web/*.js", "web/*.css"]
+
+[tool.black]
+line-length = 100
+target-version = ["py312"]
