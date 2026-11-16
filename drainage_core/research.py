@@ -16,7 +16,7 @@ from rasterio.features import rasterize, shapes
 from rasterio.transform import from_origin
 from shapely.geometry import shape, mapping, box
 from .geometry import effective_features, union, case_area_sqft, area_only
-from .drainage import route_grid
+from .drainage import route_grid, MAX_ROUTING_CELLS
 from .extent import coverage as terrain_coverage, catchment_extent
 
 METHOD = "villanova-temple-local-v1"
@@ -59,38 +59,79 @@ def fill_dem(elevations):
     Missing terrain is an open, uncertain boundary, never an interpolated surface.
     """
     z = np.asarray(elevations, dtype=float)
-    if z.ndim != 2 or not z.size or z.size > 250000 or np.isinf(z).any():
-        raise ValueError("Research DEM must be a finite rectangular grid, at most 250,000 cells")
+    if z.ndim != 2 or not z.size or z.size > MAX_ROUTING_CELLS or np.isinf(z).any():
+        raise ValueError(
+            f"Research DEM must be a finite rectangular grid, at most {MAX_ROUTING_CELLS:,} cells"
+        )
     valid = np.isfinite(z)
-    out = z.copy()
-    seen = ~valid.copy()
-    queue = []
     rows, cols = z.shape
-    for r, c in np.argwhere(valid):
-        if (
-            r in (0, rows - 1)
-            or c in (0, cols - 1)
-            or any(
-                not valid[r + dr, c + dc]
-                for dr, dc in NEIGHBOURS
-                if 0 <= r + dr < rows and 0 <= c + dc < cols
-            )
-        ):
-            seen[r, c] = True
-            heapq.heappush(queue, (float(z[r, c]), int(r), int(c)))
+    # Seeds: valid cells on the grid edge or touching NoData (outside the grid is not NoData).
+    around = np.pad(valid, 1, constant_values=True)
+    seeds = np.zeros_like(valid)
+    for dr, dc in NEIGHBOURS:
+        seeds |= ~around[1 + dr : 1 + dr + rows, 1 + dc : 1 + dc + cols]
+    seeds[0, :] = seeds[-1, :] = True
+    seeds[:, 0] = seeds[:, -1] = True
+    seeds &= valid
+    # One sentinel ring of "seen" cells replaces bounds checks. Heap keys are
+    # (height, padded flat index), ordered exactly like (height, row, column).
+    width = cols + 2
+    padded = np.full((rows + 2, width), np.nan)
+    padded[1:-1, 1:-1] = z
+    seen = np.ones((rows + 2, width), bool)
+    seen[1:-1, 1:-1] = ~valid | seeds
+    heights = padded.ravel().tolist()
+    seen = seen.ravel().tolist()
+    out = list(heights)
+    start = np.flatnonzero(np.pad(seeds, 1, constant_values=False).ravel()).tolist()
+    queue = [(heights[i], i) for i in start]
+    heapq.heapify(queue)
+    steps = [dr * width + dc for dr, dc in NEIGHBOURS]
+    pop, push = heapq.heappop, heapq.heappush
     while queue:
-        height, r, c = heapq.heappop(queue)
-        for dr, dc in NEIGHBOURS:
-            nr, nc = r + dr, c + dc
-            if 0 <= nr < rows and 0 <= nc < cols and not seen[nr, nc]:
-                seen[nr, nc] = True
-                out[nr, nc] = max(height, z[nr, nc])
-                heapq.heappush(queue, (float(out[nr, nc]), nr, nc))
-    return out
+        height, i = pop(queue)
+        for step in steps:
+            n = i + step
+            if not seen[n]:
+                seen[n] = True
+                value = heights[n]
+                if not value > height:  # max(height, value), keeping its tie choice
+                    value = height
+                out[n] = value
+                push(queue, (value, n))
+    return np.array(out, dtype=float).reshape(rows + 2, width)[1:-1, 1:-1].copy()
 
 
 def _json_grid(array):
-    return [[None if not math.isfinite(float(v)) else float(v) for v in row] for row in array]
+    values = np.asarray(array, dtype=float)
+    out = values.tolist()
+    for r, c in zip(*np.nonzero(~np.isfinite(values))):
+        out[r][c] = None
+    return out
+
+
+def coarse_2x(source):
+    """Strict 2x2 complete-block means; incomplete/border blocks stay NaN.
+
+    The four additions run in the same order as ``block.mean()`` on each block,
+    so the values are bit-identical to the earlier per-block loop.
+    """
+    rows, cols = source.shape
+    coarse = np.full(((rows + 1) // 2, (cols + 1) // 2), np.nan)
+    whole_r, whole_c = rows // 2, cols // 2
+    top, bottom = slice(0, 2 * whole_r, 2), slice(1, 2 * whole_r, 2)
+    left, right = slice(0, 2 * whole_c, 2), slice(1, 2 * whole_c, 2)
+    a, b, c, d = source[top, left], source[top, right], source[bottom, left], source[bottom, right]
+    complete = np.isfinite(a) & np.isfinite(b) & np.isfinite(c) & np.isfinite(d)
+    with np.errstate(invalid="ignore"):
+        means = (((a + b) + c) + d) / 4
+    coarse[:whole_r, :whole_c] = np.where(complete, means, np.nan)
+    return coarse
+
+
+def _grid_view(grid):
+    """Copy of a terrain grid that shares (never mutates) its elevation rows."""
+    return {k: (v if k == "elevations" else deepcopy(v)) for k, v in grid.items()}
 
 
 def feature_inputs(case):
@@ -324,41 +365,57 @@ def condition(
 
 
 def accumulate(next_cells, labels):
-    """Inclusive upstream counts over an acyclic D8 graph; excluded cells are zero."""
+    """Inclusive upstream counts over an acyclic D8 graph; excluded cells are zero.
+
+    Kahn's topological order is processed one dependency level at a time with numpy;
+    integer sums are order-independent, so counts equal the per-cell queue version.
+    """
     rows, cols = len(labels), len(labels[0])
-    incoming = Counter()
-    active = set()
-    nxt = {}
-    for r in range(rows):
-        for c in range(cols):
-            if labels[r][c] in ("nodata", "barrier") or labels[r][c].startswith("unresolved:roof:"):
-                continue
-            p = (r, c)
-            active.add(p)
-            if next_cells[r][c] is not None:
-                n = tuple(next_cells[r][c])
-                nxt[p] = n
-                incoming[n] += 1
-    counts = {p: 1 for p in active}
-    queue = deque(sorted(p for p in active if not incoming[p]))
+    size = rows * cols
+    active = np.fromiter(
+        (
+            not (label in ("nodata", "barrier") or label.startswith("unresolved:roof:"))
+            for row in labels
+            for label in row
+        ),
+        bool,
+        size,
+    )
+    nxt = np.fromiter(
+        (
+            (
+                -1
+                if n is None
+                else (n[0] * cols + n[1] if 0 <= n[0] < rows and 0 <= n[1] < cols else -2)
+            )
+            for row in next_cells
+            for n in row
+        ),
+        np.int64,
+        size,
+    )
+    nxt[~active] = -1
+    pointing = nxt != -1
+    if (nxt == -2).any():
+        raise ValueError("Flow pointer enters an excluded cell")
+    incoming = np.bincount(nxt[pointing], minlength=size)
+    counts = active.astype(np.int64)
+    frontier = np.flatnonzero(active & (incoming == 0))
     visited = 0
-    while queue:
-        p = queue.popleft()
-        visited += 1
-        if p in nxt:
-            n = nxt[p]
-            if n not in active:
-                raise ValueError("Flow pointer enters an excluded cell")
-            counts[n] += counts[p]
-            incoming[n] -= 1
-            if incoming[n] == 0:
-                queue.append(n)
-    if visited != len(active):
+    while frontier.size:
+        visited += frontier.size
+        targets = nxt[frontier]
+        moving = targets >= 0
+        sources, targets = frontier[moving], targets[moving]
+        if not active[targets].all():
+            raise ValueError("Flow pointer enters an excluded cell")
+        np.add.at(counts, targets, counts[sources])
+        np.subtract.at(incoming, targets, 1)
+        targets = np.unique(targets)
+        frontier = targets[incoming[targets] == 0]
+    if visited != int(active.sum()):
         raise ValueError("Flow direction contains a cycle")
-    out = np.zeros((rows, cols), dtype=np.int64)
-    for p, value in counts.items():
-        out[p] = value
-    return out
+    return counts.reshape(rows, cols)
 
 
 def _recipient(identifier, by_id, links):
@@ -388,7 +445,7 @@ def run_model(
     all_touched=False,
     grid=None,
 ):
-    grid = deepcopy(grid or case["terrain"])
+    grid = _grid_view(grid or case["terrain"])
     options = case.get("research_drainage", {})
     conditioned = condition(
         grid,
@@ -398,7 +455,7 @@ def run_model(
         inlet_buffer_m=inlet_buffer_m,
         all_touched=all_touched,
     )
-    routed_grid = deepcopy(grid)
+    routed_grid = _grid_view(grid)
     routed_grid["elevations"] = _json_grid(conditioned["adjusted"])
     # Collection is determined by the burned DEM, not by forcing every footprint pixel to collect.
     routed_grid["inlets"] = []
@@ -689,15 +746,9 @@ def analyze_research(case, measurement, conservative):
             run["name"] = name
             variants.append(run)
         # Strict 2x block means; incomplete/NoData blocks stay missing. No invented finer DEM.
-        grid = deepcopy(case["terrain"])
+        grid = _grid_view(case["terrain"])
         source = np.array(grid["elevations"], dtype=float)
-        rows, cols = source.shape
-        coarse = np.full(((rows + 1) // 2, (cols + 1) // 2), np.nan)
-        for r in range(0, rows - 1, 2):
-            for c in range(0, cols - 1, 2):
-                block = source[r : r + 2, c : c + 2]
-                if np.isfinite(block).all():
-                    coarse[r // 2, c // 2] = block.mean()
+        coarse = coarse_2x(source)
         grid["elevations"] = _json_grid(coarse)
         grid["cell_size"] *= 2
         for key in ("roofs", "barriers", "storage"):

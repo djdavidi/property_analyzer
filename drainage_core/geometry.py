@@ -2,6 +2,7 @@
 
 from copy import deepcopy
 from math import isfinite
+from threading import local
 from pyproj import CRS, Transformer
 from shapely.geometry import shape, mapping, GeometryCollection
 from shapely.ops import unary_union, transform
@@ -9,11 +10,42 @@ from shapely.ops import unary_union, transform
 SQFT_PER_M2 = (1 / 0.3048) ** 2
 
 
+_LOCAL = local()
+
+
+def _per_thread(name):
+    cache = getattr(_LOCAL, name, None)
+    if cache is None:
+        cache = {}
+        setattr(_LOCAL, name, cache)
+    return cache
+
+
 def projected_crs(crs):
-    c = CRS.from_user_input(crs)
+    # Per-thread memo for string inputs: building a CRS dominated large area loops.
+    cache = _per_thread("crs") if isinstance(crs, str) else None
+    c = cache.get(crs) if cache is not None else None
+    if c is None:
+        c = CRS.from_user_input(crs)
+        if cache is not None and len(cache) < 64:
+            cache[crs] = c
     if not c.is_projected or not c.axis_info:
         raise ValueError("Area calculations require an explicit projected CRS")
     return c
+
+
+def transformer(source, target):
+    """Same transformation as Transformer.from_crs(..., always_xy=True), memoized per thread."""
+    if not (isinstance(source, str) and isinstance(target, str)):
+        return Transformer.from_crs(source, target, always_xy=True)
+    cache = _per_thread("transformers")
+    key = (source, target)
+    found = cache.get(key)
+    if found is None:
+        found = Transformer.from_crs(source, target, always_xy=True)
+        if len(cache) < 64:
+            cache[key] = found
+    return found
 
 
 def area_m2(geometry, crs):
@@ -36,7 +68,7 @@ def polygon(value):
 
 
 def reproject(geometry, source, target):
-    return transform(Transformer.from_crs(source, target, always_xy=True).transform, geometry)
+    return transform(transformer(source, target).transform, geometry)
 
 
 def case_area_m2(geometry, case):

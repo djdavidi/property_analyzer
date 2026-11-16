@@ -21,6 +21,60 @@ COLORS = {
 }
 
 
+# Report maps embed a reduced display copy of the imagery, not the analysis pixels.
+REPORT_IMAGE_SIDE = 1600
+REPORT_IMAGE_QUALITY = 80
+
+
+def display_image(payload, max_side=REPORT_IMAGE_SIDE, background=(240, 244, 241)):
+    """(mime, bytes, width, height): a JPEG display copy at most ``max_side`` px.
+
+    Averaged downsampling over the frozen pixels; transparent (out-of-coverage)
+    pixels are shown on the map background. Presentation only: measurements keep
+    using the hash-checked original image.
+    """
+    import warnings
+    import numpy as np
+    import rasterio
+    from rasterio.enums import Resampling
+    from rasterio.errors import NotGeoreferencedWarning
+    from rasterio.io import MemoryFile
+
+    with warnings.catch_warnings():
+        # A display PNG/JPEG carries no georeference; bounds come from the case record.
+        warnings.simplefilter("ignore", NotGeoreferencedWarning)
+        return _display_image(payload, max_side, background, np, rasterio, Resampling, MemoryFile)
+
+
+def _display_image(payload, max_side, background, np, rasterio, Resampling, MemoryFile):
+    with rasterio.Env(), MemoryFile(payload) as mem, mem.open() as src:
+        scale = min(1.0, max_side / max(src.width, src.height))
+        width, height = max(1, round(src.width * scale)), max(1, round(src.height * scale))
+        bands = src.read(
+            out_shape=(src.count, height, width),
+            resampling=Resampling.average if scale < 1 else Resampling.nearest,
+        ).astype(float)
+    if bands.shape[0] >= 4:
+        alpha = bands[3:4] / 255.0
+        rgb = bands[:3] * alpha + np.array(background, float).reshape(3, 1, 1) * (1 - alpha)
+    elif bands.shape[0] == 3:
+        rgb = bands
+    else:
+        rgb = np.repeat(bands[:1], 3, axis=0)
+    rgb = np.clip(np.round(rgb), 0, 255).astype("uint8")
+    with MemoryFile() as out:
+        with out.open(
+            driver="JPEG",
+            width=width,
+            height=height,
+            count=3,
+            dtype="uint8",
+            QUALITY=REPORT_IMAGE_QUALITY,
+        ) as dst:
+            dst.write(rgb)
+        return "image/jpeg", out.read(), width, height
+
+
 def map_svg(case, result=None):
     if result:
         from .quality import safe_physical_view
@@ -42,9 +96,10 @@ def map_svg(case, result=None):
         if hasattr(g, "geoms"):
             return "".join(path(mapping(x)) for x in g.geoms)
         rings = [g.exterior, *g.interiors] if g.geom_type == "Polygon" else [g]
+        # 0.01 native units (1 cm or 0.01 ft) is far below a printed map's resolution.
         d = " ".join(
             "M "
-            + " L ".join(f"{x-xmin:.5f},{ymax-y:.5f}" for x, y, *_ in r.coords)
+            + " L ".join(f"{x-xmin:.2f},{ymax-y:.2f}" for x, y, *_ in r.coords)
             + (" Z" if g.geom_type == "Polygon" else "")
             for r in rings
         )
@@ -71,9 +126,14 @@ def map_svg(case, result=None):
                 if sha256(payload).hexdigest() != digest:
                     raise ValueError("Imagery snapshot hash mismatch")
                 b = info["bounds"]
-                uri = base64.b64encode(payload).decode()
+                try:
+                    mime, shown, w, h = display_image(payload)
+                    note = f"Display copy {w}×{h} px JPEG of imagery SHA-256 {digest}"
+                except Exception:  # an undecodable image is embedded as frozen bytes
+                    mime, shown, note = "image/png", payload, "Frozen imagery " + digest
+                uri = base64.b64encode(shown).decode()
                 out.append(
-                    f'<image href="data:image/png;base64,{uri}" x="{b[0]-xmin}" y="{ymax-b[3]}" width="{b[2]-b[0]}" height="{b[3]-b[1]}" preserveAspectRatio="none"/>'
+                    f'<image href="data:{mime};base64,{uri}" x="{b[0]-xmin}" y="{ymax-b[3]}" width="{b[2]-b[0]}" height="{b[3]-b[1]}" preserveAspectRatio="none"><title>{escape(note)}</title></image>'
                 )
     if result:
         for c in (result.get("modeled_integration", {}).get("runs") or [{}])[0].get(
@@ -211,24 +271,28 @@ def modeled_sections(result):
             + e(m["reason"])
             + "</p>"
         )
-    summary = {
-        "status": m["status"],
-        "ai_sources": m["ai"]["sources"],
-        "excluded": m["ai"]["excluded"],
-        "modeled_ia_sqft": m["measurement"]["ia_sqft"],
-        "unresolved_ground_sqft": m["measurement"]["unknown_sqft"],
-        "roof_supplement_sqft": m["roof_supplement_sqft"],
-        "class_conflict_sqft": m["ai"]["class_conflict_sqft"],
-        "observation_disagreement_sqft": m["ai"]["observation_disagreement_sqft"],
-        "drainage_source": m["drainage_source"],
-        "uncertainty": m["ai"]["uncertainty"],
-    }
+    n = lambda x: "Unknown" if x is None else f"{x:,.2f}"
+    rows = [
+        ("Status", e(m["status"])),
+        ("Modeled impervious area (sq ft)", n(m["measurement"]["ia_sqft"])),
+        ("Unresolved ground (sq ft)", n(m["measurement"]["unknown_sqft"])),
+        ("Roof supplement from AI classes (sq ft)", n(m["roof_supplement_sqft"])),
+        ("Conflicting AI classes (sq ft)", n(m["ai"]["class_conflict_sqft"])),
+        (
+            "Disagreement with recorded observations (sq ft)",
+            n(m["ai"]["observation_disagreement_sqft"]),
+        ),
+        ("Drainage source", e(m["drainage_source"])),
+        ("AI source layers / excluded", f'{len(m["ai"]["sources"])} / {len(m["ai"]["excluded"])}'),
+    ]
     return (
         "<h2>AI-informed surface and drainage branch</h2><p>"
         + e(m["claim"])
-        + " Dashed orange lines show AI-informed catchments.</p><pre>"
-        + e(json.dumps(summary, indent=2))
-        + "</pre>"
+        + " Dashed orange lines show AI-informed catchments.</p><table>"
+        + "".join(f"<tr><td>{label}</td><td>{value}</td></tr>" for label, value in rows)
+        + "</table><ul>"
+        + "".join("<li>" + e(u) + "</li>" for u in m["ai"]["uncertainty"])
+        + "</ul>"
     )
 
 

@@ -214,7 +214,15 @@ def composition(case, ai, measurement, geometry):
 def build(case, observation, conservative, research):
     """Construct an additional modeled branch, then join each catchment to classes."""
     ai = ai_surfaces(case, observation)
-    view = deepcopy(case)
+    # Disposable modeled view; terrain elevation rows are shared read-only, not copied.
+    view = {k: deepcopy(v) for k, v in case.items() if k != "terrain"}
+    if "terrain" in case:
+        terrain = case["terrain"]
+        view["terrain"] = (
+            {k: (v if k == "elevations" else deepcopy(v)) for k, v in terrain.items()}
+            if isinstance(terrain, dict)
+            else deepcopy(terrain)
+        )
     # The ordinary measurement function sees these only in the disposable modeled view.
     for key, name in [
         ("ai_ia_on_unknown_geometry", "pavement"),

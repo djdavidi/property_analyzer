@@ -1,7 +1,6 @@
 """Philadelphia-specific evidence report, built on reusable GIS visuals."""
 
 from html import escape
-import json
 from drainage_core.report import (
     map_svg,
     export_geojson as _export_geojson,
@@ -76,7 +75,14 @@ def export_geojson(case, result):
 
 
 def render_report(case, result):
+    """Owner summary first, then evidence sections; technical detail in an appendix.
+
+    No raw JSON is embedded: complete inputs, ledgers and geometries are in the
+    case.json / analysis.json / measurements.geojson exports. The map embeds a
+    reduced display copy of the imagery (drainage_core.report.map_svg).
+    """
     from .quality import safe_analysis
+    from .owner_summary import owner_summary, summary_html
 
     result = safe_analysis(result)
     e = lambda x: escape(str(x))
@@ -118,13 +124,61 @@ def render_report(case, result):
         )
         or "<li>None recorded</li>"
     )
-    data = e(
-        json.dumps(
-            {k: result[k] for k in ("screens", "surface_assumption_scenarios", "validation")},
-            indent=2,
-        )
+    validation = "".join(
+        f'<li>{e(kind.upper())}: {e(v.get("status"))}'
+        + (f' — {e("; ".join(v.get("blockers", [])))}' if v.get("blockers") else "")
+        + "</li>"
+        for kind, v in (result.get("validation") or {}).items()
+        if isinstance(v, dict)
     )
+    screen_rows = result.get("screens") or []
+    if isinstance(screen_rows, dict):
+        screen_rows = [
+            {"id": k, **(v if isinstance(v, dict) else {"status": v})}
+            for k, v in screen_rows.items()
+        ]
+    screens = "".join(
+        f'<li>{e(v.get("id", "Credit"))} ({e(str(v.get("category", "")).replace("_", " "))}): '
+        f'{e(str(v.get("status")).replace("_", " "))}'
+        + (f' — missing {e("; ".join(map(str, v.get("missing", []))))}' if v.get("missing") else "")
+        + (f' — failed {e("; ".join(map(str, v.get("failed", []))))}' if v.get("failed") else "")
+        + "</li>"
+        for v in screen_rows
+        if isinstance(v, dict)
+    )
+    quality = "".join(
+        (
+            f"<li>{e(i.get('issue') or i.get('reason') or i.get('field') or i)}</li>"
+            if isinstance(i, dict)
+            else f"<li>{e(i)}</li>"
+        )
+        for i in result.get("source_quality_issues", [])
+    ) + "".join(
+        (
+            f"<li>Review: {e(r.get('reason') or r.get('decision') or r)}</li>"
+            if isinstance(r, dict)
+            else f"<li>Review: {e(r)}</li>"
+        )
+        for r in case.get("source_quality_reviews", [])
+    )
+    assumptions = "".join(f"<li>{e(a)}</li>" for a in case.get("assumptions", []))
     terrain = case.get("terrain") or {}
+    grid = terrain.get("elevations") or []
+    terrain_text = (
+        f"{len(grid)} × {len(grid[0]) if grid else 0} cells of {e(terrain.get('cell_size', 'Unknown'))} "
+        f"{e(terrain.get('horizontal_unit', ''))} in {e(terrain.get('crs', 'Unknown'))}; elevations in "
+        f"{e(terrain.get('vertical_unit', 'Unknown'))}; routing buffer "
+        f"{e((terrain.get('settings') or {}).get('required_buffer_native_units', 'Unknown'))} native units; "
+        f"extent reviewed as sufficient: {e((terrain.get('settings') or {}).get('extent_sufficient', False))}."
+        if terrain
+        else "No elevation grid; no drainage reconstruction was performed."
+    )
+    stages = result.get("stage_seconds") or {}
+    timing = ", ".join(
+        f"{e(k.replace('_', ' '))} {v:.2f} s"
+        for k, v in stages.items()
+        if isinstance(v, (int, float))
+    )
     from .assessment_report import sections, research_section
 
     assessment_sections = sections(case, result)
@@ -155,23 +209,29 @@ def render_report(case, result):
                     "properties": {"layer": "footprint"},
                 }
             )
+    summary = summary_html(owner_summary(case, result))
     return f"""<!doctype html><html lang="en"><meta charset="utf-8"><title>{e(case['name'])} — evidence report</title>
-<style>body{{font:15px/1.5 system-ui;color:#183b34;max-width:1100px;margin:40px auto;padding:0 28px}}h1{{font-size:30px}}h2{{margin-top:32px}}table{{border-collapse:collapse;width:100%;font-size:13px}}td,th{{text-align:left;border-bottom:1px solid #cdd9d3;padding:9px;overflow-wrap:anywhere}}svg{{max-height:560px;width:100%;border:1px solid #cdd9d3}}pre{{white-space:pre-wrap;overflow-wrap:anywhere;background:#f1f4f2;padding:16px}}.warning{{background:#fff1d8;padding:16px}}@media print{{body{{margin:10px}}pre{{font-size:10px}}}}</style>
-<h1>{e(case['name'])}</h1><p>Local stormwater evidence report • Case {e(case['id'])}<br>Input SHA-256: {e(result['input_sha256'])}</p>
+<style>body{{font:15px/1.5 system-ui;color:#183b34;max-width:1100px;margin:40px auto;padding:0 28px}}h1{{font-size:30px}}h2{{margin-top:32px}}table{{border-collapse:collapse;width:100%;font-size:13px}}td,th{{text-align:left;border-bottom:1px solid #cdd9d3;padding:9px;overflow-wrap:anywhere}}svg{{max-height:560px;width:100%;border:1px solid #cdd9d3}}.warning{{background:#fff1d8;padding:16px}}.owner-summary{{border:2px solid #1c4c42;padding:4px 20px 12px;margin:24px 0}}.owner-summary dt{{font-weight:700;margin-top:12px}}.owner-summary dd{{margin:2px 0 0 0}}.note{{font-size:13px;color:#4a5f58}}details{{margin:10px 0}}summary{{cursor:pointer;font-weight:600}}@media print{{body{{margin:10px}}details{{display:block}}}}</style>
+<h1>{e(case['name'])}</h1><p>Local stormwater evidence report • Case {e(case['id'])}</p>
+{summary}
 <p class="warning">{e(result['claim'])}. No application or approval is represented. Annual values use the selected current tariff for twelve months; they are not historical invoices or expected recoveries.</p>
 {map_svg(map_case,result)}<p>Map coordinates: {e(case['crs'])}. Roof: blue-gray; pavement: tan; pervious: green; unknown: amber; canopy: dark green; systems and assessment evidence: purple; inlets: blue; barriers: red. Assessment polygons are evidence overlays with status and areas below; they do not change physical IA or establish inlets.</p>
 <h2>Physical and recorded areas (square feet)</h2><p>Area accounting CRS: {e(m.get('area_crs',case['crs']))}. Map/terrain CRS may differ; physical area accounting is preserved across terrain coordinate changes.</p><table><tr><th>Quantity</th><th>Measured</th><th>Recorded baseline</th></tr>{area}</table>
 <p>{e(m['boundary_claim'])}. IA remains between {num(m['ia_min_sqft'])} and {num(m['ia_max_sqft'])} square feet until unknown surfaces are resolved. Source dependence: {e(m['source_dependence'] or 'None identified; independence still requires reference review')}.</p>
 <h2>Billing and benefit ledger</h2><p>Observed public monthly total: ${num(baseline.get('published_monthly_total'))}. This remains source evidence when a calculation is blocked. Rows are the assessment ledger scenarios (one calculation path); they are alternatives, never additive.</p><table><tr><th>Scenario</th><th>Status</th><th>Monthly total ($)</th><th>Annualized reduction ($)</th><th>Blockers</th></tr>{billing}</table><p>{e(b.get('reason',''))}</p>
+{''.join('<p>' + e(note) + '</p>' for note in ((result.get('assessment') or {}).get('economics', {}).get('baseline') or b.get('baseline') or {}).get('billing_notes') or [])}
 <p>Existing benefits, rounded areas, per-account values and baseline differences are retained in analysis.json. Standard public charges do not establish the actual payer, discounts or paid invoice.</p>
 {assessment_sections}
 {research_sections(result)}
 {modeled_sections(result)}
-<h3>Conditional research bill-reduction alternatives</h3><p>These alternatives use the existing ledger and assume management prerequisites. Do not add them to existing assessment savings. Actual treatment capacity and approval remain unverified.</p>{research_section(result.get('assessment',{}).get('research_drainage_scenarios'))}<pre>{e(json.dumps(result.get('assessment',{}).get('research_drainage_scenarios',{}),indent=2))}</pre>
+<h3>Conditional research bill-reduction alternatives</h3><p>These alternatives use the existing ledger and assume management prerequisites. Do not add them to existing assessment savings. Actual treatment capacity and approval remain unverified.</p>{research_section(result.get('assessment',{}).get('research_drainage_scenarios'))}
 <h2>Missing evidence and limitations</h2><ul>{warnings}</ul>
-<h2>Drainage</h2><p>Status: {e(result['drainage'].get('status','processed'))}. Catchments: {len(result['drainage'].get('catchments',[]))}. Horizontal unit: {e(terrain.get('horizontal_unit','Unknown'))}; vertical unit: {e(terrain.get('vertical_unit','Unknown'))}; cell size: {e(terrain.get('cell_size','Unknown'))}. Off-parcel IA is unmeasured; no whole-parcel allocation is assumed. Map snapshot shows up to 250 largest non-roof catchments and sampled flow paths; full geometries are in GeoJSON. Unconnected roof cells are grouped for display, not treated as confirmed outlets.</p>
-<pre>{e(json.dumps({k:v for k,v in terrain.items() if k not in ('elevations','parcel_mask')},indent=2))}</pre>
-<h2>Credit screens, surface scenarios and separate validation</h2><pre>{data}</pre>
-<h2>Source snapshot</h2><table><tr><th>Source URL / input</th><th>Retrieved</th><th>Acquired</th><th>SHA-256</th></tr>{sources}</table><pre>{e(json.dumps(case.get('sources',[]),indent=2))}</pre><h2>Source quality reviews</h2><pre>{e(json.dumps({'reviews':case.get('source_quality_reviews',[]),'issues':result.get('source_quality_issues',[])},indent=2))}</pre>
-<h2>Manual corrections</h2><ul>{corrections}</ul><h2>Assumptions</h2><pre>{e(json.dumps(case.get('assumptions',[]),indent=2))}</pre>
-<p>Analysis processing: {result['processing_seconds']:.6f} seconds. Logged manual review: {num(case.get('manual_review_minutes'))} minutes. This is case-specific elapsed processing, not a throughput estimate; professional field review has not been measured.</p></html>"""
+<h2>Drainage</h2><p>Status: {e(result['drainage'].get('status','processed'))}. Catchments: {len(result['drainage'].get('catchments',[]))}. Terrain: {terrain_text} Off-parcel IA is unmeasured; no whole-parcel allocation is assumed. Map snapshot shows up to 250 largest non-roof catchments and sampled flow paths; full geometries are in GeoJSON. Unconnected roof cells are grouped for display, not treated as confirmed outlets.</p>
+<h2>Credit screens and separate validation</h2><ul>{screens or '<li>No credit screen recorded.</li>'}</ul><ul>{validation or '<li>No validation recorded.</li>'}</ul>
+<h2>Appendix: sources and technical details</h2>
+<p>Input SHA-256: {e(result['input_sha256'])}. Complete inputs, findings, ledgers, rasters and geometries are in the case.json, analysis.json and measurements.geojson exports; this report summarizes them.</p>
+<details><summary>Source snapshot ({len(case.get('sources', []))} sources)</summary><table><tr><th>Source URL / input</th><th>Retrieved</th><th>Acquired</th><th>SHA-256</th></tr>{sources}</table></details>
+<details><summary>Source quality reviews and issues</summary><ul>{quality or '<li>None recorded</li>'}</ul></details>
+<details><summary>Manual corrections</summary><ul>{corrections}</ul></details>
+<details><summary>Assumptions</summary><ul>{assumptions or '<li>None recorded</li>'}</ul></details>
+<p>Analysis processing: {result['processing_seconds']:.6f} seconds{(' (' + timing + ')') if timing else ''}. Logged manual review: {num(case.get('manual_review_minutes'))} minutes. This is case-specific elapsed processing, not a throughput estimate; professional field review has not been measured.</p></html>"""

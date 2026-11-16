@@ -145,7 +145,71 @@ def _merge_public(result, family, incoming):
     )
 
 
+# "1001 N DELAWARE AVE", "1001-99 N DELAWARE AVE" (PWD range), "1001R ...", "1001 - 1099 ...".
+_ADDRESS = re.compile(r"(\d+)([A-Z]?)(?:\s*-\s*(\d+)([A-Z]?))?\s+([A-Z0-9].*)")
+
+
+def _range_end(low, text):
+    """PWD abbreviates a range end to its trailing digits: 1001-99 is 1001 to 1099."""
+    width = len(text)
+    if width >= len(str(low)):
+        return int(text)
+    end = low - low % 10**width + int(text)
+    return end + 10**width if end < low else end
+
+
+def parse_address(text):
+    """House number(s), suffix letter and street of a Philadelphia-style address, or None."""
+    text = re.sub(r"\s+", " ", str(text).upper()).strip()
+    m = _ADDRESS.fullmatch(text)
+    if not m:
+        return None
+    low = int(m.group(1))
+    high = _range_end(low, m.group(3)) if m.group(3) else low
+    low, high = min(low, high), max(low, high)
+    return {
+        "text": text,
+        "low": low,
+        "high": high,
+        "range": m.group(3) is not None,
+        "suffix": m.group(2) or "",
+        "street": m.group(5).strip(),
+    }
+
+
+def _address_match(query, parcel):
+    """How a PWD parcel address answers the query, or None (street, then house number)."""
+    if parcel is None:
+        return None
+    if parcel["text"] == query["text"]:
+        return "exact_address"
+    street = parcel["street"]
+    if street != query["street"] and not street.startswith(query["street"] + " "):
+        return None
+    if query["suffix"] and parcel["suffix"] != query["suffix"]:
+        return None
+    if query["range"]:
+        same = (parcel["low"], parcel["high"]) == (query["low"], query["high"])
+        return "same_range" if same else None
+    number = query["low"]
+    if parcel["low"] == parcel["high"]:
+        return "same_number" if parcel["low"] == number else None
+    if not parcel["low"] <= number <= parcel["high"]:
+        return None
+    # Ranges list one side of the street (1001-99 is odd); 1050 is across the street.
+    one_side = (parcel["high"] - parcel["low"]) % 2 == 0
+    if one_side and (number - parcel["low"]) % 2:
+        return None
+    return "range_contains"
+
+
 def lookup(query, cache):
+    """Parcel candidates for an address; ambiguity is returned for selection, never resolved.
+
+    PWD stores multi-number parcels as ranges ("1001-99 N DELAWARE AVE"), so a house
+    number is matched by numeric containment on the same street (same side), a range
+    by its expanded ends, and an identical address string first.
+    """
     query = str(query).strip()
     if re.fullmatch(r"[0-9]+", query):
         return {
@@ -154,26 +218,36 @@ def lookup(query, cache):
         }
     query = re.sub(r"\s+", " ", query.upper()).strip()
     query = re.split(r",|\bPHILADELPHIA\b", query)[0].strip()
-    if not re.match(r"^\d+\s+\S", query) or len(query) > 100:
+    parsed = parse_address(query) if len(query) <= 100 else None
+    if not parsed or not re.fullmatch(r"[A-Z0-9 .'/&-]+", parsed["street"]):
         raise ValueError("Enter a Philadelphia street address or PWD parcel ID")
-    escaped = query.replace("'", "''").replace("%", "").replace("_", "")
+    street = parsed["street"].replace("'", "''")
+    # Exact/prefix numbers and every range on the street; containment is decided here.
+    where = (
+        f"UPPER(address) LIKE '{parsed['low']}%{street}%' OR "
+        f"(UPPER(address) LIKE '%-%' AND UPPER(address) LIKE '%{street}%')"
+    )
     response = arcgis_features(
         PARCELS,
         cache,
         {
-            "where": "UPPER(address) LIKE '" + escaped + "%'",
+            "where": where,
             "outFields": "parcelid,address",
             "returnGeometry": "false",
             "outSR": "2272",
         },
-        page_size=100,
-        max_pages=2,
+        page_size=1000,
+        max_pages=3,
     )
-    matches = [
-        {"parcel_id": int(f["properties"]["parcelid"]), "address": f["properties"]["address"]}
-        for f in response["features"]
-    ]
-    exact = [m for m in matches if m["address"].strip().upper() == query]
+    matches = []
+    for f in response["features"]:
+        address = str(f["properties"].get("address") or "")
+        basis = _address_match(parsed, parse_address(address))
+        if basis:
+            matches.append(
+                {"parcel_id": int(f["properties"]["parcelid"]), "address": address, "match": basis}
+            )
+    exact = [m for m in matches if m["match"] == "exact_address"]
     return {"matches": exact or matches, "sources": response["sources"]}
 
 
@@ -246,6 +320,7 @@ def landcover(case, cache, refresh):
     result["pixel_crs"] = image_crs
     result.update(
         source_snapshots=image.get("sources", []),
+        image_sha256=image["sha256"],
         source_vintage=image.get("source_vintage"),
         acquisition_date=image.get("acquisition_date"),
         freshness=check,
@@ -259,10 +334,96 @@ def landcover(case, cache, refresh):
     return result
 
 
-def acquire(case, cache, refresh=True, *, case_root=None):
-    """Append run lineage, preserve manual corrections and reuse dated observations on outage."""
+# Statuses of a successful earlier physical acquisition that a re-run keeps.
+_KEPT_IMAGERY = ("retrieved", "saved_snapshot_kept")
+_FAILED_TERRAIN = ("unavailable",)
+
+
+def _previous_status(previous, provider):
+    return next(
+        (s for s in (previous or {}).get("source_status", []) if s.get("provider") == provider),
+        None,
+    )
+
+
+def _retry_note(previous, status):
+    """What an explicit re-run retries: the earlier failed status, its error and run time."""
+    return {
+        "previous_status": status.get("status") if status else "not_attempted",
+        "previous_error": (status or {}).get("error"),
+        "previous_run_at": (previous or {}).get("at"),
+    }
+
+
+def physical_plan(case, policy, refresh_physical=False):
+    """Which physical sources a run keeps and which it (re)acquires.
+
+    A first run, or ``refresh_physical``, acquires everything. Otherwise a re-run keeps
+    a successful, still-eligible saved imagery snapshot (and the cover estimates made
+    from exactly that snapshot) and retries only what failed or is no longer usable.
+    Saved terrain is always kept (automatic_terrain); failed terrain is retried with a
+    refreshed product index.
+    """
+    from drainage_core.freshness import freshness
+
+    previous = case.get("automatic") or {}
+    plan = {"keep_imagery": False, "keep_cover": False, "retry": {}}
+    if refresh_physical or not previous:
+        plan["mode"] = "refresh_all" if previous else "first_run"
+        return plan
+    plan["mode"] = "retry_failed"
+    image_status = _previous_status(previous, "Aerial imagery")
+    saved = case.get("measurement_imagery") or case.get("imagery")
+    eligible = False
+    if saved and case.get("imagery"):
+        try:
+            eligible = freshness(saved, policy)["eligible"]
+        except (KeyError, TypeError, ValueError):
+            eligible = False
+    if image_status and image_status.get("status") in _KEPT_IMAGERY and eligible:
+        plan["keep_imagery"] = True
+    else:
+        plan["retry"]["Aerial imagery"] = _retry_note(previous, image_status)
+    cover_status = _previous_status(previous, "Recent imagery cover candidates")
+    cover = previous.get("landcover") or {}
+    same_image = bool(saved) and (
+        cover.get("image_sha256") == saved.get("sha256")
+        or (
+            bool(cover.get("source_snapshots"))
+            and cover["source_snapshots"] == saved.get("sources")
+        )
+    )
+    if (
+        plan["keep_imagery"]
+        and cover_status
+        and cover_status.get("status") not in (None, "unavailable")
+        and not cover_status.get("fallback_reason")
+        and cover.get("features") is not None
+        and same_image
+    ):
+        plan["keep_cover"] = True
+    else:
+        plan["retry"]["Recent imagery cover candidates"] = _retry_note(previous, cover_status)
+    terrain_status = _previous_status(previous, "Elevation")
+    if not case.get("terrain") and (
+        terrain_status is None or terrain_status.get("status") in _FAILED_TERRAIN
+    ):
+        plan["retry"]["Elevation"] = _retry_note(previous, terrain_status)
+    return plan
+
+
+def acquire(case, cache, refresh=True, *, case_root=None, refresh_physical=False):
+    """Append run lineage, preserve manual corrections and reuse dated observations on outage.
+
+    An explicit re-run retries failed physical sources and keeps successful saved
+    imagery/terrain (see ``physical_plan``); ``refresh_physical`` replaces them.
+    Each retry and the per-stage elapsed seconds are recorded with the run.
+    """
+    import time
     from .acquisition import acquire_imagery
 
+    started = time.perf_counter()
+    timings = {}
     result = deepcopy(case)
     previous = result.get("automatic", {})
     record = {
@@ -279,14 +440,38 @@ def acquire(case, cache, refresh=True, *, case_root=None):
     record["claim"] = (
         "Satellite/aerial imagery must be at most three years old; other datasets retain their own validity rules. Image-derived canopy and surface estimates are modeled, with independent local accuracy unverified."
     )
+    plan = physical_plan(result, result["imagery_age_policy"], refresh_physical)
+    record["physical_sources"] = {
+        "mode": plan["mode"],
+        "kept": [
+            name
+            for name, kept in (
+                ("Aerial imagery", plan["keep_imagery"]),
+                ("Recent imagery cover candidates", plan["keep_cover"]),
+            )
+            if kept
+        ]
+        + (["Elevation"] if result.get("terrain") else []),
+        "retried": sorted(plan["retry"]) if plan["mode"] == "retry_failed" else [],
+        "claim": "A re-run retries failed physical sources and keeps successful saved ones; "
+        "an explicit full refresh replaces them. Earlier runs remain in automatic_history.",
+    }
     # Retire previous generated classifications even on outages. Referenced source
     # IDs remain as historical map records so append-only manual edits still replay.
-    generated_before = [f for f in result["features"]["features"] if _image_generated(f)]
+    # Estimates kept from the same saved imagery are not retired.
+    generated_before = (
+        []
+        if plan["keep_cover"]
+        else [f for f in result["features"]["features"] if _image_generated(f)]
+    )
     prior_canopy = result.get("canopy_observation", {})
-    if prior_canopy.get("automatic") or (
-        prior_canopy.get("source_vintage") == "2018"
-        and previous.get("landcover", {}).get("source_vintage") == "2018"
-        and not prior_canopy.get("reviewed")
+    if not plan["keep_cover"] and (
+        prior_canopy.get("automatic")
+        or (
+            prior_canopy.get("source_vintage") == "2018"
+            and previous.get("landcover", {}).get("source_vintage") == "2018"
+            and not prior_canopy.get("reviewed")
+        )
     ):
         result["canopy_observation"] = {"status": "unavailable"}
     if generated_before:
@@ -303,6 +488,7 @@ def acquire(case, cache, refresh=True, *, case_root=None):
                 retained.append(f)
         result["features"]["features"] = retained
     new_sources = []
+    stage = time.perf_counter()
     try:
         roofs, roof_sources, cached = buildings(result, cache, refresh)
         old = [
@@ -341,6 +527,8 @@ def acquire(case, cache, refresh=True, *, case_root=None):
                 "error": str(exc),
             }
         )
+    timings["buildings"] = time.perf_counter() - stage
+    stage = time.perf_counter()
     try:
         # G3: public storm/wastewater inlets. An outage is recorded, never zero inlets.
         found, cached = inlets(result, cache, refresh)
@@ -373,6 +561,99 @@ def acquire(case, cache, refresh=True, *, case_root=None):
                 "claim": "Inlet source unavailable: inlet presence is unknown, not zero inlets.",
             }
         )
+    timings["inlets"] = time.perf_counter() - stage
+    stage = time.perf_counter()
+    if plan["keep_imagery"]:
+        kept = result.get("measurement_imagery") or result["imagery"]
+        record["imagery_plan"] = deepcopy(previous.get("imagery_plan"))
+        record["source_status"].append(
+            {
+                "provider": "Aerial imagery",
+                "status": "saved_snapshot_kept",
+                "sha256": kept.get("sha256"),
+                "kept_from_run_at": previous.get("at"),
+                "freshness": freshness(kept, result["imagery_age_policy"]),
+                "source_vintage": kept.get("source_vintage"),
+                "claim": "Successful saved imagery kept on re-run; not silently refreshed. "
+                "Use an explicit full refresh to replace it.",
+            }
+        )
+    else:
+        _acquire_imagery_into(result, record, cache, refresh, new_sources, acquire_imagery)
+        if "Aerial imagery" in plan["retry"]:
+            record["source_status"][-1]["retry"] = plan["retry"]["Aerial imagery"]
+    timings["imagery"] = time.perf_counter() - stage
+    stage = time.perf_counter()
+    _cover_into(result, record, cache, refresh, new_sources, previous, plan)
+    timings["model"] = time.perf_counter() - stage
+    if previous:
+        result.setdefault("automatic_history", []).append(deepcopy(previous))
+    identity = lambda s: (s.get("url"), s.get("sha256"), s.get("retrieved_at"))
+    old_sources = {identity(s) for s in result.get("sources", [])}
+    result.setdefault("sources", []).extend(
+        s for s in new_sources if identity(s) not in old_sources
+    )
+    stage = time.perf_counter()
+    try:
+        from .automatic_terrain import acquire as terrain_acquire
+
+        options = {"case_root": case_root} if case_root is not None else {}
+        if "Elevation" in plan["retry"] and plan["mode"] == "retry_failed":
+            # A retry must see the current product index, not a replayed earlier answer.
+            options["refresh_index"] = True
+        result, terrain_status = terrain_acquire(result, cache, **options)
+        # Native terrain alignment transforms case features. Keep the current
+        # run's geometry copies used by candidate enrichment in that same CRS.
+        cover = record.get("landcover")
+        if cover and cover.get("crs") and cover["crs"] != result["crs"]:
+            from drainage_core.geometry import reproject
+
+            source_crs = cover["crs"]
+            for f in cover.get("features", []):
+                f["geometry"] = mapping(reproject(shape(f["geometry"]), source_crs, result["crs"]))
+            for key in ("coverage_geometry", "canopy_geometry"):
+                if cover.get(key):
+                    cover[key] = mapping(reproject(shape(cover[key]), source_crs, result["crs"]))
+            cover["geometry_reprojection"] = {
+                "source_crs": source_crs,
+                "target_crs": result["crs"],
+                "method": "vector only; original pixels/bounds retained",
+            }
+            cover["crs"] = result["crs"]
+        record["source_status"].append(terrain_status)
+    except Exception as exc:
+        record["source_status"].append(
+            {"provider": "Elevation", "status": "unavailable", "error": str(exc)}
+        )
+    if "Elevation" in plan["retry"] and plan["mode"] == "retry_failed":
+        record["source_status"][-1]["retry"] = plan["retry"]["Elevation"]
+    timings["terrain"] = time.perf_counter() - stage
+    timings["total"] = time.perf_counter() - started
+    record["timings_seconds"] = {k: round(v, 3) for k, v in timings.items()}
+    record["timings_claim"] = (
+        "Elapsed wall-clock seconds on this computer for this run; network and cache dependent."
+    )
+    result.setdefault("automatic_runs", []).append(
+        {
+            "version": VERSION,
+            "at": record["at"],
+            "imagery_age_policy": deepcopy(result["imagery_age_policy"]),
+            "source_status": deepcopy(record["source_status"]),
+            "estimates": deepcopy(record["estimates"]),
+            "source_snapshots": deepcopy(record.get("landcover", {}).get("source_snapshots", [])),
+            "physical_sources": deepcopy(record["physical_sources"]),
+            "timings_seconds": deepcopy(record["timings_seconds"]),
+            "claim": "Full source geometries remain in the corresponding immutable case/assessment revision.",
+        }
+    )
+    result["automatic"] = record
+    return result
+
+
+def _acquire_imagery_into(result, record, cache, refresh, new_sources, acquire_imagery):
+    """Fetch current eligible imagery; on failure keep a still-eligible saved snapshot."""
+    from drainage_core.freshness import freshness
+
     try:
         from drainage_core.geometry import reproject
         from drainage_core.projection import warp_display
@@ -438,6 +719,30 @@ def acquire(case, cache, refresh=True, *, case_root=None):
                 "error": str(exc),
             }
         )
+
+
+def _cover_into(result, record, cache, refresh, new_sources, previous, plan):
+    """Cover estimates from current imagery; kept unchanged when the same saved image is kept."""
+    from drainage_core.freshness import freshness
+
+    if plan["keep_cover"]:
+        lc = deepcopy(previous["landcover"])
+        record["landcover"] = lc
+        record["estimates"] = deepcopy(lc.get("estimates", []))
+        record["source_status"].append(
+            {
+                "provider": "Recent imagery cover candidates",
+                "status": "saved_estimates_kept",
+                "model_status": lc.get("status"),
+                "kept_from_run_at": previous.get("at"),
+                "retrieved_at": lc.get("retrieved_at"),
+                "unknown_sqft": lc.get("unclassified_sqft"),
+                "source_vintage": lc.get("source_vintage"),
+                "freshness": freshness(lc, result["imagery_age_policy"]),
+                "claim": "Estimates made from the same kept imagery snapshot; not reprocessed.",
+            }
+        )
+        return
     try:
         lc = landcover(result, cache, refresh)
         check = freshness(lc, result["imagery_age_policy"])
@@ -500,57 +805,8 @@ def acquire(case, cache, refresh=True, *, case_root=None):
             }
         )
         result.setdefault("canopy_observation", {"status": "unavailable"})
-    if previous:
-        result.setdefault("automatic_history", []).append(deepcopy(previous))
-    identity = lambda s: (s.get("url"), s.get("sha256"), s.get("retrieved_at"))
-    old_sources = {identity(s) for s in result.get("sources", [])}
-    result.setdefault("sources", []).extend(
-        s for s in new_sources if identity(s) not in old_sources
-    )
-    try:
-        from .automatic_terrain import acquire as terrain_acquire
-
-        result, terrain_status = (
-            terrain_acquire(result, cache, case_root=case_root)
-            if case_root is not None
-            else terrain_acquire(result, cache)
-        )
-        # Native terrain alignment transforms case features. Keep the current
-        # run's geometry copies used by candidate enrichment in that same CRS.
-        cover = record.get("landcover")
-        if cover and cover.get("crs") and cover["crs"] != result["crs"]:
-            from drainage_core.geometry import reproject
-
-            source_crs = cover["crs"]
-            for f in cover.get("features", []):
-                f["geometry"] = mapping(reproject(shape(f["geometry"]), source_crs, result["crs"]))
-            for key in ("coverage_geometry", "canopy_geometry"):
-                if cover.get(key):
-                    cover[key] = mapping(reproject(shape(cover[key]), source_crs, result["crs"]))
-            cover["geometry_reprojection"] = {
-                "source_crs": source_crs,
-                "target_crs": result["crs"],
-                "method": "vector only; original pixels/bounds retained",
-            }
-            cover["crs"] = result["crs"]
-        record["source_status"].append(terrain_status)
-    except Exception as exc:
-        record["source_status"].append(
-            {"provider": "Elevation", "status": "unavailable", "error": str(exc)}
-        )
-    result.setdefault("automatic_runs", []).append(
-        {
-            "version": VERSION,
-            "at": record["at"],
-            "imagery_age_policy": deepcopy(result["imagery_age_policy"]),
-            "source_status": deepcopy(record["source_status"]),
-            "estimates": deepcopy(record["estimates"]),
-            "source_snapshots": deepcopy(record.get("landcover", {}).get("source_snapshots", [])),
-            "claim": "Full source geometries remain in the corresponding immutable case/assessment revision.",
-        }
-    )
-    result["automatic"] = record
-    return result
+    if plan["mode"] == "retry_failed" and "Recent imagery cover candidates" in plan["retry"]:
+        record["source_status"][-1]["retry"] = plan["retry"]["Recent imagery cover candidates"]
 
 
 def enrich_candidates(case):

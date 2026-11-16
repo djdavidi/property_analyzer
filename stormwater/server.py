@@ -91,6 +91,35 @@ class Handler(BaseHTTPRequestHandler):
             opener=type(self).source_opener,
         )
 
+    def view(self, data, full=False, case=None):
+        """Browser copy of an analysis or a {case, analysis} response.
+
+        Adds the plain-language owner summary. Unless ``full``, per-cell grids,
+        rasters and unused geometry are omitted from the analysis
+        (drainage_core.saved.display_analysis) and a restorable elevation grid
+        from the case; exports always keep everything.
+        """
+        from drainage_core.saved import display_analysis
+        from .owner_summary import owner_summary
+
+        if not isinstance(data, dict):
+            return data
+        if "analysis" in data or "case" in data:
+            out = dict(data)
+            analysis = out.get("analysis")
+            if isinstance(analysis, dict):
+                if isinstance(out.get("case"), dict) and "measurement" in analysis:
+                    analysis = {**analysis, "owner_summary": owner_summary(out["case"], analysis)}
+                out["analysis"] = analysis if full else display_analysis(analysis)
+            if not full and isinstance(out.get("case"), dict):
+                out["case"] = self.store.compact_case(out["case"])
+            return out
+        if "measurement" not in data:
+            return data
+        if isinstance(case, dict):
+            data = {**data, "owner_summary": owner_summary(case, data)}
+        return data if full else display_analysis(data)
+
     def send(self, data, status=200, mime="application/json"):
         body = (
             data
@@ -126,7 +155,8 @@ class Handler(BaseHTTPRequestHandler):
                     }
                 )
             if path.startswith("/api/saved/"):
-                return self.send(self.store.saved(path.split("/")[-1]))
+                full = "full=1" in urlparse(self.path).query.split("&")
+                return self.send(self.store.saved(path.split("/")[-1], full=full))
             if path == "/api/prospects/latest":
                 from .prospects import load_result, public_result
 
@@ -228,6 +258,12 @@ class Handler(BaseHTTPRequestHandler):
             if not 0 < length <= limit * 1024 * 1024:
                 raise ValueError(f"Request must be between 1 byte and {limit} MB")
             payload = json.loads(self.rfile.read(length))
+            # Browser views omit a saved elevation grid; put it back (hash-checked)
+            # before any endpoint reads the case. Responses are compact unless
+            # the request asks for "full": true (exports always keep everything).
+            if isinstance(payload, dict) and isinstance(payload.get("case"), dict):
+                payload["case"] = self.store.restore_case(payload["case"])
+            full = isinstance(payload, dict) and payload.get("full") is True
             if path == "/api/prospects/scan":
                 return self.send(
                     self.prospect_jobs.start(
@@ -247,13 +283,19 @@ class Handler(BaseHTTPRequestHandler):
             }
             if path == "/api/analyze":
                 return self.send(
-                    self.store.analyze(
+                    self.view(
+                        self.store.analyze(
+                            payload["case"],
+                            **{k: v for k, v in options.items() if k == "recompute_gis"},
+                        ),
+                        full,
                         payload["case"],
-                        **{k: v for k, v in options.items() if k == "recompute_gis"},
                     )
                 )
             if path == "/api/save":
-                return self.send(self.store.save(payload["case"], **options))
+                return self.send(
+                    self.view(self.store.save(payload["case"], **options), full, payload["case"])
+                )
             if path == "/api/assessment/run":
                 cache = self.public_cache(timeout=15)
                 revision = (
@@ -265,14 +307,17 @@ class Handler(BaseHTTPRequestHandler):
                     payload["case"],
                     cache,
                     refresh_records=payload.get("refresh_records", False),
+                    refresh_physical=payload.get("refresh_physical", False),
                     **revision,
                 )
-                return self.send(result)
+                return self.send(self.view(result, full))
             if path == "/api/assessment/baseline-review":
                 from .assessment_workflow import reconcile_baseline
 
                 case = reconcile_baseline(payload["case"], payload["reason"], payload["accept"])
-                return self.send({"case": case, "analysis": self.store.policy_analysis(case)})
+                return self.send(
+                    self.view({"case": case, "analysis": self.store.policy_analysis(case)}, full)
+                )
             if path == "/api/curve-number/review":
                 from .curve_number import review_inputs
 
@@ -283,7 +328,9 @@ class Handler(BaseHTTPRequestHandler):
                     payload.get("condition"),
                     payload.get("reason"),
                 )
-                return self.send({"case": updated, "analysis": self.store.analyze(updated)})
+                return self.send(
+                    self.view({"case": updated, "analysis": self.store.analyze(updated)}, full)
+                )
             if path == "/api/curve-number/soil-review":
                 # B8: evidence-tagged reviewer UB choice (or withdrawal) for one soil map unit.
                 from .curve_number import review_soil_group
@@ -296,12 +343,16 @@ class Handler(BaseHTTPRequestHandler):
                     payload.get("reason"),
                     payload.get("evidence_refs"),
                 )
-                return self.send({"case": updated, "analysis": self.store.analyze(updated)})
+                return self.send(
+                    self.view({"case": updated, "analysis": self.store.analyze(updated)}, full)
+                )
             if path == "/api/assessment/review":
                 from .assessment_workflow import review_record
 
                 updated = review_record(payload["case"], payload["record"], payload.get("reason"))
-                return self.send({"case": updated, "analysis": self.store.analyze(updated)})
+                return self.send(
+                    self.view({"case": updated, "analysis": self.store.analyze(updated)}, full)
+                )
             if path == "/api/assessment/history":
                 from .assessment_workflow import ensure_assessment
                 from .renewals import STATUSES, credit_renewals
@@ -322,16 +373,18 @@ class Handler(BaseHTTPRequestHandler):
                 a["credit_history"].append(event)
                 credit_renewals(a["credit_history"])
                 validate_references(a)
-                return self.send({"case": updated, "analysis": self.store.analyze(updated)})
+                return self.send(
+                    self.view({"case": updated, "analysis": self.store.analyze(updated)}, full)
+                )
             if path == "/api/assessment/attachment":
                 updated, attachment = self.store.attach(
                     payload["case"],
                     payload["filename"],
                     base64.b64decode(payload["content"], validate=True),
                 )
-                return self.send({"case": updated, "attachment": attachment})
+                return self.send(self.view({"case": updated, "attachment": attachment}, full))
             if path == "/api/assessment/import":
-                return self.send(self.store.import_bundle(payload["bundle"]))
+                return self.send(self.view(self.store.import_bundle(payload["bundle"]), full))
             if path == "/api/property/assess":
                 from .automatic import lookup
                 from .acquisition import acquire_property
@@ -364,7 +417,16 @@ class Handler(BaseHTTPRequestHandler):
                                 else ""
                             )
                         )
-                return self.send(self.store.run_assessment(case, cache))
+                return self.send(
+                    self.view(
+                        self.store.run_assessment(
+                            case,
+                            cache,
+                            refresh_physical=payload.get("refresh_physical", False),
+                        ),
+                        full,
+                    )
+                )
             if path == "/api/acquire":
                 from .acquisition import Cache, acquire_property, acquire_imagery
 

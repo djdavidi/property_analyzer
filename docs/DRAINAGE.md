@@ -61,6 +61,39 @@ catchment references using per-outlet area error, IoU, routing disagreement and
 confusion counts. It does not certify independence, match outlet aliases, or set
 release thresholds. Synthetic fixtures test algorithm behavior only.
 
+## Grid size cap and runtime (2026-11-16)
+
+Every physical stage (automatic terrain windows, DEM import/crop, conservative
+routing, research fill and saved-terrain reuse) shares one cap,
+`drainage_core.drainage.MAX_ROUTING_CELLS = 1_000_000` cells (about 1 km² at 1 m).
+Automatic terrain may mosaic adjacent USGS 1 m tiles of one project when they share
+CRS, cell size, data type, NoData and whole-cell alignment (within 0.001 cell);
+overlap values must agree within 1 mm and the first (newest) tile wins; nothing is
+resampled or blended (`stormwater.automatic_terrain.mosaic_window`).
+
+Steepest descent, label resolution, upstream accumulation, the research fill seeding
+and the 2x block means are vectorized; plateau resolution keeps its sequential
+breadth-first order. Outputs are identical to the earlier per-cell code
+(`tests/reference_algorithms.py`; random-grid equivalence tests) and the saved
+Whitaker physical result re-analysed with both versions has the same content digest.
+Area reprojection reuses one pyproj transformer per thread.
+
+Whole physical analysis (conservative + research + AI-roof research reruns) on a
+synthetic urban 1 m grid with AI roof classes and State Plane area accounting, this
+4-core container, one process per size:
+
+| Cells | Before (s) | After (s) | Peak RSS | analysis.json |
+|---|---|---|---|---|
+| 250,000 | 140.0 | 20.8 | 0.5 GB | 45 MB |
+| 500,000 | over old cap | 45.2 | 0.9 GB | 93 MB |
+| 1,000,000 | over old cap | 94.2 | 1.8 GB | 187 MB |
+| 2,000,000 | over old cap | 200.7 | 3.8 GB | 379 MB |
+
+The saved Whitaker case (121,396 cells) takes 13.2 s instead of 41.3 s. 1,000,000
+cells is the largest size kept: 2,000,000 doubles runtime and memory again and
+produces a ~380 MB analysis file. The largest of the 11 live parcels needs a 467,376-cell
+window (5600 City Ave, two tiles). Synthetic timings are not empirical accuracy.
+
 ## Outstanding
 
 - Independent accepted drainage boundaries and stable completed site vintages.

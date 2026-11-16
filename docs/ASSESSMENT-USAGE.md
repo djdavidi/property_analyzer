@@ -123,6 +123,35 @@ twelve months. Possible historical billing discrepancies list source/period/evid
 separately; they are not historical invoices or presumed refunds. Actual account/bill
 reconciliation and independent IA/drainage validation remain incomplete.
 
+The report and the app open with a **Summary for the owner** (`stormwater.owner_summary`):
+the published PWD charge and whether the recomputed charge matches; supported savings
+($0 unless a documented scenario passed); the lowest–highest conditional figure, labelled
+"not supported yet", with the biggest assumption behind the highest one; the top three
+evidence requests (for example the PCSMP for a mapped system's project number); and the
+mapped systems on the parcel with PWD's recorded credit status. It restates the safe
+saved view, so withheld (outdated) figures stay withheld. The report then summarizes the
+evidence without raw JSON, embeds a reduced JPEG display copy of the imagery, and keeps
+sources and technical detail in an appendix; complete data stay in the exports.
+
+App responses (`/api/property/assess`, `/api/assessment/run`, `/api/saved/<id>`, analyze,
+save and review endpoints) are compact by default: per-cell drainage grids, research
+rasters and geometry the app never draws are omitted, outlines are rounded to 0.001
+native units, and a saved elevation grid is replaced by a hash marker that the server
+restores (hash-checked) on the next request. Send `"full": true` (or `?full=1` for saved
+views) for the complete result; the `analysis.json`/`case.json` exports are always full.
+Saved Whitaker: response 32.05 MB → 3.49 MB, saved view 8.36 MB → 3.49 MB, report
+11.73 MB → 1.36 MB.
+
+Re-running **Assess property** on a saved case retries physical sources that failed
+(imagery, cover estimates, terrain with a refreshed product index) and keeps successful,
+still-eligible saved imagery, its cover estimates and saved terrain; each retry is recorded
+(`retry` on the source status, `physical_sources` on the run) and earlier runs stay in
+`automatic_history`. Tick "Replace saved imagery and terrain" (`refresh_physical`) to
+replace them. Each run records elapsed seconds per stage (`automatic.timings_seconds`,
+`analysis.stage_seconds`, response `timings_seconds`). Addresses match PWD range parcels
+("1001-99 N DELAWARE AVE") by the exact range or by the house number inside the range on
+the same street side; several candidates are always offered for selection.
+
 ## Export, move and restore
 
 Save first, then download **Portable evidence bundle**. It includes the current case,
