@@ -1,28 +1,26 @@
-# Current task: fix plan Phase 0, trustworthy suite
+# Current task: fix plan Phase 1, saved-result lifecycle
 
-Status: **complete**, 2026-11-16 (full suite: Ran 593, OK, skipped=1; no network; no `data/` created). Plan: [FIX-PLAN-2026-11-16.md](FIX-PLAN-2026-11-16.md)
-(accepted defaults D1–D12). Review: [ADVERSARIAL-REVIEW-2026-11-16.md](ADVERSARIAL-REVIEW-2026-11-16.md).
+Status: **in progress**, 2026-11-16. Plan: [FIX-PLAN-2026-11-16.md](FIX-PLAN-2026-11-16.md),
+Phase 1; decision D1.
 
-Objective/why: a full documented suite that passes, without network or writes into
-`data/`, so that every later fix can be verified honestly.
+Objective/why: today a comment-only code edit hides every saved result, including
+the recorded public bill, and nothing can recompute it. Later phases change code,
+so this must be fixed first.
 
 Scope:
-- **A4 / R3:** `gather` compares incoming source data with the last *public*
-  snapshot, not reviewer facts. A retained baseline review is not re-staged. The
-  disappearance flag clears when the record returns. Digests use normalized numbers.
-- **F3:** tests are hermetic. The cache/soil provider is injected, sockets are
-  blocked, and paths are absolute.
-- **F2:** pin `as_of` in the synthetic example and add a known-answer test, or
-  correct its README with a hand derivation.
-- **F1:** document the single verification command.
-
-Constraints: no GIS/jurisdiction boundary change; frozen inputs and review history
-preserved; no property reruns.
+- **A1:** replace byte-hash fingerprints with explicit interpretation versions;
+  never hide observations; add a recompute-from-saved-inputs action; judge
+  pre-fingerprint artifacts by version.
+- **A1 / C12 / R10:** the generic saved view and `/exports` apply the gate.
+- **E4:** frozen-GIS reuse uses the current case's map features.
+- **E5 / R11:** atomic, unique temp writes; a per-case lock and revision check;
+  repair of corrupt blobs.
 
 Success:
-- `.venv/bin/python -m unittest discover -s tests` is green.
-- No outbound connections, and no `data/` is created.
-- Repros `prospects/gather_repro.py` and `roundtrip.py` behave correctly.
-
-Next after Phase 0: Phase 1 (result lifecycle). Each green phase is committed,
-merged into main and pushed (D11, user-authorized merges to main).
+- A comment edit no longer invalidates anything.
+- An interpretation bump labels results and offers recompute.
+- The recorded bill is never redacted.
+- Repros `cross/fingerprint_overreach.py`, `prospects/stuck.py`,
+  `prospects/benefit_map.py`, `prospects/race.py` and `prospects/blob.py` behave
+  correctly.
+- The full suite is green, hermetic and creates no `data/`.
