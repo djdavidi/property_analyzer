@@ -4,6 +4,50 @@ Newest entries first. Current truth belongs in STATE; the active bounded task be
 in TASK. These records preserve changes, decisions, evidence, unresolved issues and
 handoffs. Do not rewrite past results to match later runs.
 
+## 2026-11-16 — Fix plan Phase 5 merged: acquisition and prospects
+
+Commit `c76df31`, merged on top of Phase 3. Full suite after merge: Ran 679, OK
+(skipped=1), no `data/`. All three Node UI harnesses pass, and the GIS core imports
+no jurisdiction code.
+
+**Changes.**
+- **Review D3:** responses are validated before storing, error bodies never become
+  the current manifest, and the last good capture serves as fallback.
+- **Review D4:** paging advances by records received.
+- **Review D5:** png32 imagery with real transparency.
+- **Review D6:**
+  - Expired records are refetched or reuse is recorded.
+  - Responses with a missing or contradictory CRS are rejected; ESRI code 102729
+    resolves to EPSG:2272.
+  - PASDA imagery vintages are discovered and capture metadata is read.
+  - The unreachable Esri fallback is deleted, and outages are reported honestly.
+  - The RGB fallback measures in the image CRS.
+  - The semantic cache is atomic, and a bad entry counts as a miss.
+  - SDA polygon parts are kept.
+  - The newest USGS product is preferred, with NAVD88 matched robustly.
+- **R16:** the model's cell size is chosen to fit the 1M-cell limit, and any RGB
+  fallback reason is visible.
+- **E1:** the owner screen maps `&` to AND, uses token anchors, excludes exact public
+  bodies and sends prefix-only matches to review (D8).
+- **E2:** every selected system is queried.
+- **E3:** failed billing parcels can be retried (UI button), and a failed refresh
+  keeps the flagged stale copy.
+- **E5:** cancel status is correct, geometry is stored once, and temp names are
+  unique.
+
+**Live checks (read-only, about 12 requests).**
+- PASDA lists Philadelphia imagery 1996–2025. The 2025 service supports PNG32,
+  with a 4096 px maximum.
+- 2025 capture metadata is year-only (abstract: April–May).
+- The City layers' maxRecordCount is 2000.
+- USGS `PA_17County_D24` captured 2024-04-14 to 2025-04-02, in metres/NAVD88.
+
+**Limits.**
+- No tiling: boxes over about 100 ha still fall back to RGB, with the reason shown.
+- The USGS product index is still cached without refresh.
+- The degraded-run rule is a heuristic.
+- Expired-reuse events appear in warnings, not a dedicated UI panel.
+
 ## 2026-11-16 — Fix plan Phase 3 merged: geometry and routing robustness
 
 Commit `203c8ff`, merged in `1b88d71`. Full suite after merge: Ran 645, OK
