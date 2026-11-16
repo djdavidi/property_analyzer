@@ -4,6 +4,39 @@ Newest entries first. Current truth belongs in STATE; the active bounded task be
 in TASK. These records preserve changes, decisions, evidence, unresolved issues and
 handoffs. Do not rewrite past results to match later runs.
 
+## 2026-11-16 — Fix plan Phase 4a merged: physical capacity layer
+
+Commit `98ccaef`. Full suite after merge: Ran 742, OK (skipped=1), and the local
+`data/` model runtime is untouched.
+
+**Capacity (`local-perimeter-storage-v2`).**
+- The spill level is read along the perimeter line itself, so a 1e-6 m shift no
+  longer changes results (H12). The storage headline is the `storage_range_cuft`
+  between cell-minimum and bilinear (D4).
+- Six method-consistent scenario rows (H17).
+- Per-component storage (R7).
+- An inlet, curb cut or overflow inside the footprint blocks the result (H14).
+- The DEM date is checked against the installation year (H15).
+- Ponding depth is reported, and an implausible depth is flagged.
+- Assumed vertical units are flagged and contradictory units block (R9).
+
+**Management estimates.**
+- Per-run `route_state`: complete_in_window, partial_upstream_unknown,
+  missing_terrain or invariant_failed (R8).
+- Per-scenario `ia_within_footprint_sqft` (H16).
+- `regional_depression_fill_diagnostic` is marked `is_storage: False` (H13).
+- The canopy base row is dropped (H18).
+
+**Surfaces.** Observed canopy is included (R5), and the soft-context share is
+reported.
+
+`PHYSICAL_INTERPRETATION_VERSION` 2→3. The 01073 and pilot results docs carry a
+"method changed; figures superseded pending recompute" note. The field contract
+is in the `drainage_core/runoff_capacity.py` docstring.
+
+**Not done:** the stormwater pricing adapters are not yet using the new fields
+(Phase 4b).
+
 ## 2026-11-16 — Fix plan Phase 2 merged: money correctness
 
 Commit `1dfb5b5`, merged on top of Phases 3 and 5. Full suite after merge: Ran 719,
