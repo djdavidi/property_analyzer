@@ -4,6 +4,35 @@ Newest entries first. Current truth belongs in STATE; the active bounded task be
 in TASK. These records preserve changes, decisions, evidence, unresolved issues and
 handoffs. Do not rewrite past results to match later runs.
 
+## 2026-11-16 — Fix plan Phase 6 tooling merged
+
+Commits `a003c4d` and `7bac503`, merged on top of Phase 4a. Full suite: Ran 783, OK
+(skipped=1). The local `data/` is untouched, and all Node harnesses pass.
+
+**Changes.**
+- **G3:** the City `INLETS` FeatureServer layer is acquired during automatic
+  assessment.
+  - Inlets become features with an unknown downstream connection.
+  - Manholes and pipe ends are excluded.
+  - An outage is recorded as unavailable, never as zero inlets.
+- **G1:** `stormwater/billing_reconciliation.py` compares PWD billed areas with
+  computed billed areas across a store (JSON/CSV). The live parcel 201345 matched
+  (191,000 / 177,500).
+- **A5/B8:** reviewers can choose UB (urban soil) for Urban land / Udorthents. It is
+  evidence-tagged and never automatic. The UB candidate and a labelled CN finance
+  scenario are shown.
+- **G4:** `drainage_core/benchmark.py` and `stormwater/benchmark_landcover.py`
+  compare OEM classes with the 2018 PhillyLULC land cover over stable buildings and
+  roads (`cover-agreement-v1`). This measures agreement, not accuracy.
+
+**Fixtures.** Small public responses with URL, date and SHA-256; account and owner
+fields are removed.
+
+**Limits.**
+- No real benchmark figure yet, because it needs a model-processed case.
+- The reconciliation report has not been run on a real store.
+- UI checked through Node DOM harnesses only.
+
 ## 2026-11-16 — Fix plan Phase 4a merged: physical capacity layer
 
 Commit `98ccaef`. Full suite after merge: Ran 742, OK (skipped=1), and the local
