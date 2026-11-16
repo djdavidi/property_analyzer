@@ -256,7 +256,12 @@ reappearance. Hash with `physical_reuse.normalize_numbers`.
   0.56. This happens in about 22% of random splits.
 - *Fix*: sum area × CN in `Decimal`, or round to 1e-9 before the ceiling.
 
-**B5. MEDIUM · The brush CN row is a copy of woods-grass.** CONFIRMED copy; values PLAUSIBLE
+**B5. WITHDRAWN 2026-11-16 · The brush CN row is a copy of woods-grass.** The code matches PWD Table A-1
+
+The PWD manual's own Table A-1 lists brush exactly as woods-grass, and porous turf
+as 70/70/79/84/69. The code transcribes the governing table correctly. The
+difference from TR-55 lies in PWD's table, not in the code, so this is not a code
+defect. The original note is kept below for the record.
 
 - `curve_number.py:19` and `:20` are identical in all 15 cells.
 - TR-55 Table 2-2c brush is 48/67/77/83 (poor), 35/56/70/77 (fair) and
@@ -888,9 +893,9 @@ against source; new probes are in [second/](review-2026-11-16-repros/second/).
 
 ### Conflicts to resolve
 
-- **Brush CN row.** That review says the PWD Appendix A values it inspected match the
-  code. B5 here found the brush row identical to woods-grass, compared against TR-55,
-  not the PWD PDF. Resolve by reading the brush row of PWD Table A-1 itself.
+- **Brush CN row (resolved).** The PWD manual's Table A-1, fetched 2026-11-16,
+  lists brush identical to woods-grass, and porous turf as coded. The separate
+  review was right, and B5 is withdrawn.
 - **Model IA on main.** Main's pilot `_ground_constraint` treats road appearance as
   fixed hard surface. A3 still applies to the ordinary app path
   (`model_integration.py`), but main's pilot partly reverses that overcorrection.
