@@ -88,6 +88,21 @@ def _evidence(record, case):
                or r.get('attachment_id') in attachments) for r in refs)
 
 
+def _support_review(record):
+    """A URL is a citation, not proof. Require an explicit human support review.
+
+    This records an assertion by the reviewer; it never claims automatic source
+    authentication or independent agency confirmation.
+    """
+    review=record.get('evidence_review') or {}
+    keys={k for k,v in record.get('facts',{}).items() if v is not None}
+    return (isinstance(review,dict) and all(review.get(k) is True for k in
+        ('support_reviewed','property_match','period_match')) and
+        isinstance(review.get('note'),str) and bool(review['note'].strip()) and
+        isinstance(review.get('fact_keys'),list) and all(isinstance(k,str) for k in review['fact_keys']) and keys<=set(review['fact_keys']) and
+        any(r.get('page') or r.get('locator') for r in record.get('evidence_refs',[])))
+
+
 def screen_record(record, case, gis, as_of):
     category=record['category']; facts=record.get('facts') or {}; missing=[]; failed=[]
     output={key:deepcopy(record.get(key)) for key in ('id','category','decision','basis','evidence_refs','source')}
@@ -103,6 +118,9 @@ def screen_record(record, case, gis, as_of):
         except ValueError:failed.append(name)
     for key in ('account_current',) if category=='industrial_npdes' else COMMON:require(key)
     if not _evidence(record,case):missing.append('supporting_document_or_source_reference')
+    if not _support_review(record):missing.append('property_period_fact_support_review')
+    output['evidence_verification']='Human assertions linked to cited evidence; source content not automatically authenticated'
+    if record.get('source_update',{}).get('status')=='pending_review':missing.append('source_update_review')
     if category=='industrial_npdes':
         for key in NPDES:require(key)
         if not facts.get('permit_id'):missing.append('permit_id')
@@ -154,6 +172,8 @@ def screen_record(record, case, gis, as_of):
             elif facts['upstream_smp_present'] is True:
                 require('upstream_smp_compliant');require('upstream_smp_functional')
     decision=record.get('decision','candidate')
+    from drainage_core.installation import installation_issues
+    if category!='industrial_npdes':failed.extend(installation_issues(facts,as_of))
     applicable=RULES['effective_from']<=as_of.isoformat()<=RULES['verified_through']
     output['rule_applicability']='applicable' if applicable else 'outside_verified_period'
     if not applicable:missing.append('applicable_rule_version')
@@ -217,6 +237,9 @@ def _existing_allocations(case, gis, baseline):
 
 
 def _economics(case, gis, records, as_of, tariff):
+    if case.get('assessment',{}).get('baseline_refresh',{}).get('status')=='pending_review':
+        blocked=_blocked(['New public billing/credit facts differ from the retained baseline; review required'])
+        return {'baseline':None,**{k:deepcopy(blocked) for k in ('documented','modeled','measurement_only','documented_combined','modeled_combined')}}
     baseline=case.get('baseline')
     if not baseline:return {'baseline':None,'documented':_blocked(['Billing baseline missing']),'modeled':_blocked(['Billing baseline missing'])}
     t=tariff or default_tariff(); common={k:baseline[k] for k in ('accounts','property_type','undeveloped','bill_date') if k in baseline};common['tariff']=t
@@ -357,7 +380,9 @@ def research_economics(case, gis, records, as_of, tariff):
                 geoms={**gis['measurement']['geometries'],
                        'physical_ia':mapping(shape(gis['measurement']['geometries']['physical_ia']).union(unknown))}
                 view={**gis,'measurement':{**gis['measurement'],'geometries':geoms}}
-            if region.is_empty or case_area_sqft(region,case)<.000001:
+            if run.get('extent_sufficient') is not True:
+                s=_blocked(['Surrounding watershed extent is unverified'])
+            elif region.is_empty or case_area_sqft(region,case)<.000001:
                 s=_blocked(['No unallocated known impervious area modeled to GSI; unknown surfaces and missing connections are not zero-area evidence'])
             else:
                 working=deepcopy(case)
@@ -423,5 +448,17 @@ def evaluate_assessment(case, gis_result, as_of=None, tariff=None):
             'research_drainage_scenarios':research_economics(case,gis_result,records,day,tariff),
             'historical_flags':historical_flags(case,economics),
             'rules':{**deepcopy(RULES),'applicability':'applicable' if RULES['effective_from']<=day.isoformat()<=RULES['verified_through'] else 'outside_verified_period'}}
+    from .curve_number import worksheet
+    result['open_space_curve_number']=worksheet(case,gis_result)
+    if result['rules']['applicability']!='applicable':
+        result['open_space_curve_number']['credit_factor']=None
+        result['open_space_curve_number']['issues'].append('Outside verified PWD policy period; credit factor unavailable')
+        result['open_space_curve_number'].pop('worksheet_sha256',None)
+        result['open_space_curve_number']['worksheet_sha256']=sha256(json.dumps(result['open_space_curve_number'],sort_keys=True,separators=(',',':'),allow_nan=False).encode()).hexdigest()
+    from drainage_core.quality import artifact_quality
+    if artifact_quality(gis_result)['status']=='invalidated':
+        from .quality import safe_analysis
+        result=safe_analysis({**gis_result,'assessment':result})['assessment']
+    result['baseline_refresh']=deepcopy(assessment.get('baseline_refresh'))
     result['assessment_sha256']=sha256(json.dumps(result,sort_keys=True,separators=(',',':'),allow_nan=False).encode()).hexdigest()
     return result

@@ -11,6 +11,9 @@ COLORS={'roof':'#52677b','pavement':'#b29872','pervious':'#88b195','unknown':'#d
 
 
 def map_svg(case,result=None):
+    if result:
+        from .quality import safe_physical_view
+        result=safe_physical_view(result)
     parcel=shape(case['parcel']); xmin,ymin,xmax,ymax=parcel.bounds
     pad=max(xmax-xmin,ymax-ymin)*.06 or 1
     xmin-=pad;ymin-=pad;xmax+=pad;ymax+=pad
@@ -61,6 +64,8 @@ def map_svg(case,result=None):
 
 
 def export_geojson(case,result):
+    from .quality import safe_physical_view
+    result=safe_physical_view(result)
     features=[]
     def add(geom,props,id):
         if shape(geom).is_empty:return
@@ -95,9 +100,12 @@ def research_sections(result):
 
 
 def modeled_sections(result):
+    from .quality import safe_physical_view
+    result=safe_physical_view(result)
     m=result.get('modeled_integration')
     if not m:return ''
     e=lambda v:escape(str(v))
+    if m.get('status')=='invalidated':return '<h2>AI-derived results invalidated</h2><p>'+e(m['reason'])+'</p>'
     summary={'status':m['status'],'ai_sources':m['ai']['sources'],'excluded':m['ai']['excluded'],
         'modeled_ia_sqft':m['measurement']['ia_sqft'],'unresolved_ground_sqft':m['measurement']['unknown_sqft'],
         'roof_supplement_sqft':m['roof_supplement_sqft'],'class_conflict_sqft':m['ai']['class_conflict_sqft'],

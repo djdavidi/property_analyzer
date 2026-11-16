@@ -10,7 +10,8 @@ from .geometry import effective_features, union, measure, case_area_sqft, projec
 from .freshness import freshness
 from .research import analyze_research, feature_inputs, digest
 
-CLASSES=('canopy','grass_shrub','bare_soil','water','roof','road','other_pavement')
+INTERPRETATION_VERSION='ai-drainage-integration-v2'
+CLASSES=('canopy','grass_shrub','bare_soil','water','roof','road','developed_space')
 EMPTY={'type':'GeometryCollection','geometries':[]}
 
 
@@ -35,7 +36,10 @@ def ai_surfaces(case, observation):
         p=f.get('properties',{})
         if p.get('source_kind')!='modeled semantic estimate' or p.get('layer') not in ('canopy_candidate','vegetation_candidate','surface_candidate'):
             continue
+        # Historical OEM labels called developed space "other pavement". Treat
+        # those polygons as appearance only without rewriting their source bytes.
         name=p.get('classification')
+        if name=='other_pavement':name='developed_space'
         reason=None
         if name not in groups:reason='Unsupported semantic class'
         elif not p.get('model_sha256') or not p.get('source_sha256'):reason='Missing model/image provenance'
@@ -65,8 +69,11 @@ def ai_surfaces(case, observation):
     known_ia=shape(observation['geometries']['physical_ia'])
     known_pervious=shape(observation['geometries']['pervious'])
     missing=shape(observation['geometries']['unknown'])
-    ia_prediction=geoms['roof'].union(geoms['road']).union(geoms['other_pavement'])
-    pervious_prediction=geoms['grass_shrub'].union(geoms['bare_soil'])
+    # Visible road/developed/vegetation classes establish neither construction
+    # nor permeability. Roof outline is a modeled IA hypothesis; ground stays
+    # unresolved until a separate physical observation identifies its surface.
+    ia_prediction=geoms['roof']
+    pervious_prediction=union([])
     disagreement=known_ia.intersection(pervious_prediction).union(known_pervious.intersection(ia_prediction))
     return {'status':'modeled' if sources else 'unavailable','geometries':{k:mapping(g) for k,g in geoms.items()},
         'coverage_geometry':mapping(coverage),'conflict_geometry':mapping(conflict),
@@ -76,6 +83,7 @@ def ai_surfaces(case, observation):
         'roof_supplement_geometry':mapping(_area_only(geoms['roof'].intersection(missing))),
         'edge_distance_native':edge,'sources':sources,'excluded':excluded,
         'model_settings':deepcopy(settings),'imagery_age_policy':deepcopy(policy),
+        'physical_interpretation':'Roof IA hypothesis only; ground appearance does not establish permeability',
         'prediction_sha256':case.get('automatic',{}).get('landcover',{}).get('prediction_sha256'),
         'uncertainty':['Class predictions are unvalidated locally; model scores are not calibrated accuracy.',
             'Pixel-edge ranges do not bound classification error, seasonal effects or changes after capture.',
@@ -85,7 +93,9 @@ def ai_surfaces(case, observation):
 
 def composition(case, ai, measurement, geometry):
     """Clipped class composition with explicit unknowns and boundary sensitivity."""
-    region=_polygon(geometry).intersection(shape(case['parcel']));edge=ai.get('edge_distance_native')
+    # Clipping a multipart footprint can leave polygon area mixed with boundary
+    # lines/points. Composition measures area; mixed dimensions can break GEOS.
+    region=_area_only(_polygon(geometry).intersection(shape(case['parcel'])));edge=ai.get('edge_distance_native')
     available=ai.get('status')=='modeled';coverage=shape(ai.get('coverage_geometry',EMPTY))
     rows=[]
     for name in CLASSES:
@@ -95,8 +105,9 @@ def composition(case, ai, measurement, geometry):
             'edge_upper_sqft':case_area_sqft(geom.buffer(edge).intersection(region),case) if available and edge is not None else None})
     return {'region_area_sqft':case_area_sqft(region,case),'classes':rows,
         'ai_unclassified_sqft':case_area_sqft(region.difference(coverage),case) if available else None,
-        'modeled_ia_sqft':case_area_sqft(region.intersection(shape(measurement['geometries']['physical_ia'])),case),
-        'unresolved_ground_sqft':case_area_sqft(region.intersection(shape(measurement['geometries']['unknown'])),case),
+        'modeled_ia_sqft':case_area_sqft(region.intersection(_polygon(measurement['geometries']['physical_ia'])),case),
+        'ia_scope':'Identified observed/roof-hypothesis IA only; other ground remains unknown',
+        'unresolved_ground_sqft':case_area_sqft(region.intersection(_polygon(measurement['geometries']['unknown'])),case),
         'basis':'Modeled composition, not verified cover/treatment. Class areas are visible cover; canopy is not underlying ground.',
         'uncertainty':deepcopy(ai.get('uncertainty',[]))}
 
@@ -131,11 +142,13 @@ def build(case, observation, conservative, research):
                     'composition':composition(case,ai,modeled,c['geometry']),
                     'off_parcel_area_sqft':c['off_parcel_area_sqft'],'off_parcel_surface_classes':'Unknown; parcel imagery is not extrapolated'})
         runs.append({'name':name,'parameters':deepcopy(run['parameters']),'grid':deepcopy(run['grid']),
+                     'extent_sufficient':run.get('extent_sufficient',False),
                      'catchments':catchments,'area_conservation_pass':run['area_conservation_pass']})
     native_features=feature_inputs(case)[0] if research.get('primary') else []
-    receivers=[{'id':f['id'],'gsi_id':str(f.get('gsi_id') or f['id']),'geometry':f['geometry']}
+    receivers=[{'id':f['id'],'gsi_id':str(f.get('gsi_id') or f['id']),'geometry':f['geometry'],
+                'source':deepcopy(f.get('source',{}))}
                for f in native_features if f['role']=='gsi']
-    return {'version':'ai-drainage-integration-v1','status':'modeled' if ai['status']=='modeled' else 'partial',
+    return {'version':INTERPRETATION_VERSION,'status':'modeled' if ai['status']=='modeled' else 'partial',
         'ai':ai,'measurement':modeled,'roof_supplement_sqft':case_area_sqft(roofs,case),
         'observed_pervious_geometry':deepcopy(observation['geometries']['pervious']),
         'drainage_source':'AI-roof-supplemented research scenario' if additional is not research else 'Existing research scenario',
@@ -149,8 +162,8 @@ def build(case, observation, conservative, research):
 
 def ia_bounds(case, integration, region):
     """Known-only / AI nominal / unresolved-ground upper, never a confidence interval."""
-    ai=integration['ai'];m=integration['measurement'];region=region.intersection(shape(case['parcel']))
-    modeled=shape(m['geometries']['physical_ia']);unknown=shape(m['geometries']['unknown'])
+    ai=integration['ai'];m=integration['measurement'];region=_area_only(region.intersection(shape(case['parcel'])))
+    modeled=_polygon(m['geometries']['physical_ia']);unknown=_polygon(m['geometries']['unknown'])
     # Nominal may depend on AI. Lower retains only observed IA and shrunk AI IA.
     added=shape(ai['ai_ia_on_unknown_geometry']);edge=ai['edge_distance_native']
     observed=modeled.difference(added)
@@ -161,4 +174,4 @@ def ia_bounds(case, integration, region):
         # overwrite an established pervious observation.
         allowed=shape(case['parcel']).difference(shape(integration.get('observed_pervious_geometry',EMPTY)))
         upper=upper.union(added.buffer(edge).intersection(allowed))
-    return {'lower':lower.intersection(region),'nominal':modeled.intersection(region),'upper':upper.intersection(region)}
+    return {'lower':_area_only(lower).intersection(region),'nominal':modeled.intersection(region),'upper':_area_only(upper).intersection(region)}

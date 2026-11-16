@@ -1,0 +1,27 @@
+Confirmed adversarial fixes — 2026-11-15 local date
+Working tree: existing main checkout with unrelated prior and concurrent dirty work preserved.
+No commit/push. No actual property rerun or browser used.
+
+Final exact command:
+PYTHONPATH=tests:. .venv/bin/python -m unittest test_adversarial_fixes test_semantic_cover test_modeled_assessment_unit test_assessment_policy test_jurisdiction_adapter test_research_drainage test_geometry test_drainage test_rules test_billing test_physical_reuse test_record_reuse test_source_freshness test_terrain_reuse_unit test_assessment_evidence test_saved_results test_core_boundaries test_curve_number test_assessment_ui test_pipeline test_automatic_site test_assessment_portability
+
+Ran 340 tests in 2.278s
+OK (no failures/errors/skips).
+Includes 26 new adversarial regression methods and mocked DOM/handler units.
+FrozenArtifactPreservationTests checked 36 pre-fix case/GIS/analysis byte hashes.
+No inference, property refresh, real site routing, live HTTP or public-source requests.
+
+Earlier logs retained under data/validation/adversarial-fixes-2026-11-15/:
+units-initial.txt: 237 run, 25 failures + 2 errors.
+units-second.txt: 255 run, 3 failures + 1 error.
+units-third.txt: 293 run, OK.
+units-fourth.txt: 314 run, 1 error (historical gate assumed modeled branch exists).
+units-fifth.txt: 339 run, 1 failure (tuple/list fixture comparison; changed to exact bytes).
+units-final.txt: 339 run, OK (2.408s).
+units-final-after-review.txt: 339 run, OK (2.106s).
+units-final-policy-gate.txt: 340 run, OK (2.278s); separate policy fingerprint and pending permit-source conflict covered.
+Warnings: existing Shapely transform deprecation and Rasterio in-memory georeference warnings.
+
+Only unit tests performed; no full suite, live browser/server/source/field validation.
+No empirical accuracy, legal eligibility, treatment adequacy or real savings proven.
+Existing local service was not restarted; it must load updated code before use.

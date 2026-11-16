@@ -9,7 +9,7 @@ import re
 from urllib.parse import urlparse
 import uuid
 from shapely.geometry import shape, mapping
-from .cases import CaseStore, ROOT, analyze, new_case
+from .cases import CaseStore, ROOT, new_case
 from .geometry import reproject
 from .prospect_jobs import ProspectJobs
 
@@ -82,7 +82,7 @@ class Handler(BaseHTTPRequestHandler):
                 allowed={'report.html':'text/html; charset=utf-8','case.json':'application/json',
                          'analysis.json':'application/json','measurements.geojson':'application/geo+json','gis-analysis.json':'application/json'}
                 if name not in allowed:raise ValueError('Unknown export')
-                return self.send((self.store.directory(id)/name).read_bytes(),mime=allowed[name])
+                return self.send(self.store.export_artifact(id,name),mime=allowed[name])
             name='index.html' if path=='/' else path.lstrip('/')
             if name not in ('index.html','app.js','style.css'):return self.send({'error':'Not found'},404)
             mime={'index.html':'text/html; charset=utf-8','app.js':'text/javascript','style.css':'text/css'}[name]
@@ -102,15 +102,23 @@ class Handler(BaseHTTPRequestHandler):
             limit=128 if path=='/api/assessment/import' else 32
             if not 0<length<=limit*1024*1024:raise ValueError(f'Request must be between 1 byte and {limit} MB')
             payload=json.loads(self.rfile.read(length))
-            if path=='/api/prospects/scan':return self.send(self.prospect_jobs.start(payload.get('refresh',False),payload.get('mode','rerank')),202)
+            if path=='/api/prospects/scan':return self.send(self.prospect_jobs.start(payload.get('refresh',False),payload.get('mode','rerank'),payload.get('parcel_ids')),202)
             if path=='/api/prospects/cancel':return self.send(self.prospect_jobs.cancel(),202)
-            if path=='/api/analyze':return self.send(analyze(payload['case']))
+            if path=='/api/analyze':return self.send(self.store.analyze(payload['case']))
             if path=='/api/save':return self.send(self.store.save(payload['case']))
-            if path=='/api/assessment/run':return self.send(self.store.run_assessment(payload['case']))
+            if path=='/api/assessment/run':return self.send(self.store.run_assessment(payload['case'],refresh_records=payload.get('refresh_records',False)))
+            if path=='/api/assessment/baseline-review':
+                from .assessment_workflow import reconcile_baseline
+                case=reconcile_baseline(payload['case'],payload['reason'],payload['accept'])
+                return self.send({'case':case,'analysis':self.store.policy_analysis(case)})
+            if path=='/api/curve-number/review':
+                from .curve_number import review_inputs
+                updated=review_inputs(payload['case'],payload.get('feature_id'),payload.get('cover'),payload.get('condition'),payload.get('reason'))
+                return self.send({'case':updated,'analysis':self.store.analyze(updated)})
             if path=='/api/assessment/review':
                 from .assessment_workflow import review_record
                 updated=review_record(payload['case'],payload['record'],payload.get('reason'))
-                return self.send({'case':updated,'analysis':analyze(updated)})
+                return self.send({'case':updated,'analysis':self.store.analyze(updated)})
             if path=='/api/assessment/history':
                 from .assessment_workflow import ensure_assessment
                 from .renewals import STATUSES,credit_renewals
@@ -124,15 +132,16 @@ class Handler(BaseHTTPRequestHandler):
                 event['recorded_at']=now();event['reason']=payload['reason']
                 a['credit_history'].append(event)
                 credit_renewals(a['credit_history']);validate_references(a)
-                return self.send({'case':updated,'analysis':analyze(updated)})
+                return self.send({'case':updated,'analysis':self.store.analyze(updated)})
             if path=='/api/assessment/attachment':
                 updated,attachment=self.store.attach(payload['case'],payload['filename'],base64.b64decode(payload['content'],validate=True))
                 return self.send({'case':updated,'attachment':attachment})
             if path=='/api/assessment/import':return self.send(self.store.import_bundle(payload['bundle']))
             if path=='/api/property/assess':
                 from .automatic import lookup
-                from .acquisition import Cache,acquire_property
-                cache=Cache(ROOT/'data/public',timeout=15)
+                from .acquisition import acquire_property
+                from .record_cache import shared_records
+                cache=shared_records(reuse_recent_records=True,timeout=15)
                 found=lookup(payload.get('query',''),cache)
                 if len(found['matches'])!=1:return self.send(found)
                 selected=found['matches'][0]

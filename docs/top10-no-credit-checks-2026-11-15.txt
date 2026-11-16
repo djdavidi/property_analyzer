@@ -1,0 +1,93 @@
+Top ten selected-site review — 2026-11-15
+Base c883f7f, existing uncommitted reuse work preserved.
+Command: PYTHONPATH=tests .venv/bin/python -m unittest test_modeled_assessment_unit test_jurisdiction_adapter -v
+Result exit 0:
+test_absent_pixel_size_has_no_invented_boundary_range (test_modeled_assessment_unit.ModeledGeometryUnitTests.test_absent_pixel_size_has_no_invented_boundary_range) ... ok
+test_ai_fills_only_modeled_unknowns_and_leaves_source_intact (test_modeled_assessment_unit.ModeledGeometryUnitTests.test_ai_fills_only_modeled_unknowns_and_leaves_source_intact) ... ok
+test_ai_roof_supplements_only_additional_draining_view (test_modeled_assessment_unit.ModeledGeometryUnitTests.test_ai_roof_supplements_only_additional_draining_view) ... ok
+test_bounds_are_ordered_and_cannot_override_observed_pervious (test_modeled_assessment_unit.ModeledGeometryUnitTests.test_bounds_are_ordered_and_cannot_override_observed_pervious) ... ok
+test_canopy_does_not_fill_hidden_ground (test_modeled_assessment_unit.ModeledGeometryUnitTests.test_canopy_does_not_fill_hidden_ground) ... ok
+test_catchment_composition_uses_injected_geometry_and_ai (test_modeled_assessment_unit.ModeledGeometryUnitTests.test_catchment_composition_uses_injected_geometry_and_ai) ... ok
+test_explicit_pipe_to_external_outlet_is_not_a_gsi_or_proximity_guess (test_modeled_assessment_unit.ModeledGeometryUnitTests.test_explicit_pipe_to_external_outlet_is_not_a_gsi_or_proximity_guess) ... ok
+test_malformed_ai_geometry_is_reported_without_breaking_other_classes (test_modeled_assessment_unit.ModeledGeometryUnitTests.test_malformed_ai_geometry_is_reported_without_breaking_other_classes) ... ok
+test_mixed_measured_ia_uses_area_without_mutating_frozen_geometry (test_modeled_assessment_unit.ModeledGeometryUnitTests.test_mixed_measured_ia_uses_area_without_mutating_frozen_geometry) ... ok
+test_multipart_footprint_clip_counts_area_and_ignores_boundary_touches (test_modeled_assessment_unit.ModeledGeometryUnitTests.test_multipart_footprint_clip_counts_area_and_ignores_boundary_touches) ... ok
+test_observed_surfaces_win_and_disagreement_is_reported (test_modeled_assessment_unit.ModeledGeometryUnitTests.test_observed_surfaces_win_and_disagreement_is_reported) ... ok
+test_overlapping_classes_are_unknown_not_double_counted (test_modeled_assessment_unit.ModeledGeometryUnitTests.test_overlapping_classes_are_unknown_not_double_counted) ... ok
+test_polygon_parts_of_clipped_geometry_collection_are_retained (test_modeled_assessment_unit.ModeledGeometryUnitTests.test_polygon_parts_of_clipped_geometry_collection_are_retained) ... ok
+test_rgb_candidate_cannot_become_canopy_or_pavement (test_modeled_assessment_unit.ModeledGeometryUnitTests.test_rgb_candidate_cannot_become_canopy_or_pavement) ... ok
+test_shared_class_boundaries_are_not_conflicting_area (test_modeled_assessment_unit.ModeledGeometryUnitTests.test_shared_class_boundaries_are_not_conflicting_area) ... ok
+test_stale_future_unknown_date_and_missing_hash_are_excluded (test_modeled_assessment_unit.ModeledGeometryUnitTests.test_stale_future_unknown_date_and_missing_hash_are_excluded) ... ok
+test_derived_record_and_ai_catchments_are_exported_with_model_status (test_modeled_assessment_unit.ModeledPresentationUnitTests.test_derived_record_and_ai_catchments_are_exported_with_model_status) ... /Users/david/projects/property_analyzer/drainage_core/geometry.py:38: DeprecationWarning: The 'shapely.ops.transform()' function is deprecated. Use 'shapely.transform()' or 'shapely.transform_coordseq()' instead. See https://shapely.readthedocs.io/en/latest/manual.html#shapely.ops.transform for more details.
+  return transform(Transformer.from_crs(source, target, always_xy=True).transform, geometry)
+ok
+test_engine_artifact_replays_and_policy_consumes_without_routing (test_modeled_assessment_unit.ModeledPresentationUnitTests.test_engine_artifact_replays_and_policy_consumes_without_routing) ... ok
+test_report_helpers_show_record_link_and_escape_source_text (test_modeled_assessment_unit.ModeledPresentationUnitTests.test_report_helpers_show_record_link_and_escape_source_text) ... ok
+test_ai_surface_correction_is_conditional_and_separate (test_modeled_assessment_unit.ModeledSavingsUnitTests.test_ai_surface_correction_is_conditional_and_separate) ... ok
+test_canopy_known_and_hidden_ground_assumptions_are_separate (test_modeled_assessment_unit.ModeledSavingsUnitTests.test_canopy_known_and_hidden_ground_assumptions_are_separate) ... ok
+test_disjoint_records_share_one_ledger (test_modeled_assessment_unit.ModeledSavingsUnitTests.test_disjoint_records_share_one_ledger) ... ok
+test_existing_unreconciled_credits_still_block (test_modeled_assessment_unit.ModeledSavingsUnitTests.test_existing_unreconciled_credits_still_block) ... ok
+test_gsi_already_linked_to_individual_record_is_not_recounted (test_modeled_assessment_unit.ModeledSavingsUnitTests.test_gsi_already_linked_to_individual_record_is_not_recounted) ... ok
+test_inactive_or_construction_permit_what_if_is_blocked (test_modeled_assessment_unit.ModeledSavingsUnitTests.test_inactive_or_construction_permit_what_if_is_blocked) ... ok
+test_incomplete_model_still_reports_explicit_appeal_assumptions (test_modeled_assessment_unit.ModeledSavingsUnitTests.test_incomplete_model_still_reports_explicit_appeal_assumptions) ... ok
+test_known_failed_or_proposed_prerequisites_block_estimates (test_modeled_assessment_unit.ModeledSavingsUnitTests.test_known_failed_or_proposed_prerequisites_block_estimates) ... ok
+test_known_pervious_cannot_be_reassigned_by_upper_record_bound (test_modeled_assessment_unit.ModeledSavingsUnitTests.test_known_pervious_cannot_be_reassigned_by_upper_record_bound) ... ok
+test_model_savings_respect_verified_rule_and_tariff_period (test_modeled_assessment_unit.ModeledSavingsUnitTests.test_model_savings_respect_verified_rule_and_tariff_period) ... ok
+test_modeled_ia_increase_is_negative_appeal_savings (test_modeled_assessment_unit.ModeledSavingsUnitTests.test_modeled_ia_increase_is_negative_appeal_savings) ... ok
+test_overlapping_candidates_block_combined_but_keep_alternatives (test_modeled_assessment_unit.ModeledSavingsUnitTests.test_overlapping_candidates_block_combined_but_keep_alternatives) ... ok
+test_per_record_linked_area_uses_catchment_not_footprint (test_modeled_assessment_unit.ModeledSavingsUnitTests.test_per_record_linked_area_uses_catchment_not_footprint) ... ok
+test_permit_what_if_does_not_change_candidate_or_documented_economics (test_modeled_assessment_unit.ModeledSavingsUnitTests.test_permit_what_if_does_not_change_candidate_or_documented_economics) ... ok
+test_unit_source_and_existing_findings_are_unchanged (test_modeled_assessment_unit.ModeledSavingsUnitTests.test_unit_source_and_existing_findings_are_unchanged) ... ok
+test_untyped_existing_gsi_has_its_own_ai_informed_alternative (test_modeled_assessment_unit.ModeledSavingsUnitTests.test_untyped_existing_gsi_has_its_own_ai_informed_alternative) ... ok
+test_category_context_is_available_without_inventing_installed_systems (test_modeled_assessment_unit.RecordJoinUnitTests.test_category_context_is_available_without_inventing_installed_systems) ... ok
+test_conflicting_ids_or_overlaps_are_not_silently_chosen (test_modeled_assessment_unit.RecordJoinUnitTests.test_conflicting_ids_or_overlaps_are_not_silently_chosen) ... ok
+test_direct_discharge_requires_explicit_outfall_not_nearby_gsi (test_modeled_assessment_unit.RecordJoinUnitTests.test_direct_discharge_requires_explicit_outfall_not_nearby_gsi) ... ok
+test_explicit_system_id_links_to_receiver_and_preserves_review_status (test_modeled_assessment_unit.RecordJoinUnitTests.test_explicit_system_id_links_to_receiver_and_preserves_review_status) ... ok
+test_footprint_fallback_is_explicit_direct_rainfall_scenario (test_modeled_assessment_unit.RecordJoinUnitTests.test_footprint_fallback_is_explicit_direct_rainfall_scenario) ... ok
+test_missing_explicit_id_does_not_match_another_receiver (test_modeled_assessment_unit.RecordJoinUnitTests.test_missing_explicit_id_does_not_match_another_receiver) ... ok
+test_rejection_and_npdes_are_not_overridden_by_ai (test_modeled_assessment_unit.RecordJoinUnitTests.test_rejection_and_npdes_are_not_overridden_by_ai) ... ok
+test_source_crs_mismatch_does_not_supply_public_footprint (test_modeled_assessment_unit.RecordJoinUnitTests.test_source_crs_mismatch_does_not_supply_public_footprint) ... ok
+test_unique_receiver_overlap_is_candidate_link (test_modeled_assessment_unit.RecordJoinUnitTests.test_unique_receiver_overlap_is_candidate_link) ... ok
+test_account_policy_changes_reuse_same_physical_analysis (test_jurisdiction_adapter.JurisdictionAdapterTests.test_account_policy_changes_reuse_same_physical_analysis) ... ok
+test_benefit_outside_measured_eligible_region_fails (test_jurisdiction_adapter.JurisdictionAdapterTests.test_benefit_outside_measured_eligible_region_fails) ... ok
+test_changed_physical_case_is_rejected_as_stale (test_jurisdiction_adapter.JurisdictionAdapterTests.test_changed_physical_case_is_rejected_as_stale) ... ok
+test_explicit_profile_dispatch_and_invalid_policy_rejected (test_jurisdiction_adapter.JurisdictionAdapterTests.test_explicit_profile_dispatch_and_invalid_policy_rejected) ... ok
+test_known_bill_and_spatial_credit_without_mutating_gis_or_case (test_jurisdiction_adapter.JurisdictionAdapterTests.test_known_bill_and_spatial_credit_without_mutating_gis_or_case) ... ok
+test_missing_baseline_is_policy_blocker_not_physical_zero (test_jurisdiction_adapter.JurisdictionAdapterTests.test_missing_baseline_is_policy_blocker_not_physical_zero) ... ok
+test_modified_measurements_or_composed_policy_results_cannot_be_reused_as_gis (test_jurisdiction_adapter.JurisdictionAdapterTests.test_modified_measurements_or_composed_policy_results_cannot_be_reused_as_gis) ... ok
+test_policy_reuse_does_not_reroute_and_records_different_policy_hash (test_jurisdiction_adapter.JurisdictionAdapterTests.test_policy_reuse_does_not_reroute_and_records_different_policy_hash) ... ok
+test_source_metadata_change_requires_matching_gis_artifact (test_jurisdiction_adapter.JurisdictionAdapterTests.test_source_metadata_change_requires_matching_gis_artifact) ... ok
+
+----------------------------------------------------------------------
+Ran 53 tests in 0.143s
+
+OK
+
+Report generation output:
+compiled 1 5600 CITY AVE
+compiled 2 8000 CHEROKEE ST
+compiled 3 2800 FOX ST
+compiled 4 1001-99 N DELAWARE AVE
+compiled 5 9355 BLUE GRASS RD
+compiled 6 3000 WALNUT ST
+compiled 7 3060 S 61ST ST
+compiled 8 3107 S 61ST ST
+compiled 9 9801 FRANKFORD AVE
+compiled 10 7575 BREWSTER AVE
+CHECKS 144 terrain 3
+1 5600 CITY AVE annual 197225.28 SMP 5302.08 canopy 1522.08 openCN65 3189.6 appeal [-49983.84, -10402.56] GA -11.52
+2 8000 CHEROKEE ST annual 163409.28 SMP 16025.88 canopy 28671.48 openCN65 7751.28 appeal [-145216.56, -22666.08] GA 0.0
+3 2800 FOX ST annual 149628.0 SMP None canopy 1438.2 openCN65 1119.6 appeal [-27402.6, -3975.0] GA 0.0
+4 1001-99 N DELAWARE AVE annual 149436.24 SMP 3683.28 canopy 169.2 openCN65 336.96 appeal [-30701.04, -11502.24] GA 0.0
+5 9355 BLUE GRASS RD annual 113122.44 SMP None canopy 4144.2 openCN65 5620.8 appeal [-43556.64, -4313.4] GA 0.0
+6 3000 WALNUT ST annual 112790.88 SMP None canopy 2029.92 openCN65 3394.08 appeal [-12855.6, 17760.96] GA 0.0
+7 3060 S 61ST ST annual 109655.76 SMP 8018.76 canopy 0.0 openCN65 36.12 appeal [-16915.2, -11164.08] GA 0.0
+8 3107 S 61ST ST annual 106254.24 SMP 33041.28 canopy 422.88 openCN65 794.4 appeal [-8034.72, 13362.96] GA 0.0
+9 9801 FRANKFORD AVE annual 99324.96 SMP None canopy 2367.84 openCN65 2238.72 appeal [-24273.6, -1607.04] GA 0.0
+10 7575 BREWSTER AVE annual 96391.32 SMP None canopy 1099.44 openCN65 782.28 appeal [-13024.8, -2114.4] GA 0.0
+
+Final coverage checks:
+Final validation checks 147 Campus quantified-part range [15361.56, 20372.76] Conditional management portions total 66071.28
+
+Geometry failed attempts are retained locally in run-summary-before-geometry-fix.json, retry.log and error traces. Initial area-only clip fix did not resolve all measured/upper geometry collections; final fix plus frozen-policy replay completed both sites.
+Full suite, visual browser, field/invoice accuracy and hydraulic verification unrun. git diff --check passed.

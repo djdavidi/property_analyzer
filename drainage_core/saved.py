@@ -5,7 +5,7 @@ import json
 import uuid
 from .engine import canonical, input_hash, ENGINE_VERSION
 
-VIEW_VERSION=1
+VIEW_VERSION=2
 
 
 def atomic_json(path, value):
@@ -14,6 +14,8 @@ def atomic_json(path, value):
 
 
 def display_analysis(result):
+    from .quality import safe_physical_view
+    result=safe_physical_view(result)
     # Keep exact map geometries, areas, findings and provenance. Raster diagnostics
     # remain in the full export rather than being sent to every browser view.
     def research(value):
@@ -54,5 +56,8 @@ def saved_view(folder,case):
 
 def _status(result):
     old=result.get('engine_version')!=ENGINE_VERSION
+    if result.get('quality_review',{}).get('status')=='invalidated':return {
+        'state':'invalidated','message':result['quality_review']['reason'],'engine_changed':old,
+        'assessment_as_of':result.get('assessment',{}).get('as_of')}
     return {'state':'historical' if old else 'saved','message':'Showing saved results; no recalculation or source refresh.'+(' Saved engine version differs from current code.' if old else ''),
         'engine_changed':old,'assessment_as_of':result.get('assessment',{}).get('as_of')}

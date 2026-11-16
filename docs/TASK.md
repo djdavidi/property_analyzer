@@ -1,40 +1,34 @@
-# Current task: compact storage and simplify prospect review
+# Current task: confirmed adversarial defects
 
-Status: complete, 2026-11-15. Scoped implementation and verification completed;
-independent accuracy and visual/browser verification remain incomplete.
+Status: complete for the authorized implementation and unit-only checks, 2026-11-15.
 
-Implement compact generated JSON; improve transparent cached ranking; separate
-owner/site prospects from their billing parcel rows; open saved results without
-recalculation; add explicit freshness, local-only reranking and bounded/cancellable
-acquisition. Use existing cache/plain records/functions. No new public data, imagery,
-AI inference or full property assessment in this task. No personal Chrome, deployment,
-paid service, outreach, commit or push. Preserve source bytes, donor hashes and prior
-input/snapshot history; compact derived active outputs only with equality checks.
+[Bounded brief and acceptance](ADVERSARIAL-FIX-TASK.md),
+[changes and remaining limits](ADVERSARIAL-FIXES-2026-11-15.md),
+[exact check record](adversarial-fix-checks-2026-11-15.txt).
+The completed concurrent CN TASK is preserved verbatim in the latest checkpoint.
 
-Plan / success criteria:
-- [x] Compact generated case/analysis/GeoJSON JSON and whitespace-only migrate active
-  derived Whitaker outputs; preserve raw/frozen source and pinned donor bytes.
-- [x] Rank economic scale across credit groups; expose credit share and review flags;
-  group owner/site prospects conservatively with member parcel rows and no sums of
-  overlapping savings. Retain unvalidated assumptions and original outputs.
-- [x] Read saved analysis via hash-checked local endpoint without calling GIS/policy;
-  clearly mark historical/stale results and permit explicit recalculation.
-- [x] Cache capture-age policy and explicit offline rerank; cap workers/requests/time,
-  provide cancellation, avoid duplicate jobs/writes; no new framework.
-- [x] Focused unit/HTTP/UI checks with no actual full assessment, local cached rerank,
-  before/after bytes/timings, exact evidence and checkpoint.
+Implemented: correct appearance/physical semantics; invalidate unsafe saved derived
+IA/savings without rewriting property artifacts; share prerequisite failures and
+exclude known nonexisting receivers; propagate extent; reconcile refreshed candidates
+and stage baseline changes; calculated subsets and separate net bills; response CRS,
+processing fingerprints and evidence-support gates; repair mocked workflow interface.
+Keep GIS independent of all jurisdiction/account/credit/billing rules.
 
-Results: [implementation/evidence](COMPACT-SCAN-IMPROVEMENTS.md). 35 Python checks,
-two Node behavior harnesses, syntax and actual read-only HTTP checks passed. Whitespace
-migration equality and donor preservation verified. No new public records or full
-assessment ran. Saved-view HTTP 0.2412 s; local rerank 0.0521 s. Full browser rendering,
-broad suite, empirical accuracy and cross-platform crash recovery remain unvalidated.
-Next: review the updated 50 owner/site prospects and choose future evidence work.
-Do not broaden acquisition or run full assessments automatically.
+Verification: 340 unit tests passed, including 26 new regressions and a check of
+36 original case/GIS/analysis byte hashes. Only invented/mocked workflow inputs;
+no properties, imagery/inference, sources or terrain were rerun/refreshed. No live
+HTTP/browser, broader suite, field/treatment/invoice/award validation or service
+restart. Initial failures and warnings are recorded; no commit or push requested.
 
+Next: load the changes by restarting the existing local app, then await the user's
+next scope. Do not automatically rerun Whitaker or the portfolio, collect public
+records, run broader/browser tests or publish. Existing running processes still
+contain old Python code. Revised property savings and independent classification/
+drainage accuracy remain unverified. Native imagery/terrain/request-accounting and
+scientific validation limitations are listed in the implementation note.
 
-## Source publication authorization
-
-The user requested commit and push after completion (2026-11-15). Source audit passed;
-runtime data stays ignored. Commit hashes and remote publication state are recorded
-by Git. This completed implementation brief is not an instruction to repeat a push.
+Publication follow-up: user now explicitly requested commit and push of this work
+to the existing GitHub origin. The earlier no-publication statement describes the
+implementation checkpoint. Include supporting source/tests/docs; keep runtime data
+and private uploads ignored. No additional property processing or broader testing.
+Git owns the final commit hash and push state.

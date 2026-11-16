@@ -110,6 +110,41 @@ class Cache:
         _, info = self._store(url, canonical(data), metadata, retrieved_at)
         return {'data':data, 'provenance':info}
 
+    def post_json(self, url, payload, refresh=False, metadata=None):
+        """Cache a read-only public query by endpoint and exact request body.
+
+        Original response bytes and the request are retained, including invalid
+        responses. A failed refresh can reuse a hash-checked dated response.
+        """
+        parsed=urlparse(url)
+        if parsed.scheme!='https' or not parsed.hostname or parsed.username or parsed.password:
+            raise SourceError('Only credential-free HTTPS public sources are supported')
+        body=canonical(payload)
+        if len(body)>128*1024:raise SourceError('Public query exceeds request limit')
+        key=url+'#request-sha256='+hashlib.sha256(body).hexdigest()
+        info={**(metadata or {}),'request_url':url,'request_method':'POST','request':payload,
+              'request_sha256':hashlib.sha256(body).hexdigest()}
+        saved=self._read(key)
+        if saved and not refresh:
+            content,provenance=saved
+        else:
+            try:
+                req=Request(url,data=body,headers={'Content-Type':'application/json','User-Agent':'DrainageGISLocal/1.0'})
+                with self.opener(req,timeout=self.timeout) as response:content=response.read(self.max_bytes+1)
+                if len(content)>self.max_bytes:raise SourceError('Source exceeds bounded-download limit')
+                content,provenance=self._store(key,content,info)
+            except Exception as exc:
+                with (self.root/'failures.jsonl').open('a') as stream:
+                    stream.write(json.dumps({'url':key,'attempted_at':now(),'error':str(exc)})+'\n')
+                if not saved:raise SourceError(f'Public query unavailable: {exc}') from exc
+                content,provenance=saved
+                provenance={**provenance,'cache_reused_after_failure':True,'refresh_error':str(exc),'refresh_failed_at':now()}
+        try:
+            data=json.loads(content)
+            if not isinstance(data,dict) or data.get('error'):raise ValueError('Expected a JSON object without source errors')
+        except ValueError as exc:raise SourceError(f'Invalid public query response: {exc}') from exc
+        return {'data':data,'provenance':provenance}
+
 
 
 def arcgis_features(layer, cache, params=None, refresh=False, page_size=1000, max_pages=100):
@@ -130,6 +165,15 @@ def arcgis_features(layer, cache, params=None, refresh=False, page_size=1000, ma
         item = cache.fetch_json(layer+'/query?'+urlencode(query), refresh,
                                 requested_crs)
         data = item['data']
+        declared=data.get('crs') or data.get('spatialReference')
+        if declared:
+            from pyproj import CRS
+            try:
+                if isinstance(declared,dict):
+                    declared=(declared.get('properties',{}).get('name') or declared.get('latestWkid') or declared.get('wkid'))
+                if CRS.from_user_input(declared)!=CRS.from_user_input(requested_crs['crs']):
+                    raise SourceError('ArcGIS response CRS contradicts requested CRS')
+            except (TypeError,ValueError) as exc:raise SourceError('Invalid ArcGIS response CRS') from exc
         batch = data.get('features')
         if not isinstance(batch, list):
             raise SourceError('ArcGIS response has no feature list')

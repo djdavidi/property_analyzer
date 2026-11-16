@@ -34,7 +34,8 @@ class SemanticCoverTests(unittest.TestCase):
                 rows={r['feature']:r for r in result['estimates']}
                 self.assertAlmostEqual(rows['canopy']['area_sqft'],.5*SQFT_PER_M2)
                 self.assertAlmostEqual(rows['roof']['area_sqft'],.5*SQFT_PER_M2)
-                self.assertAlmostEqual(rows['other_pavement']['area_sqft'],.25*SQFT_PER_M2)
+                self.assertAlmostEqual(rows['developed_space']['area_sqft'],.25*SQFT_PER_M2)
+                self.assertNotIn('other_pavement',rows)
                 self.assertAlmostEqual(result['unclassified_sqft'],.5*SQFT_PER_M2)
                 c['features']['features']=result['features'];m=measure(c)
                 self.assertIsNone(m['canopy_sqft']);self.assertEqual(m['ia_sqft'],0)

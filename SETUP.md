@@ -47,6 +47,8 @@ Omitted/blocked tests must not be called passes. No test requires personal Chrom
 ## Moving the project
 
 Keep the bundled `data/public/blobs` directory to retain raw evidence and cached imagery.
+Retain existing `data/prospects/public` when moving an older workspace: shared record
+reads promote its captures into `data/public` without changing source dates or bytes.
 Saved acquisition paths remain original provenance. Do not rewrite frozen case JSON just
 to replace those paths: input hashes would change. Runtime media resolution falls back
 to the bundled content-addressed cache. Input data and local attachments are Git-ignored.

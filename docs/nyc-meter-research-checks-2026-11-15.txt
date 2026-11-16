@@ -1,0 +1,18 @@
+NYC dedicated tower-meter source follow-up — 2026-11-15 America/New_York
+Read-only bounded public queries and documentation updates on a dirty shared checkout.
+
+Command: python3 /tmp/check-nyc-meter-docs.py
+Exit: 0
+PASS: 4 documentation files; 68 local file links exist.
+PASS: 11 prior unique FOIL links retained; limits/unknown status explicit.
+PASS: preceding task archive, concurrent Springside handoff and new follow-up result/absence limits present.
+The temporary script resolves local Markdown links and checks current task, archive
+and limit statements. It does not fetch or independently validate public records.
+
+Command: git diff --check -- docs/TASK.md docs/STATE.md docs/CHECKPOINTS.md
+Exit: 0, no whitespace errors.
+
+Primary-query methods, actual 30 / 0 / 8 / 4 results and recovered navigation timeout
+are recorded in the audit follow-up. No raw file/plan download, complete meter
+inventory, confirmed missing-meter building, software tests, field verification,
+current allowance evidence or realized savings. No outreach or new FOIL request.

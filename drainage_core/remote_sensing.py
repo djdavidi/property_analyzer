@@ -51,7 +51,7 @@ def decode_classification(content,palette):
     return classes
 
 
-def classified_features(classes,bounds,case,source):
+def classified_features(classes,bounds,case,source,*,class_names=None):
     """Clip exact legend classes; canopy does not label its hidden ground surface."""
     parcel=shape(case['parcel']);transform=from_bounds(*bounds,classes.shape[1],classes.shape[0])
     groups={i:[] for i in range(1,8)}
@@ -63,7 +63,7 @@ def classified_features(classes,bounds,case,source):
     pixel=hypot(transform.a,transform.e)/2
     features=[];estimates=[]
     for code,g in geoms.items():
-        name=CLASS_NAMES[code]
+        name=(class_names or CLASS_NAMES)[code]
         if not g.is_empty:
             props={'layer':'canopy' if code==1 else 'surface','class':{2:'pervious',3:'pervious',5:'roof',6:'pavement',7:'pavement'}.get(code,'unknown'),
                    'automatic':True,'source_kind':'source-derived estimate','source_family':source['family'],

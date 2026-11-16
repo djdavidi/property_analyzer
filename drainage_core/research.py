@@ -81,6 +81,11 @@ def feature_inputs(case):
                 else:
                     omitted.append({'id': str(f['id']), 'reason': 'System footprint does not establish a surface receiving feature or inlet'})
         if role:
+            from .installation import installation_issues
+            as_of=case.get('imagery_age_policy',{}).get('as_of') or case.get('created_at')
+            issues=installation_issues(p,as_of) if role=='gsi' else []
+            if issues:
+                omitted.append({'id':str(f['id']),'reason':'; '.join(issues)});continue
             if role not in OFFSETS['lidar']: raise ValueError('Unsupported drainage_role: ' + str(role))
             features.append({'id': str(f['id']), 'role': role, 'geometry': deepcopy(f['geometry']),
                              'source': deepcopy(p), 'gsi_id': str(p.get('gsi_system_id') or f['id']) if role == 'gsi' else None,
@@ -88,6 +93,10 @@ def feature_inputs(case):
     # Extra local surveyed/digitized infrastructure uses exactly the same neutral schema.
     for f in case.get('research_drainage', {}).get('features', []):
         if f.get('role') not in OFFSETS['lidar']: raise ValueError('Unsupported research feature role')
+        from .installation import installation_issues
+        issues=installation_issues({**f.get('source',{}),**f},case.get('imagery_age_policy',{}).get('as_of') or case.get('created_at')) if f.get('role')=='gsi' else []
+        if issues:
+            omitted.append({'id':str(f['id']),'reason':'; '.join(issues)});continue
         features.append(deepcopy(f))
     grid=case.get('terrain') or {}
     if grid:

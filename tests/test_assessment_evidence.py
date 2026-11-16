@@ -86,7 +86,9 @@ class CandidateTests(unittest.TestCase):
         with patch('stormwater.assessment_sources.discover',return_value=result):rerun=gather(reviewed,None)
         self.assertEqual(rerun['assessment']['records'][0]['decision'],'rejected')
         self.assertEqual(rerun['assessment']['reviews'],reviewed['assessment']['reviews'])
-        self.assertEqual(rerun['assessment']['source_status'],result['source_status'])
+        self.assertEqual(rerun['assessment']['source_status'][:-1],result['source_status'])
+        self.assertEqual(rerun['assessment']['source_status'][-1]['provider'],'USDA NRCS SSURGO / Soil Data Access')
+        self.assertEqual(rerun['assessment']['source_status'][-1]['status'],'unavailable')
 
     def test_outage_reuses_dated_cache_without_false_empty(self):
         class Cache:

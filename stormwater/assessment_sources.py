@@ -19,10 +19,14 @@ def digest(value):
 
 class _Fallback:
     def __init__(self,cache):
-        self.cache=cache;self.failures=[];self.used_cache=False
+        self.cache=cache;self.failures=[];self.used_cache=False;self.reused_recent=False
 
     def fetch_json(self,url,refresh=False,metadata=None):
-        try: return self.cache.fetch_json(url,refresh,metadata)
+        try:
+            before=len(getattr(self.cache,'reuse_events',[]))
+            result=self.cache.fetch_json(url,refresh,metadata)
+            self.reused_recent=len(getattr(self.cache,'reuse_events',[]))>before
+            return result
         except Exception as exc:
             saved=self.cache._read(url) if hasattr(self.cache,'_read') else None
             self.failures.append(str(exc))
@@ -46,7 +50,7 @@ class _Fallback:
 
 def _status(provider,url,proxy,*,count=None,error=None):
     return {'provider':provider,'url':url,'attempted_at':now(),
-            'status':'unavailable' if error else 'cached_after_failure' if proxy.used_cache else 'retrieved',
+            'status':'unavailable' if error else 'cached_after_failure' if proxy.used_cache else 'reused_recent_record' if proxy.reused_recent else 'retrieved',
             'candidate_count':count,'errors':([str(error)] if error else proxy.failures),
             'coverage':'Candidates only. No match is not evidence of absence or eligibility.'}
 

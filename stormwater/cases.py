@@ -22,19 +22,31 @@ def new_case(name='Untitled property'):
     return case
 
 
-def _analyze_pair(case):
+def _analyze_pair(case,frozen=None):
     from .jurisdictions.philadelphia import apply
     start=time.perf_counter()
-    gis=analyze_gis(case,source_dependencies=case.get('dependent_source_families',('PWD','City impervious','City buildings')))
-    policy=apply(case,gis)
+    if frozen:
+        from .physical_reuse import policy_overlay,physical_signature
+        validate_input(case)
+        original,gis=frozen
+        policy=apply(original,gis,policy_inputs=policy_overlay(case))
+    else:
+        gis=analyze_gis(case,source_dependencies=case.get('dependent_source_families',('PWD','City impervious','City buildings')))
+        policy=apply(case,gis,tariff=case.get('tariff'))
     result={**gis,**policy,'result_type':'jurisdiction-analysis',
             'warnings':list(dict.fromkeys(gis['warnings']+policy['warnings'])),
             'processing_seconds':round(time.perf_counter()-start,6),
             'claim':'Research screening; independent empirical validation and professional review required'}
     result.pop('analysis_sha256',None)
+    result['input_sha256']=input_hash(case)
+    if frozen:
+        result['physical_reuse']={'status':'reused_frozen_gis','frozen_input_sha256':gis['input_sha256'],
+            'current_case_sha256':input_hash(case),'physical_signature':physical_signature(case),
+            'claim':'Original GIS input and artifact hashes retained; only policy recomputed'}
     if case.get('automatic'):
         result['automatic']=deepcopy(case['automatic'])
-    return gis,result
+    from .quality import safe_analysis
+    return gis,safe_analysis(result)
 
 
 def analyze(case):
@@ -60,10 +72,31 @@ class CaseStore:
         from drainage_core.saved import saved_view
         from .rules import RULE_VERSION
         view=saved_view(self.directory(id),self.load(id))
+        from .quality import safe_analysis
+        if view['analysis']:
+            view['analysis']=safe_analysis(view['analysis'])
+            if view['analysis']['quality_review']['status']=='invalidated':
+                view['saved_status'].update(state='invalidated',message=view['analysis']['quality_review']['reason'])
         if view['analysis'] and view['analysis'].get('rule_version') not in (None,RULE_VERSION):
             view['saved_status']['policy_changed']=True
             view['saved_status']['message']+=' Saved policy version differs from current code.'
         return view
+
+    def export_artifact(self,id,name):
+        """Read-only safe exports; never recalculate a property to open a report."""
+        from .quality import safe_analysis
+        from .report import render_report,export_geojson
+        folder=self.directory(id)
+        if name=='case.json':return (folder/name).read_bytes()
+        source='gis-analysis.json' if name=='gis-analysis.json' else 'analysis.json'
+        raw=json.loads((folder/source).read_text());view=safe_analysis(raw)
+        if source=='analysis.json' and raw.get('input_sha256')!=input_hash(self.load(id)):
+            raise ValueError('Saved result does not match current inputs; no automatic recalculation')
+        if name in ('analysis.json','gis-analysis.json'):return canonical(view).encode()
+        case=self.load(id)
+        if name=='report.html':return render_report(case,view).encode()
+        if name=='measurements.geojson':return canonical(export_geojson(case,view)).encode()
+        raise ValueError('Unknown export')
 
     def save(self,case):
         from .report import render_report, export_geojson
@@ -72,18 +105,35 @@ class CaseStore:
         validate_references(assessment)
         if assessment.get('attachments'):
             AttachmentStore(self.directory(case['id'])/'attachments').verify(assessment['attachments'])
-        gis,result=_analyze_pair(case); folder=self.directory(case['id']); folder.mkdir(exist_ok=True)
+        gis,result=self._pair(case); folder=self.directory(case['id']); folder.mkdir(exist_ok=True)
         revisions=folder/'revisions'; revisions.mkdir(exist_ok=True)
         digest=result['input_sha256']; payload=canonical(case)+'\n'
         frozen=revisions/(digest+'.json')
         if not frozen.exists(): frozen.write_text(payload)
         outputs={'case.json':payload,'analysis.json':canonical(result),
-                 'gis-analysis.json':canonical(gis),
                  'report.html':render_report(case,result),
                  'measurements.geojson':canonical(export_geojson(case,result))}
+        if not result.get('physical_reuse'):outputs['gis-analysis.json']=canonical(gis)
         for name,body in outputs.items():
             temp=folder/(name+'.tmp'); temp.write_text(body); temp.replace(folder/name)
         return result
+
+    def _pair(self,case):
+        from .physical_reuse import load_frozen
+        # Policy edits and saves must not silently reroute after a code update.
+        # A matching old artifact is retained as historical, with derived finance
+        # quarantined. Explicit acquisition/physical changes take the normal path.
+        frozen=load_frozen(self.directory(case['id']),case,allow_historical=True)
+        return _analyze_pair(case,frozen) if frozen else _analyze_pair(case)
+
+    def analyze(self,case):
+        return self._pair(case)[1]
+
+    def policy_analysis(self,case):
+        from .physical_reuse import load_frozen
+        frozen=load_frozen(self.directory(case['id']),case,allow_historical=True)
+        if not frozen:raise ValueError('Matching frozen physical GIS required; no automatic property rerun')
+        return _analyze_pair(case,frozen)[1]
 
     def renewals(self,as_of=None):
         from .renewals import history_assessment,today
@@ -108,15 +158,21 @@ class CaseStore:
             updated['assessment']['attachments'].append(attachment)
         return updated,attachment
 
-    def run_assessment(self,case,cache=None):
-        from drainage_core.sources import Cache
+    def run_assessment(self,case,cache=None,*,refresh_records=False):
+        if not isinstance(refresh_records,bool):raise ValueError('Record refresh must be true or false')
+        from .record_cache import shared_records,SharedCache
         from .assessment_workflow import gather
-        selected_cache=cache or Cache(ROOT/'data/public',timeout=15)
+        selected_cache=cache or shared_records(reuse_recent_records=not refresh_records,timeout=15)
+        if isinstance(selected_cache,SharedCache):selected_cache.reuse_recent_records=not refresh_records
+        reuse_events=getattr(selected_cache,'reuse_events',[])
+        reuse_start=len(reuse_events) if isinstance(reuse_events,list) else 0
         updated=case
         if re.match(r'^pwd-\d+',case.get('id','')) or case.get('automatic'):
             from .automatic import acquire,enrich_candidates
             updated=acquire(case,selected_cache,refresh=True,case_root=self.root)
         updated=gather(updated,selected_cache,refresh=True)
+        reuse_events=getattr(selected_cache,'reuse_events',[])
+        updated.setdefault('assessment',{})['record_reuse']=deepcopy(reuse_events[reuse_start:] if isinstance(reuse_events,list) else [])
         if updated.get('automatic'):
             from .automatic import enrich_candidates
             updated=enrich_candidates(updated)
@@ -137,6 +193,13 @@ class CaseStore:
     def _bundle_cases(bundle):
         return [bundle['case'], *bundle.get('revisions',{}).values(),
                 *(x['case'] for x in bundle.get('assessments',{}).values())]
+
+    @staticmethod
+    def _public_sources(case):
+        a=case.get('assessment',{})
+        return [*case.get('sources',[]),
+                *(source for snapshot in [a.get('soil_snapshot',{}),*a.get('soil_history',[])]
+                  for source in snapshot.get('sources',[]))]
 
     @staticmethod
     def _bundle_manifests(bundle):
@@ -161,12 +224,15 @@ class CaseStore:
         bundle={'schema_version':1,'artifact_type':'existing-site-evidence-bundle','case':case,
                 'revisions':files('revisions'),'assessments':files('assessments')}
         for snapshot in bundle['assessments'].values():self._verify_snapshot(snapshot)
+        from drainage_core.quality import artifact_quality
+        bundle['quality_review']={'claim':'Historical snapshots retain original bytes/hashes, not current usable savings.',
+            'snapshots':{name:artifact_quality(s.get('analysis',{})) for name,s in bundle['assessments'].items()}}
         bundle['snapshots_without_content_hash']=[name for name,data in bundle['assessments'].items() if not data.get('snapshot_sha256')]
         from .assessment_policy import RULES
         bundle['rule_sources']=deepcopy(RULES.get('source_snapshots',[]))
         bundle['attachments']=AttachmentStore(folder/'attachments').export(self._bundle_manifests(bundle))
         bundle['public_blobs']=[];bundle['missing_public_blobs']=[]
-        sources={s['sha256'] for c in self._bundle_cases(bundle) for s in c.get('sources',[])
+        sources={s['sha256'] for c in self._bundle_cases(bundle) for s in self._public_sources(c)
                  if re.fullmatch('[a-f0-9]{64}',str(s.get('sha256','')))}
         sources.update(s['sha256'] for s in bundle['rule_sources'])
         for snapshot in bundle['assessments'].values():
@@ -210,7 +276,7 @@ class CaseStore:
                 if path.exists() and canonical(json.loads(path.read_text()))!=canonical(data):
                     raise ValueError('Import conflicts with preserved '+directory)
         public=[]
-        referenced={s.get('sha256') for c in cases for s in c.get('sources',[])}
+        referenced={s.get('sha256') for c in cases for s in self._public_sources(c)}
         referenced.update(s['sha256'] for s in bundle.get('rule_sources',[]))
         for snapshot in bundle.get('assessments',{}).values():
             referenced.update(s['sha256'] for s in snapshot.get('analysis',{}).get('assessment',{}).get('rules',{}).get('source_snapshots',[]))

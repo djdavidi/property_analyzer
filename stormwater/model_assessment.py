@@ -46,7 +46,7 @@ def match(record,case,integration,run):
         'candidate_ids':sorted(ids)}
 
 
-def _conditions(record):
+def _conditions(record,case=None,gis=None,as_of=None):
     from .assessment_policy import COMMON,SMP,PAVEMENT,DIRECT
     category=record['category'];facts=record.get('facts',{})
     required=COMMON+(DIRECT if category=='direct_discharge' else SMP+ (PAVEMENT if category=='permeable_pavement' else ()))
@@ -69,7 +69,16 @@ def _conditions(record):
                 elif facts.get(key) is not True:assumed.append(key)
         for key in ('waterway_name','outfall_id','upstream_smp_present'):
             if facts.get(key) is None:assumed.append(key)
-    return failed,assumed
+    from drainage_core.installation import installation_issues
+    failed+=installation_issues(facts,as_of)
+    if case is not None:
+        from .assessment_policy import screen_record
+        # Modeled IA may differ from observed IA; all other known contradictory
+        # geometry/evidence facts remain failures, not assumed successes.
+        evaluated=screen_record(record,case,gis,as_of)
+        failed += [k for k in evaluated['failed'] if k!='managed_geometry_matches_physical_ia']
+        if 'source_update_review' in evaluated['missing']:failed.append('Unreconciled public source update')
+    return list(dict.fromkeys(failed)),assumed
 
 
 def _counterfactual(case,gis,screened,recipes,as_of,tariff):
@@ -95,8 +104,10 @@ def _counterfactual(case,gis,screened,recipes,as_of,tariff):
     entries=[replacements.get(r['id'],r) for r in screened]
     m=gis['modeled_integration']['measurement'];view={**gis,'measurement':{**m,
         'geometries':{**m['geometries'],'physical_ia':mapping(all_ia)}}}
-    s=_economics(working,view,entries,as_of,tariff)['modeled']
+    economics=_economics(working,view,entries,as_of,tariff);s=economics['modeled']
     return {**s,'basis':'conditional AI/catchment alternative','record_areas_sqft':areas,
+        'financial_scope':'credits only against retained recorded areas; not net of area correction',
+        'net_with_area_correction':economics.get('modeled_combined'),
         'assumed_prerequisites':sorted(set(assumptions)),
         'claim':'Alternative under stated source/model/ground and eligibility assumptions; not a verified screen, approval or award. Do not add to other scenarios.'}
 
@@ -117,16 +128,25 @@ def catchment_alternatives(case,gis,screened,as_of,tariff,occupied,record_infos)
                 'area_sqft':case_area_sqft(region,case),'basis':'modeled','evidence':facts,'existing_overlap_reconciled':True}}})
         m=integrated['measurement'];view={**gis,'measurement':{**m,'geometries':{**m['geometries'],
             'physical_ia':mapping(shape(m['geometries']['physical_ia']).union(region))}}}
-        return _economics(working,view,screened,as_of,tariff)['modeled']
+        e=_economics(working,view,screened,as_of,tariff)
+        return {**e['modeled'],'financial_scope':'credits only against retained recorded areas; not net of area correction',
+            'net_with_area_correction':e.get('modeled_combined')}
     for run in integrated['runs']:
         unions={k:[] for k in ('lower','nominal','upper')}
         for c in run['catchments']:
             if c['kind']!='gsi' or c['receiver_id'] in represented or c['composition']['region_area_sqft']<.000001:continue
+            from drainage_core.installation import installation_issues
+            receiver=next((f for f in integrated.get('receiving_features',[]) if str(f['gsi_id'])==c['receiver_id']),None)
+            source=(receiver or {}).get('source',{})
+            failed,_=_conditions({'category':'green_roof','facts':{**source,**source.get('facts',{})}},as_of=as_of)
+            if run.get('extent_sufficient') is not True:failed.append('Surrounding watershed extent is unverified')
+            if receiver is None:failed.append('Receiving feature source is unavailable')
             for bound,region in ia_bounds(case,integrated,shape(c['geometry'])).items():
-                region=region.difference(occupied);unions[bound].append(region)
+                region=region.difference(occupied)
+                if not failed:unions[bound].append(region)
                 out.append({'name':run['name'],'receiver_id':c['receiver_id'],'bound':bound,
                     'area_sqft':case_area_sqft(region,case),'on_parcel_contributing_sqft':c['composition']['region_area_sqft'],
-                    **value(region),'basis':'conditional mapped-GSI management alternative',
+                    **(_blocked(failed) if failed else value(region)),'basis':'conditional mapped-GSI management alternative',
                     'assumptions':['Mapped receiver is an existing eligible system and serves this parcel',
                         'All management prerequisites, 1.5-inch treatment and approved allocation are assumed',
                         'AI classes and modeled flow are unvalidated; upper adds unresolved ground as impervious',
@@ -144,9 +164,10 @@ def permit_alternatives(case,gis,screened,as_of,tariff):
     out=[]
     for r in case.get('assessment',{}).get('records',[]):
         if r['category']!='industrial_npdes' or r.get('decision')=='rejected':continue
+        from .assessment_policy import screen_record
         facts=r.get('facts',{})
-        failed=[k for k in ('account_current',)+NPDES if facts.get(k) is not None and facts.get(k) is not True]
-        if facts.get('permit_type') in ('construction','municipal','no_exposure','terminated'):failed.append('Nonqualifying permit type')
+        failed=screen_record(r,case,gis,as_of)['failed']
+        if r.get('source_update',{}).get('status')=='pending_review':failed.append('Unreconciled public source update')
         if failed:s=_blocked(failed)
         else:
             hypothetical=[{**x,'basis':'modeled','status':'screen_pass'} if x['id']==r['id'] else x for x in screened]
@@ -163,6 +184,12 @@ def integrate(case,gis,screened,as_of,tariff):
     from .billing import calculate_scenarios,default_tariff
     integrated=gis.get('modeled_integration')
     if not integrated:return {'status':'unavailable','records':[],'combined':[]}
+    from drainage_core.quality import artifact_quality
+    quality=artifact_quality(gis)
+    if quality['status']=='invalidated':return {'status':'invalidated','records':[],'combined':[],
+        'claim':quality['reason'],'reason':quality['reason']}
+    if case.get('assessment',{}).get('baseline_refresh',{}).get('status')=='pending_review':
+        return {'status':'blocked','records':[],'combined':[],'claim':'Public billing baseline changed; reconcile before calculating savings'}
     parcel=shape(case['parcel']);sources=case.get('assessment',{}).get('records',[])
     items=[];recipes_by_key={}
     reserved=[]
@@ -188,7 +215,7 @@ def integrate(case,gis,screened,as_of,tariff):
         if record.get('decision')=='rejected':
             info.update(status='rejected',reason='Manual rejection retained; no new modeled allocation')
             items.append(info);continue
-        failed,assumed=_conditions(record)
+        failed,assumed=_conditions(record,case,gis,as_of)
         if record.get('facts',{}).get('existing_overlap_reconciled') is False:failed.append('Existing overlap explicitly unreconciled')
         info['status']='modeled';info['known_failed_prerequisites']=failed
         info['unverified_prerequisites']=assumed
@@ -220,7 +247,8 @@ def integrate(case,gis,screened,as_of,tariff):
                         'Required approval, condition and treatment evidence must cover the modeled area, not only an earlier recorded area']
                     if bound=='upper':assumptions+=['All unconfirmed ground in this region assumed impervious; not a confidence bound']
                     if bound=='lower':assumptions+=['Observed IA plus eroded AI boundaries; classification error remains unbounded']
-                    recipe={'id':rid,'region':geom,'failed':failed,'assumed':assumptions}
+                    route_failed=['Surrounding watershed extent is unverified'] if linked['status']=='linked' and run.get('extent_sufficient') is not True else []
+                    recipe={'id':rid,'region':geom,'failed':failed+route_failed,'assumed':assumptions}
                     s=_counterfactual(case,gis,screened,[recipe],as_of,tariff)
                     output['scenarios'].append({'bound':bound,'area_sqft':case_area_sqft(geom,case),**s})
                     recipes_by_key.setdefault((run['name'],bound),[]).append(recipe)
@@ -229,7 +257,11 @@ def integrate(case,gis,screened,as_of,tariff):
         items.append(info)
     combined=[]
     for (run,bound),recipes in recipes_by_key.items():
-        combined.append({'name':run,'bound':bound,**_counterfactual(case,gis,screened,recipes,as_of,tariff)})
+        usable=[r for r in recipes if not r['failed'] and case_area_sqft(r['region'],case)>.000001]
+        excluded=[{'record_id':r['id'],'reasons':r['failed'] or ['No positive on-parcel modeled area; not zero savings']} for r in recipes if r not in usable]
+        combined.append({'name':run,'bound':bound,**_counterfactual(case,gis,screened,usable,as_of,tariff),
+            'scope':'calculable subset' if excluded else 'listed record alternatives',
+            'excluded_records':excluded,'complete_opportunity':False})
     surface={};t=tariff or default_tariff()
     finance_allowed=RULES['effective_from']<=as_of.isoformat()<=RULES['verified_through'] and t['effective_from']<=as_of.isoformat()<=t['verified_through']
     if not finance_allowed:surface={'status':'blocked','reason':'Assessment date outside verified rule/tariff period'}
@@ -279,12 +311,12 @@ def integrate(case,gis,screened,as_of,tariff):
             canopy_scenarios.append({'name':name,'area_sqft':area,'basis':'conditional AI canopy alternative',
                 'assumptions':assumptions,**s})
     available=integrated['ai']['status']=='modeled'
-    pavement=shape(integrated['ai']['geometries']['road']).union(shape(integrated['ai']['geometries']['other_pavement']))
+    pavement=shape(integrated['ai']['geometries']['road']).union(shape(integrated['ai']['geometries']['developed_space']))
     categories={
         'green_roof':{'possible_roof_vegetation_sqft':case_area_sqft(roof_vegetation,case) if available else None,
             'claim':'Image vegetation on roof outlines nominates a possible feature; tree overhang and other causes remain possible. No green roof is established.'},
-        'permeable_pavement':{'predicted_pavement_sqft':case_area_sqft(pavement,case) if available else None,
-            'permeability':'Unknown','claim':'Pavement estimate informs footprints/catchments; the model has no permeability class.'},
+        'permeable_pavement':{'developed_or_road_appearance_sqft':case_area_sqft(pavement,case) if available else None,
+            'permeability':'Unknown','claim':'Developed-space/road appearance is not a pavement measurement or permeability class.'},
         'direct_discharge':{'explicit_outlet_candidates':[{'receiver_id':c['receiver_id'],'composition':c['composition']}
             for c in (integrated.get('runs') or [{}])[0].get('catchments',[]) if c['kind']=='outlet'],
             'claim':'Only supplied outlet connections are traced. Water destination, private ownership and qualifying discharge remain unverified.'}}

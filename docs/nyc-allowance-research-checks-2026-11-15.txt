@@ -1,0 +1,21 @@
+NYC allowance source research — documentation verification, 2026-11-15 America/New_York
+Dirty shared checkout; unrelated Philadelphia/Springside/source changes preserved.
+
+Command: python3 /tmp/check-nyc-allowance-docs.py
+Exit: 0
+PASS: 4 documentation files; 68 local file links exist.
+PASS: 11 unique inspected FOIL links; limits/unknown status explicit.
+PASS: preceding task archived and concurrent Springside handoff preserved.
+LIMIT: no remote-link liveness, FOIL attachment, current allowance record, software or empirical validation.
+
+The temporary check script reads README, TASK, STATE and the source audit; resolves
+relative Markdown file links; counts unique inspected FOIL URLs; checks explicit
+missing-file/inventory/unknown limits; and verifies prior-task/Springside preservation.
+It does not fetch URLs or access private accounts. Browser search/source evidence,
+exact filters/queries and all access failures are in the source audit.
+
+Command: git diff --check -- README.md docs/TASK.md docs/STATE.md docs/CHECKPOINTS.md
+Exit: 0, no whitespace errors reported.
+
+No software test suite, GIS rerun, application, actual-bill/eligibility check,
+underlying FOIL attachment verification or new records request was performed.

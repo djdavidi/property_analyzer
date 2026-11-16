@@ -2,7 +2,7 @@
 'use strict';
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 const nodes=new Map(),calls=[];let job='idle',scheduled;
-const node=id=>{if(!nodes.has(id))nodes.set(id,{value:'',innerHTML:'',textContent:'',hidden:false,disabled:false});return nodes.get(id);};
+const node=id=>{if(!nodes.has(id))nodes.set(id,{value:'',innerHTML:'',textContent:'',hidden:false,disabled:false,querySelectorAll:()=>[]});return nodes.get(id);};
 const member=id=>({parcel_id:id,address:id+' TEST ST',billing:{annual_charge:1200},freshness:{status:'fresh'}});
 const p={rank:1,parcel_id:'1',parcel_count:2,owner:'OWNER <script> LLC',address:'1 TEST ST',group:'no_area_credit',system_types:['Rain Garden'],systems:[{system_id:'G1'}],projects:['P1'],reasons:['Known records'],history_flags:[],evidence_gaps:['Capacity'],billing_source:{url:'https://example.test',retrieved_at:'2026-11-15'},billing:{annual_charge:2400,monthly_charge:200,ia_credit_sqft:0,ga_credit_sqft:0},member_parcels:[member('1'),member('2')],grouping_basis:'Nearby parcels',needs_record_review:false};
 const result={id:'a'.repeat(32),at:'2026-11-15',elapsed_seconds:.1,status:'partial',ranking:'Scale first',coverage:'Bounded',ownership_policy:'Name screened',counts:{inventory_features:100,ranked_prospects:1,returned:1,failed_requests_or_geometry:0,exclusions_by_status:{government:2}},groups:[{id:'no_area_credit',label:'No credits',count:1}],top:[p]};
@@ -20,7 +20,7 @@ vm.runInContext(fs.readFileSync('stormwater/web/prospects.js','utf8'),context);
  assert(!node('groups').innerHTML.includes('<script>'));assert.match(node('groups').innerHTML,/&lt;script&gt;/);
  calls.length=0;await node('scan').onclick();assert.equal(calls.find(x=>x.path==='/api/prospects/scan').body.mode,'rerank');
  assert(!calls.some(x=>x.path.includes('assessment')||x.path.includes('analyze')));
- await node('update').onclick();assert.equal(node('scan').disabled,true);assert.equal(node('cancel-scan').hidden,false);
+ vm.runInContext("selection.add('1')",context);await node('update').onclick();assert.deepEqual(calls.filter(x=>x.path==='/api/prospects/scan').at(-1).body.parcel_ids,['1','2']);assert.equal(node('scan').disabled,true);assert.equal(node('cancel-scan').hidden,false);
  await node('cancel-scan').onclick();await scheduled();assert.equal(node('scan').disabled,false);
  console.log('Prospect UI checks passed: member parcels, escaping, local rerank default, explicit update, cancellation, no assessment calls.');
 })().catch(e=>{console.error(e);process.exitCode=1;});

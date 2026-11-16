@@ -21,6 +21,7 @@ from zoneinfo import ZoneInfo
 from shapely.geometry import shape
 from shapely.strtree import STRtree
 from drainage_core.sources import Cache, SourceError, arcgis_features, canonical, now
+from .record_cache import SharedCache
 
 ROOT = Path(__file__).resolve().parents[1]
 SYSTEMS = 'https://services.arcgis.com/fLeGjb7u4uXqeF9q/ArcGIS/rest/services/GSI_SMP_TYPES/FeatureServer/0'
@@ -91,7 +92,10 @@ def scan_lock(root):
 
 def freshness(source,as_of,max_days=30):
     captured=source.get('retrieved_at')
-    try:age=(date.fromisoformat(as_of)-datetime.fromisoformat(captured.replace('Z','+00:00')).date()).days
+    try:
+        instant=datetime.fromisoformat(captured.replace('Z','+00:00'))
+        local=instant.astimezone(ZoneInfo('America/New_York')) if instant.tzinfo else instant
+        age=(date.fromisoformat(as_of)-local.date()).days
     except (AttributeError,ValueError,TypeError):return {'status':'unknown','age_days':None,'max_age_days':max_days}
     return {'status':'future_date' if age<0 else 'stale' if age>max_days else 'fresh','age_days':age,'max_age_days':max_days}
 
@@ -283,6 +287,7 @@ def rank_prospect(parcel_id, match, bill):
         'group': group, 'group_label': GROUPS[group], 'billing': bill,
         'systems': sorted(match['systems'], key=lambda s: (s['system_id'], str(s['objectid']))),
         'parcel_geometry':match['parcel'].get('geometry'),
+        'parcel_record':p,
         'system_types': sorted({s['type'] for s in match['systems'] if s.get('type')}),
         'projects': sorted({s['project_number'] for s in match['systems'] if s.get('project_number')}),
         'reasons': reasons, 'history_flags': tags, 'evidence_gaps': gaps,
@@ -339,7 +344,7 @@ def group_sites(rows,as_of):
         row['system_types']=sorted({s for m in members for s in m['system_types']})
         row['projects']=sorted({s for m in members for s in m['projects']})
         row['history_flags']=sorted({s for m in members for s in m['history_flags']})
-        row['needs_record_review']=any(m['freshness']['status']!='fresh' for m in members) or bool(row['history_flags'])
+        row['needs_record_review']=any(m['freshness']['status']!='fresh' or m.get('selected_record_update',{}).get('status')=='failed_previous_record_retained' for m in members) or bool(row['history_flags'])
         sites.append(row)
     sites.sort(key=ordering)
     for rank,row in enumerate(sites,1):row['rank']=rank
@@ -375,9 +380,103 @@ def rerank_saved(root,limit=50):
     return result
 
 
+def update_selected(root,parcel_ids,*,cache=None,max_requests=80,cancel=None,progress=None):
+    """Update chosen member bills only. No inventory/matching/imagery/GIS calls."""
+    if not isinstance(parcel_ids,list) or not parcel_ids or len(parcel_ids)>80 or any(not isinstance(v,str) or not v.isdecimal() for v in parcel_ids):
+        raise ValueError('Select 1–80 known billing parcel IDs')
+    if not 0<=max_requests<=80:raise ValueError('New request cap must be 0–80')
+    started=time.perf_counter();root=Path(root)
+    with scan_lock(root):
+        previous=load_result(root)
+        if not previous:raise ValueError('Build an initial shortlist before selecting updates')
+        source_rows=previous.get('parcel_rows') or [m for s in previous['prospects'] for m in s.get('member_parcels',[s])]
+        rows={r['parcel_id']:deepcopy(r) for r in source_rows};selected=sorted(set(parcel_ids))
+        if set(selected)-set(rows):raise ValueError('Selection contains a parcel outside the saved candidate records')
+        source=cache or SharedCache(fallback_roots=[root/'public'],timeout=20)
+        bounded=CappedCache(source,max_requests,300,cancel,refresh_stale=True)
+        as_of=datetime.now(ZoneInfo('America/New_York')).date().isoformat();result=deepcopy(previous)
+        changes=[];errors=[];new_sources=[]
+        def fetch(pid):
+            item=bounded.fetch_json(f'{BILLING}/{int(pid)}/details')
+            return item,summarize_bill(item['data'],pid,as_of)
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            tasks={executor.submit(fetch,pid):pid for pid in selected}
+            for done,task in enumerate(as_completed(tasks),1):
+                pid=tasks[task];old=rows[pid]
+                try:
+                    item,bill=task.result();new_sources.append(item['provenance'])
+                    if not old.get('parcel_record'):raise ValueError('Saved parcel match needs rebuilding before a targeted update')
+                    identity_changed=any(old['billing'].get(k)!=bill.get(k) for k in ('owner1','owner2','address','gross_area_sqft','property_type'))
+                    raw_shape=(item['data'].get('Parcel') or {}).get('Shape')
+                    if raw_shape and old.get('parcel_geometry'):
+                        from shapely import wkt
+                        from shapely.ops import transform
+                        from pyproj import Transformer
+                        boundary=transform(Transformer.from_crs(4326,2272,always_xy=True).transform,wkt.loads(raw_shape))
+                        identity_changed|=boundary.hausdorff_distance(shape(old['parcel_geometry']))>1
+                    if identity_changed:changes.append({'parcel_id':pid,'reason':'Public parcel identity/boundary/owner changed; match index invalidated'})
+                    match={'parcel':{'properties':old['parcel_record'],'geometry':old.get('parcel_geometry')},'systems':old['systems']}
+                    row,excluded=rank_prospect(pid,match,bill)
+                    result['excluded']=[e for e in result['excluded'] if e.get('parcel_id')!=pid]
+                    if row:
+                        row['billing_source']=item['provenance'];row['selected_record_update']={'status':'updated_or_reused_fresh','at':now()}
+                        if identity_changed:row['history_flags'].append('Owner/boundary changed; verify site match before assessment')
+                        rows[pid]=row
+                    else:
+                        rows.pop(pid);result['excluded'].append({'parcel_id':pid,'address':bill['address'],**excluded})
+                except Exception as exc:
+                    errors.append({'stage':'selected_billing','parcel_id':pid,'error':str(exc)})
+                    old['selected_record_update']={'status':'failed_previous_record_retained','error':str(exc),'at':now()}
+                if progress:progress(stage='selected_records',completed=done,total=len(selected))
+        if cancel and cancel.is_set():raise SourceError('Selected update cancelled; previous saved result retained')
+        if changes:invalidate_matches(root,'Selected parcel identity or boundary changed')
+        result.update(id=uuid.uuid4().hex,at=now(),as_of=as_of,parent_run_id=previous['id'],selected_parcel_ids=selected,
+            match_changes=changes,selected_update_failures=errors,elapsed_seconds=round(time.perf_counter()-started,3))
+        result['failures']=result.get('failures',[])+errors;result['source_snapshots']+=new_sources
+        result['status']='partial' if result['failures'] or result.get('invalid_systems') else 'complete'
+        result['acquisition_budget']={'max_new_requests':max_requests,'new_requests':bounded.requests,'workers':2,'max_seconds':300,'selected_parcel_count':len(selected)}
+        result['counts']['failed_requests_or_geometry']=len(result['failures'])
+        result['counts']['exclusions_by_status']={s:sum(e['status']==s for e in result['excluded']) for s in sorted({e['status'] for e in result['excluded']})}
+        finish_ranking(result,list(rows.values()),50,as_of);save_result(root,result)
+    return result
+
+
 def run_scan(root=None,**kwargs):
     root=Path(root or ROOT/'data/prospects')
     with scan_lock(root):return _run_scan(root,**kwargs)
+
+
+def match_key(systems):
+    return sha256(canonical(sorted(systems,key=lambda f:str(props(f).get('objectid'))))).hexdigest()
+
+
+def read_matches(root,systems,cache,as_of):
+    path=Path(root)/'matches.json'
+    if not path.exists():return None
+    data=json.loads(path.read_text());digest=data.pop('sha256',None)
+    if sha256(canonical(data)).hexdigest()!=digest:raise ValueError('Persistent match hash mismatch')
+    if data['version']!=1 or data['match_key']!=match_key(systems):return None
+    if freshness({'retrieved_at':data['at']},as_of,90)['status']!='fresh':return None
+    source=getattr(cache,'cache',cache)
+    for item in data['sources']:
+        if not hasattr(source,'_read'):return None
+        current=source._read(item['url'])
+        if not current or current[1]['sha256']!=item['sha256']:return None
+        if freshness(current[1],as_of,90)['status']!='fresh':return None
+    return data
+
+
+def write_matches(root,systems,parcels,matches,held,errors,sources):
+    from drainage_core.saved import atomic_json
+    data={'version':1,'at':now(),'match_key':match_key(systems),'parcels':parcels,'matches':matches,
+          'held':held,'errors':errors,'sources':sources}
+    data['sha256']=sha256(canonical(data)).hexdigest();atomic_json(Path(root)/'matches.json',data)
+
+
+def invalidate_matches(root,reason):
+    path=Path(root)/'matches.json'
+    if path.exists():path.rename(Path(root)/('matches-invalidated-'+uuid.uuid4().hex+'.json'))
+    return reason
 
 
 def _run_scan(root, *, refresh=False, limit=50, workers=2, progress=None, cache=None,
@@ -386,7 +485,7 @@ def _run_scan(root, *, refresh=False, limit=50, workers=2, progress=None, cache=
     root.mkdir(parents=True, exist_ok=True)
     if not 1 <= limit <= 200 or not 1 <= workers <= 2 or not 0<=max_requests<=80 or not 0<max_seconds<=300:
         raise ValueError('Limit 1–200, workers 1–2, new requests 0–80, acquisition window <=300 seconds')
-    raw_cache = cache or Cache(root/'public', timeout=20)
+    raw_cache = cache or SharedCache(fallback_roots=[root/'public'],timeout=20)
     # Injected fixture caches have no network. Real caches always get a hard budget.
     cache = CappedCache(raw_cache,max_requests,max_seconds,cancel,refresh_stale) if isinstance(raw_cache,Cache) else raw_cache
     as_of = datetime.now(ZoneInfo('America/New_York')).date().isoformat()
@@ -417,14 +516,19 @@ def _run_scan(root, *, refresh=False, limit=50, workers=2, progress=None, cache=
     selected=sorted(projects,key=lambda k:(-sum(shape(f['geometry']).area for f in projects[k]),str(k)))[:candidate_projects]
     selected_systems=[f for k in selected for f in projects[k]]
     seeds=[max(projects[k],key=lambda f:shape(f['geometry']).area) for k in selected]
-    # First query five projects. If that small sample fails, do not expand.
-    first, parcel_sources, failures = find_parcels(seeds[:5], cache, refresh, workers, notify)
-    if failures or not first:
-        raise SourceError('Five-project parcel smoke check failed; expansion stopped')
-    rest, more_sources, more_failures=find_parcels(seeds[5:],cache,refresh,workers,notify)
-    parcels=list({str(props(f)['parcelid']):f for f in first+rest}.values())
-    parcel_sources+=more_sources;failures+=more_failures
-    matches, ambiguous, geometry_errors = match_systems(selected_systems, parcels)
+    persisted=None if refresh else read_matches(root,selected_systems,cache,as_of)
+    if persisted:
+        parcels=persisted['parcels'];parcel_sources=persisted['sources'];failures=[]
+        matches=persisted['matches'];ambiguous=persisted['held'];geometry_errors=persisted['errors']
+    else:
+        # First query five projects. If that small sample fails, do not expand.
+        first, parcel_sources, failures = find_parcels(seeds[:5], cache, refresh, workers, notify)
+        if failures or not first:raise SourceError('Five-project parcel smoke check failed; expansion stopped')
+        rest, more_sources, more_failures=find_parcels(seeds[5:],cache,refresh,workers,notify)
+        parcels=list({str(props(f)['parcelid']):f for f in first+rest}.values())
+        parcel_sources+=more_sources;failures+=more_failures
+        matches, ambiguous, geometry_errors = match_systems(selected_systems, parcels)
+        if not failures:write_matches(root,selected_systems,parcels,matches,ambiguous,geometry_errors,parcel_sources)
     failures.extend(geometry_errors)
     exclusions, targets = [], {}
     for pid, match in matches.items():
@@ -468,6 +572,7 @@ def _run_scan(root, *, refresh=False, limit=50, workers=2, progress=None, cache=
         'claim': 'Records-only prospect ranking. No imagery, AI classification, terrain, routing or full assessment run. No qualifying savings or award established.',
         'ranking': 'Known no area credit first, then partial IA credit (<75%), then substantial IA credit. Within each group: descending annual current public charge, address, parcel ID. Threshold is a screening heuristic, not eligibility or a calibrated probability.',
         'coverage': 'Bounded candidate pool, not an exhaustive citywide top 50. Preselect the largest mapped existing private projects by summed footprint area (not managed area), query one representative system per project, then check dominant (>=80%) footprint overlap. Shared/cross-parcel systems and unlisted systems may be missed. No imagery opportunity search.',
+        'persistent_matches':'reused' if persisted else 'rebuilt',
         'acquisition_budget':{'max_new_requests':max_requests,'new_requests':getattr(cache,'requests',0),'max_seconds':max_seconds,'workers':workers,'candidate_project_limit':candidate_projects},
         'ownership_policy': 'Government/public-body names in either parcel or billing owner fields excluded. Missing owners and unresolved authority/state-related ownership held for review. Public name screening does not verify beneficial ownership.',
         'counts': {'inventory_features': len(inventory['features']), 'system_status': source_states,
@@ -563,7 +668,12 @@ def main():
     parser.add_argument('--offline', action='store_true',help='Use cached records only; make zero network requests')
     parser.add_argument('--rerank', action='store_true',help='Rank saved matched parcels only; zero acquisition or spatial queries')
     parser.add_argument('--update-stale',action='store_true',help='Explicitly refresh only stale/undated or missing cached records, under the same cap')
+    parser.add_argument('--parcels',nargs='+',help='Update only these saved member parcel IDs; no inventory or matching calls')
     args = parser.parse_args()
+    if args.parcels:
+        if args.refresh or args.rerank:parser.error('Selected updates cannot use --refresh or --rerank')
+        result=update_selected(args.output,args.parcels,max_requests=0 if args.offline else 80)
+        print(json.dumps({'id':result['id'],'selected':args.parcels,'new_requests':result['acquisition_budget']['new_requests']}));return
     if args.rerank and (args.refresh or args.update_stale):parser.error('Local reranking cannot refresh records')
     if args.rerank:
         result=rerank_saved(args.output,args.limit);print(json.dumps({'id':result['id'],'counts':result['counts'],'new_requests':0}));return

@@ -4,7 +4,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('nod
 const source=fs.readFileSync('drainage_core/web/app.js','utf8');
 class Element{
  constructor(id=''){this.id=id;this.value='';this.innerHTML='';this.textContent='';this.dataset={};this.children=[];this.options=[];this.files=[];this.checked=false;this.tagName='INPUT';this.type='text';}
- addEventListener(){}setAttribute(){}append(child){this.children.push(child);}replaceChildren(){this.children=[];}querySelector(){return null;}querySelectorAll(){return this.fields||[];}scrollIntoView(){}remove(){}showModal(){}close(){}
+ addEventListener(){}setAttribute(){}append(child){this.children.push(child);}replaceChildren(){this.children=[];}querySelector(){return null;}querySelectorAll(){return this.fields||[];}scrollIntoView(){}remove(){}showModal(){}close(){}insertAdjacentHTML(_where,html){this.innerHTML=html+this.innerHTML;}
 }
 const clone=x=>JSON.parse(JSON.stringify(x));
 const site={schema_version:1,id:'ui-fixture',name:'Site <script>bad</script>',crs:'EPSG:2272',parcel:{type:'Polygon',coordinates:[[[0,0],[20,0],[20,20],[0,20],[0,0]]]},features:{type:'FeatureCollection',features:[]},sources:[],corrections:[],assessment:{records:[],attachments:[],credit_history:[],snapshots:[]}};
@@ -50,5 +50,16 @@ async function harness(mode){
  assert.match(g.node('research-results').innerHTML,/&lt;img/);
  assert(!g.node('research-results').innerHTML.includes('<script>bad</script>'));
  assert.equal(typeof g.node('show-research').onchange,'function');
+ const invalid=await p.run("modeledCombinedHtml({status:'invalidated',reason:'Historical <script>bad</script> figures invalidated'})");
+ assert.match(invalid,/Model-derived savings unavailable/);assert(!invalid.includes('<script>'));
+ const subset=await p.run("modeledScenarioRows([{bound:'upper',status:'calculated',gross_annual_reduction:20,financial_scope:'credits only',scope:'calculable subset',excluded_records:[{record_id:'off',reasons:['outside parcel']}],net_with_area_correction:{status:'calculated',gross_annual_reduction:-200}}])");
+ assert.match(subset,/credits only/);assert.match(subset,/calculable subset/);assert.match(subset,/Excluded off/);assert.match(subset,/Net with area correction/);assert.match(subset,/-200/);
+ assert.equal(p.node('assessment-support-reviewed').checked,false,'Source support review must not carry over automatically');
+ const beforePending=p.calls.length;
+ await p.run("result.assessment.baseline_refresh={status:'pending_review',fields_changed:['ia_sqft'],candidate:{ia_sqft:123}};renderAssessment()");
+ assert.match(p.node('assessment-results').innerHTML,/Public billing changes need review/);
+ assert.match(p.node('assessment-results').innerHTML,/Savings are blocked/);
+ assert.equal(typeof p.node('baseline-use-public').onclick,'function');assert.equal(typeof p.node('baseline-retain').onclick,'function');
+ assert.equal(p.calls.length,beforePending,'Rendering a pending baseline must not recalculate or acquire');
  console.log('UI behavior checks passed: local open, explicit assessment, unknowns, escaping, review lineage, history dates, GIS isolation.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

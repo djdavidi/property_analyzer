@@ -28,10 +28,15 @@ def modeled_record_section(info):
 def modeled_combined_section(data):
     if not data:return ''
     e=lambda x:escape(str(x))
+    if data.get('status') in ('invalidated','blocked'):return '<h3>Model-derived savings unavailable</h3><p>'+e(data.get('reason',data.get('claim')))+'</p>'
     n=lambda v:'Unknown' if v is None else f'{v:,.2f}'
     out=['<h3>AI/catchment-informed alternatives</h3><p>'+e(data['claim'])+'</p><p>These are alternatives to the existing findings and to each other. Tested bounds are assumptions, not statistical confidence. No approval or actual savings is established.</p><table><tr><th>Drainage run / area assumption</th><th>Status</th><th>Monthly reduction</th><th>Annual reduction</th><th>Blockers</th></tr>']
     for s in data.get('combined',[]):
-        out.append('<tr><td>'+e(s['name']+' / '+s['bound'])+'</td><td>'+e(s['status'])+'</td><td>'+n(s.get('gross_monthly_reduction'))+'</td><td>'+n(s.get('gross_annual_reduction'))+'</td><td>'+e('; '.join(s.get('reasons',[])))+'</td></tr>')
+        notes=s.get('reasons',[])+[s.get('financial_scope',''),s.get('scope','')]
+        if s.get('excluded_records'):notes.append('Excluded records require review: '+', '.join(r['record_id'] for r in s['excluded_records']))
+        out.append('<tr><td>'+e(s['name']+' / '+s['bound'])+'</td><td>'+e(s['status'])+'</td><td>'+n(s.get('gross_monthly_reduction'))+'</td><td>'+n(s.get('gross_annual_reduction'))+'</td><td>'+e('; '.join(notes))+'</td></tr>')
+        net=s.get('net_with_area_correction') or {}
+        out.append('<tr><td>Net with area correction / '+e(s['name']+' / '+s['bound'])+'</td><td>'+e(net.get('status','blocked'))+'</td><td>'+n(net.get('gross_monthly_reduction'))+'</td><td>'+n(net.get('gross_annual_reduction'))+'</td><td>'+e('; '.join(net.get('reasons',[])))+'</td></tr>')
     out.append('</table><h4>Area appeal assumptions</h4><p>Negative reductions mean bill increases. These cover assumptions do not establish a complete survey or a supported appeal.</p><table><tr><th>Assumption</th><th>Gross area (ft²)</th><th>Impervious area (ft²)</th><th>Monthly reduction</th><th>Annual reduction</th></tr>')
     for v in data.get('surface_scenario',{}).get('area_alternatives',[]):
         out.append('<tr><td>'+e(v['name'])+'</td><td>'+n(v['ga_sqft'])+'</td><td>'+n(v['ia_sqft'])+'</td><td>'+n(v.get('monthly_savings'))+'</td><td>'+n(v.get('annual_savings'))+'</td></tr>')
@@ -43,6 +48,21 @@ def modeled_combined_section(data):
             out.append('<tr><td>'+e(name)+'</td><td>'+n(v.get('area_sqft'))+'</td><td>'+e(v['status'])+'</td><td>'+n(v.get('gross_monthly_reduction'))+'</td><td>'+n(v.get('gross_annual_reduction'))+'</td></tr>')
         out.append('</table>')
     out.append('<details><summary>Canopy, surface corrections, model ledgers and image context</summary><pre>'+e(json.dumps({k:v for k,v in data.items() if k!='records'},indent=2))+'</pre></details>')
+    return ''.join(out)
+
+
+def curve_number_section(w):
+    if not w:return ''
+    e=lambda v:escape(str(v if v is not None else 'Unknown'))
+    n=lambda v:'Unknown' if v is None else f'{v:,.2f}'
+    out=['<h3>Open-space curve-number worksheet</h3><p>'+e(w['claim'])+'</p>',
+         '<p>Property open-space CN: '+n(w['average_cn'])+'; mapped open-space average: '+n(w['mapped_open_space_average_cn'])+'; known portion only: '+n(w['known_portion_average_cn'])+'.</p>',
+         '<p>Mapped open space: '+n(w['mapped_open_space_sqft'])+' sq ft; unresolved CN inputs: '+n(w['unknown_cn_area_sqft'])+' sq ft; image candidates: '+n(w['image_candidate_area_sqft'])+' sq ft; unresolved ground: '+n(w['unresolved_ground_sqft'])+' sq ft.</p>',
+         '<p>'+e(w['formula'])+'. Standard credit factor: '+(n(w['credit_factor']*100)+'%' if w['credit_factor'] is not None else 'Unknown')+'. '+e(w['rounding'])+'</p>',
+         '<p>'+e('; '.join(w['issues']))+'</p><table><tr><th>Area / basis</th><th>Area (sq ft)</th><th>Cover / condition</th><th>Soil group / map unit</th><th>CN / candidate range</th><th>Area × CN</th><th>Unknowns</th></tr>']
+    for r in w['rows']:
+        out.append('<tr><td>'+e(r['feature_id'])+' / '+e(r['basis'])+'</td><td>'+n(r['area_sqft'])+'</td><td>'+e(r['cover'])+' / '+e(r['condition'])+'</td><td>'+e(r['soil_group'])+' / '+e(r['mapunit_name'])+'</td><td>'+n(r['curve_number'])+' / '+n(r['candidate_cn_min'])+'–'+n(r['candidate_cn_max'])+'</td><td>'+n(r['area_times_cn'])+'</td><td>'+e('; '.join(r['missing']))+'</td></tr>')
+    out.append('</table><details><summary>Worksheet inputs, soil components, requests, dates and hashes</summary><pre>'+e(json.dumps(w,indent=2))+'</pre></details>')
     return ''.join(out)
 
 
@@ -65,6 +85,7 @@ def sections(case, result):
             'rgb_green_overlap_historical_canopy_sqft':auto.get('image_green_overlap_historical_canopy_sqft'),
             'rgb_roof_vegetation_candidate_sqft':auto.get('roof_vegetation_candidate_sqft'),
             'landcover_method':auto.get('landcover',{}).get('settings'),'prediction_sha256':auto.get('landcover',{}).get('prediction_sha256'),'model_unavailable':auto.get('landcover',{}).get('model_unavailable'),'image_method':auto.get('image_method'),'warnings':auto.get('warnings')}))
+    output.append(curve_number_section(assessment.get('open_space_curve_number')))
     for category in assessment['categories']:
         output.append('<h3>'+e(category['label'])+' — '+e(category['status'])+'</h3>')
         if category.get('modeled_context'):

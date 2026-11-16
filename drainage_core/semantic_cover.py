@@ -46,7 +46,7 @@ def semantic_cover(content,bounds,case,source,*,runtime,weights,cache=None):
         'pixel_dimensions':[width,height],'rendered_bounds':list(bounds),'rendered_crs':case['crs'],
         'original_pixel_dimensions':[pixels.shape[1],pixels.shape[0]],'target_pixel_metres':target,
         'tile_size':512,'stride':384,'minimum_top_score':.60,'minimum_score_margin':.15,
-        'source_sha256':source['sha256'],'class_mapping':{'1':'bare_soil','2':'grass_shrub','3':'other_pavement',
+        'source_sha256':source['sha256'],'interpretation_version':'oem-appearance-v2','class_mapping':{'1':'bare_soil','2':'grass_shrub','3':'developed_space',
         '4':'road','5':'canopy','6':'water','7':'grass_shrub (cropland grouped)','8':'roof'}}
     settings['worker_sha256']=sha256(Path(__file__).with_name('model_worker.py').read_bytes()).hexdigest()
     key=sha256(__import__('json').dumps(settings,sort_keys=True).encode()).hexdigest()
@@ -76,15 +76,18 @@ def semantic_cover(content,bounds,case,source,*,runtime,weights,cache=None):
     # Map OEM's eight classes into the established reporting vocabulary.
     remap=np.array([0,3,2,7,6,1,4,2,5],dtype='uint8')
     classes=remap[labels]
+    from .remote_sensing import CLASS_NAMES
     result=classified_features(classes,bounds,case,{'family':'Local OpenEarthMap modeled cover',
-        'url':MODEL_PAGE,'sha256':source['sha256'],'vintage':source.get('source_vintage')})
+        'url':MODEL_PAGE,'sha256':source['sha256'],'vintage':source.get('source_vintage')},
+        class_names={**CLASS_NAMES,7:'developed_space'})
     result['model_coverage_complete']=result['coverage_complete'];result['coverage_complete']=False
     result['candidate_sqft']=result['classified_sqft'];result['classified_sqft']=None
     for feature in result['features']:
         props=feature['properties'];name=props['classification']
         feature['id']='auto-semantic-'+name
         props.update(layer='canopy_candidate' if name=='canopy' else 'vegetation_candidate' if name=='grass_shrub' else 'surface_candidate',
-            source_kind='modeled semantic estimate',model_sha256=MODEL_SHA256,physical_class_unverified=True)
+            source_kind='modeled semantic estimate',model_sha256=MODEL_SHA256,physical_class_unverified=True,
+            interpretation_version='oem-appearance-v2')
         props.pop('class',None)
     for row in result['estimates']:
         row['basis']='Modeled semantic image estimate; not a reviewed physical observation'

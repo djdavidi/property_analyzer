@@ -84,6 +84,9 @@ def review_record(case,record,reason,at=None):
     if previous:
         for key in ('source','raw_record','public_geometry','public_geometry_role'):
             if key not in entry and key in previous: entry[key]=deepcopy(previous[key])
+        if previous.get('source_update',{}).get('status')=='pending_review':
+            entry['source_update']={**deepcopy(previous['source_update']),'status':'reviewed',
+                'reason':reason.strip(),'reviewed_at':at or now()}
     a['reviews'].append({'id':str(uuid.uuid4()),'at':at or now(),'reason':reason.strip(),
                          'record_id':entry['id'],'before':deepcopy(previous),'after':deepcopy(entry),
                          'before_sha256':_digest(previous) if previous else None,'after_sha256':_digest(entry)})
@@ -96,17 +99,66 @@ def gather(case,cache,refresh=True):
     from .assessment_sources import discover
     result=deepcopy(case);a=ensure_assessment(result)
     discovered=discover(result,cache,refresh)
-    old={r['id'] for r in a['records']}
-    # Rerun never replaces a reviewed candidate or erases a disappeared source record.
-    a['records'].extend(deepcopy(r) for r in discovered['records'] if r['id'] not in old)
+    old={r['id']:r for r in a['records']};reviewed={r['record_id'] for r in a.get('reviews',[]) if r.get('record_id')}
+    for incoming in discovered['records']:
+        previous=old.get(incoming['id'])
+        if previous is None:
+            a['records'].append(deepcopy(incoming));continue
+        # Compare source content rather than retrieval timestamps/enrichment.
+        def source_value(r):return {k:r.get(k) for k in ('facts','public_geometry','raw_record','public_geometry_role')}
+        current_source=previous.get('source_update',{}).get('candidate',previous)
+        if source_value(current_source)==source_value(incoming):continue
+        a.setdefault('record_history',[]).append({'at':now(),'record_id':incoming['id'],
+            'before':deepcopy(previous),'incoming':deepcopy(incoming)})
+        if previous['id'] not in reviewed and previous.get('decision')=='candidate' and previous.get('basis')=='public_candidate':
+            a['records'][a['records'].index(previous)]=deepcopy(incoming)
+        else:
+            previous['source_update']={'status':'pending_review','candidate':deepcopy(incoming),'observed_at':now(),
+                'reason':'Public source changed; retained reviewed facts require reconciliation'}
+    present={r['id'] for r in discovered['records']}
+    complete_urls={s.get('url') for s in discovered['source_status'] if s.get('status') in ('retrieved','reused_recent_record')}
+    for previous in a['records']:
+        if previous['id'] not in present and previous.get('source',{}).get('url') in complete_urls:
+            previous['source_update']={'status':'pending_review','observed_at':now(),
+                'reason':'Not returned by a completed source query; disappearance is not proof of removal or zero area'}
     for observation in discovered['observations']:
         observation={**observation,'observed_at':now()}
         observation['sha256']=_digest(observation)
         a['observations'].append(observation)
+        if observation.get('provider')=='PWD account/credit public record':
+            from .acquisition import normalize_billing
+            baseline=normalize_billing(observation.get('raw_record') or {})
+            keys=('ga_sqft','ia_sqft','existing_ga_credit_sqft','existing_ia_credit_sqft',
+                  'existing_iar_sqft','npdes_fraction','accounts','property_type','bill_date','published_monthly_total')
+            changes=[k for k in keys if (result.get('baseline') or {}).get(k)!=baseline.get(k)]
+            if changes:
+                a['baseline_refresh']={'status':'pending_review','candidate':baseline,'fields_changed':changes,
+                    'retained_baseline_sha256':_digest(result.get('baseline')),
+                    'source_observation_sha256':observation['sha256'],'observed_at':observation['observed_at'],
+                    'reason':'Public baseline differs; old invoice/manual facts retained, savings blocked until reviewed'}
     a['source_status']=deepcopy(discovered['source_status'])
     count=len(discovered['observations'])
     a['acquisition_runs']=a.get('acquisition_runs',[])+[{'at':now(),'source_status':deepcopy(discovered['source_status']),
                                                        'observation_sha256':[o['sha256'] for o in a['observations'][-count:]] if count else []}]
     existing={_digest(s) for s in result.get('sources',[])}
     result.setdefault('sources',[]).extend(deepcopy(s) for s in discovered['sources'] if _digest(s) not in existing)
+    from .soil_sources import acquire as acquire_soils
+    return acquire_soils(result,cache,refresh=refresh)
+
+
+def reconcile_baseline(case,reason,accept):
+    if not isinstance(reason,str) or not reason.strip() or not isinstance(accept,bool):
+        raise ValueError('Baseline review needs an explanation and explicit choice')
+    result=deepcopy(case);a=ensure_assessment(result);pending=a.get('baseline_refresh',{})
+    if pending.get('status')!='pending_review':raise ValueError('No pending public baseline change')
+    if pending['retained_baseline_sha256']!=_digest(result.get('baseline')):
+        raise ValueError('Baseline changed since public comparison; review current source again')
+    if accept:
+        candidate=pending['candidate']
+        if candidate.get('ga_sqft') is None or candidate.get('ia_sqft') is None:
+            raise ValueError('Incomplete public areas cannot replace the baseline')
+        result['baseline']=deepcopy(candidate)
+    a.setdefault('baseline_reviews',[]).append({'at':now(),'reason':reason.strip(),'accepted':accept,
+        'before':deepcopy(case.get('baseline')),'after':deepcopy(result.get('baseline')),'comparison':deepcopy(pending)})
+    a['baseline_refresh']={**pending,'status':'accepted' if accept else 'retained_by_review','reason':reason.strip()}
     return result

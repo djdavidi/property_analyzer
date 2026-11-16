@@ -4,6 +4,34 @@ This is the accepted product scope and decision record. See [STATE](STATE.md) fo
 current implementation, actual results and remaining gaps.
 The independent GIS engine and Philadelphia policy boundary remain intact.
 
+## Automatic open-space CN worksheet (accepted 2026-11-15)
+
+User requested automatic curve-number calculation from free public soil data and
+mapped open-space areas, with a worksheet exposing inputs and unknowns. Acquire
+USDA SSURGO during explicit assessment; preserve original response bytes, queries,
+hashes and prior snapshots. PWD Appendix A lookup and credit-factor interpretation
+remain in the jurisdiction layer over frozen GIS. Do not default missing cover,
+condition or soil, promote image candidates to pervious observations, or overwrite
+manual benefit CN/award facts. Distinguish property CN, complete mapped-subset CN,
+partial known-area average and image candidates. Review entries retain history and
+scope; automatic calculations remain conditional. No automatic savings allocation,
+application, deployment or publication is authorized by this addition.
+
+## Record and physical-artifact reuse (accepted 2026-11-15)
+
+Prioritize record reuse/shared caching, persistent system-to-parcel matches and
+selected-property updates. Use existing local caches and simple records/functions;
+preserve source bytes, capture dates, previous matches/results and input revisions.
+Selecting a site updates its member billing parcels, not the whole candidate pool.
+Retain request caps, explicit acquisition and government-owner screening.
+
+Billing, credit facts and tariff changes consume unchanged frozen physical GIS through
+the jurisdiction adapter. Main analysis/save/review paths must use this separation.
+Preserve original GIS input/artifact hashes and identify the current policy case
+separately. Boundary, surface, terrain, imagery/model, physical parameters or relevant
+source changes invalidate physical reuse. Unknown changes require recomputation.
+Missing or changed evidence never becomes verified savings or eligibility.
+
 ## Purpose and architecture
 
 The Villanova/Temple urban GSI drainage research is required alongside the current

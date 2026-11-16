@@ -112,6 +112,9 @@ def apply(case, gis_result, policy_inputs=None, tariff=None):
                     'ia_sqft':measurement[key],'appeal':scenarios['appeal_only']}
             except ValueError as exc:
                 surface_scenarios[name]={'status':'blocked','reason':str(exc)}
+    if working.get('assessment',{}).get('baseline_refresh',{}).get('status')=='pending_review':
+        billing={'status':'blocked','reason':'Public billing baseline changed; review the pending comparison before savings calculations'}
+        surface_scenarios={};warnings.append(billing['reason'])
     if not working.get('baseline',{}):
         warnings.append('Actual billing baseline unavailable')
     if not (working.get('baseline') or {}).get('actual_bill_verified'):
@@ -133,7 +136,9 @@ def apply(case, gis_result, policy_inputs=None, tariff=None):
                    'baseline':working.get('baseline'),'benefits':all_benefits,'tariff':selected_tariff,
                    'assessment':working.get('assessment'),'assessment_rules':assessment.get('rules'),
                    'assessment_as_of':assessment.get('as_of')}
-    return {
+    from ..quality import policy_fingerprint
+    output={
+        'policy_processing_fingerprint':policy_fingerprint(),
         'jurisdiction':PROFILE_ID,'profile_version':PROFILE_VERSION,'rule_version':RULE_VERSION,
         'gis_input_sha256':expected,
         'gis_analysis_sha256':analysis_digest,
@@ -143,6 +148,12 @@ def apply(case, gis_result, policy_inputs=None, tariff=None):
         'assessment':assessment,
         'warnings':list(dict.fromkeys(warnings)),
         'policy_claim':'Philadelphia PWD screening only; eligibility, approval and actual billed savings require separate evidence.'}
+    from drainage_core.quality import artifact_quality
+    if artifact_quality(gis_result)['status']=='invalidated':
+        from ..quality import safe_analysis
+        safe=safe_analysis({**gis_result,**output})
+        output={k:safe[k] for k in output};output['quality_review']=safe['quality_review']
+    return output
 
 
 evaluate = apply

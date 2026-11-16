@@ -96,9 +96,9 @@ class BillingRankingTests(unittest.TestCase):
 class WorkflowTests(unittest.TestCase):
     def test_freshness_explicit_dates_and_unknown(self):
         self.assertEqual(p.freshness({},'2026-11-15')['status'],'unknown')
-        self.assertEqual(p.freshness({'retrieved_at':'2026-10-16T00:00:00Z'},'2026-11-15')['status'],'fresh')
+        self.assertEqual(p.freshness({'retrieved_at':'2026-10-16T12:00:00Z'},'2026-11-15')['status'],'fresh')
         self.assertEqual(p.freshness({'retrieved_at':'2026-10-15T00:00:00Z'},'2026-11-15')['status'],'stale')
-        self.assertEqual(p.freshness({'retrieved_at':'2026-11-16T00:00:00Z'},'2026-11-15')['status'],'future_date')
+        self.assertEqual(p.freshness({'retrieved_at':'2026-11-16T12:00:00Z'},'2026-11-15')['status'],'future_date')
 
     def test_stale_refresh_is_explicit_and_offline_cannot_send(self):
         class Cache:

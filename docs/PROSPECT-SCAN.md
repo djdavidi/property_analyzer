@@ -2,6 +2,10 @@
 
 **Current v2:** [compact storage, ranking and controls](COMPACT-SCAN-IMPROVEMENTS.md).
 Use `--rerank` for saved matched records only; `/prospects` defaults to local reranking.
+Shared record caching, persistent matches and selected-property updates are now
+implemented; see [controls and validation](RECORD-AND-GIS-REUSE.md). In the page,
+select sites and use **Update selected properties** to update only their member bills.
+Fresh records are reused; missing/stale selected records alone may use the bounded lookup.
 Top 50 now means owner/site prospects with visible member parcel bills. Updated run
 `data/prospects/runs/fc0d8a3d75864b6589d5a329503d6d6e/`: 50 sites / 52 member parcels,
 groups 21/8/21. Current annual charge determines economic scale across credit groups;

@@ -14,7 +14,7 @@ def fixture():
     result={'engine_version':ENGINE_VERSION,'input_sha256':input_hash(case),'measurement':{'ia_sqft':25},
         'drainage':{'labels':[0]*1000,'outlets':[1]*1000,'counts':[3],'next_cells':[2]*1000,'catchments':[]},
         'research_drainage':{'primary':{'rasters':{'dem':[1]*1000},'catchments':[]}},
-        'modeled_integration':{'ai_roof_drainage':{'primary':{'rasters':[1]*1000}},'runs':[]},
+        'modeled_integration':{'version':'ai-drainage-integration-v2','ai_roof_drainage':{'primary':{'rasters':[1]*1000}},'runs':[]},
         'assessment':{'as_of':'2026-11-15','economics':{'nominal':{'monthly':15.2}}}}
     return case,result
 

@@ -25,6 +25,8 @@ def record(category='green_roof',identifier='r',start=0):
                  upstream_smp_present=False,permit_id='SYNTHETIC-ONLY',effective_from='2020-01-01',
                  expires_on='2028-03-23',compliance_from='2025-11-15',compliance_through='2026-11-15')
     return {'id':identifier,'category':category,'decision':'confirmed','basis':'documented','facts':facts,
+            'evidence_review':{'support_reviewed':True,'property_match':True,'period_match':True,
+                              'fact_keys':list(facts),'note':'Invented reviewer checks invented property and period'},
             'geometry':geom,'footprint_geometry':geom,'managed_area_sqft':1000,
             'evidence_refs':[{'source_url':'https://example.test/synthetic-only','page':2}]}
 
@@ -111,6 +113,7 @@ class AssessmentPolicyTests(unittest.TestCase):
         c['assessment']['existing_credit_allocations']=[{'id':'old-award','category':'management','geometry':existing['geometry'],
             'ga_credit_sqft':800,'ia_credit_sqft':800,'iar_sqft':0,'facts':{'approved_ledger_confirmed':True},'evidence_refs':existing['evidence_refs']}]
         new=record(identifier='new-roof',start=3.048);new['facts']['existing_overlap_reconciled']=True
+        new['evidence_review']['fact_keys'].append('existing_overlap_reconciled')
         c['assessment']['records']=[new,record('industrial_npdes','permit')]
         scenario=run(c,g)['economics']['documented']
         self.assertEqual(scenario['status'],'calculated',scenario)
@@ -195,6 +198,7 @@ class AssessmentPolicyTests(unittest.TestCase):
         self.assertEqual(run(c,g)['economics']['baseline']['final_ia_sqft'],9200)
         self.assertEqual(run(c,g)['economics']['documented']['status'],'blocked')
         c['baseline']['existing_credits_spatially_reconciled']=True;r['facts']['existing_overlap_reconciled']=True
+        r['evidence_review']['fact_keys'].append('existing_overlap_reconciled')
         self.assertEqual(run(c,g)['economics']['documented']['status'],'blocked')
         c['assessment']['existing_credit_allocations']=[{'id':'old-award','category':'management',
             'geometry':record(start=3.048)['geometry'],'ga_credit_sqft':800,'ia_credit_sqft':800,'iar_sqft':0,
@@ -293,6 +297,7 @@ class AssessmentPolicyTests(unittest.TestCase):
         c['assessment']['existing_credit_allocations']=[{'id':'old','category':'management','geometry':old['geometry'],
             'ga_credit_sqft':800,'ia_credit_sqft':800,'iar_sqft':0,'facts':{'approved_ledger_confirmed':True},'evidence_refs':old['evidence_refs']}]
         new['facts']['existing_overlap_reconciled']=True;c['assessment']['records']=[new]
+        new['evidence_review']['fact_keys'].append('existing_overlap_reconciled')
         result=run(c,g)['economics']
         self.assertEqual(result['documented']['status'],'blocked')
         self.assertTrue(any('physical impervious' in r for r in result['documented']['reasons']))
@@ -301,6 +306,7 @@ class AssessmentPolicyTests(unittest.TestCase):
     def test_aggregate_credit_does_not_establish_reserved_physical_capacity(self):
         c,g=fixture();r=record();r['geometry']=mapping(box(0,0,28.956,30.48));r['managed_area_sqft']=9500
         r['facts']['existing_overlap_reconciled']=True;c['assessment']['records']=[r]
+        r['evidence_review']['fact_keys'].append('existing_overlap_reconciled')
         c['baseline'].update(existing_ga_credit_sqft=800,existing_ia_credit_sqft=800,existing_credits_spatially_reconciled=True)
         # Scalar credits800 plus new7600 fit IA10000, but their physical
         # occupancy is unknown: an old1000 region plus new9500 would not fit.
@@ -316,6 +322,7 @@ class AssessmentPolicyTests(unittest.TestCase):
         c['assessment']['existing_credit_allocations']=[{'id':'old','category':'management','geometry':old['geometry'],
             'ga_credit_sqft':800,'ia_credit_sqft':700,'iar_sqft':0,'facts':{'approved_ledger_confirmed':True},'evidence_refs':old['evidence_refs']}]
         new['facts']['existing_overlap_reconciled']=True;c['assessment']['records']=[new]
+        new['evidence_review']['fact_keys'].append('existing_overlap_reconciled')
         self.assertEqual(run(c,g)['economics']['documented']['status'],'blocked')
 
     def test_open_space_allocations_need_recorded_capacity_before_correction(self):

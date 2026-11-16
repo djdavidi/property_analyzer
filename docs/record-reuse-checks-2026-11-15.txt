@@ -1,0 +1,183 @@
+Shared record and physical GIS reuse — 2026-11-15 (America/New_York)
+Base: c883f7f825363d38c7d98aaad9c0cb37df8fb7e5, main, uncommitted task changes.
+Python 3.12/.venv; no new public data, model inference, browser or full assessment.
+
+Initial focused run: PYTHONPATH=tests .venv/bin/python -m unittest test_record_reuse test_physical_reuse -v
+test_changed_cached_parcel_source_invalidates_match (test_record_reuse.PersistentSelectedTests.test_changed_cached_parcel_source_invalidates_match) ... ok
+test_changed_system_geometry_and_tampered_index_are_rejected (test_record_reuse.PersistentSelectedTests.test_changed_system_geometry_and_tampered_index_are_rejected) ... ok
+test_failed_selected_record_retains_earlier_value_and_flags_review (test_record_reuse.PersistentSelectedTests.test_failed_selected_record_retains_earlier_value_and_flags_review) ... ok
+test_new_government_owner_excluded_and_match_index_invalidated (test_record_reuse.PersistentSelectedTests.test_new_government_owner_excluded_and_match_index_invalidated) ... ok
+test_repeat_cached_scan_does_not_query_or_recompute_matches (test_record_reuse.PersistentSelectedTests.test_repeat_cached_scan_does_not_query_or_recompute_matches) ... FAIL
+test_selected_update_only_reads_selected_bill_and_preserves_others (test_record_reuse.PersistentSelectedTests.test_selected_update_only_reads_selected_bill_and_preserves_others) ... ok
+test_unknown_selection_never_requests_data (test_record_reuse.PersistentSelectedTests.test_unknown_selection_never_requests_data) ... ok
+test_bad_legacy_bytes_are_rejected (test_record_reuse.SharedRecordTests.test_bad_legacy_bytes_are_rejected) ... ok
+test_explicit_refresh_stale_and_nonrecord_image_are_not_silently_reused (test_record_reuse.SharedRecordTests.test_explicit_refresh_stale_and_nonrecord_image_are_not_silently_reused) ... ok
+test_fresh_records_reused_even_when_full_workflow_requests_refresh (test_record_reuse.SharedRecordTests.test_fresh_records_reused_even_when_full_workflow_requests_refresh) ... ok
+test_latest_valid_legacy_capture_promoted_without_retimestamping (test_record_reuse.SharedRecordTests.test_latest_valid_legacy_capture_promoted_without_retimestamping) ... ok
+test_billing_and_tariff_changes_reuse_original_artifact_and_hash (test_physical_reuse.PhysicalReuseTests.test_billing_and_tariff_changes_reuse_original_artifact_and_hash) ... ok
+test_corrupt_input_and_artifact_do_not_silently_reuse_or_reroute (test_physical_reuse.PhysicalReuseTests.test_corrupt_input_and_artifact_do_not_silently_reuse_or_reroute) ... ok
+test_physical_and_unknown_fields_invalidate (test_physical_reuse.PhysicalReuseTests.test_physical_and_unknown_fields_invalidate) ... ERROR
+test_physical_change_reaches_normal_analysis_path (test_physical_reuse.PhysicalReuseTests.test_physical_change_reaches_normal_analysis_path) ... ok
+test_save_policy_edit_keeps_frozen_gis_and_adds_current_revision (test_physical_reuse.PhysicalReuseTests.test_save_policy_edit_keeps_frozen_gis_and_adds_current_revision) ... ok
+
+======================================================================
+ERROR: test_physical_and_unknown_fields_invalidate (test_physical_reuse.PhysicalReuseTests.test_physical_and_unknown_fields_invalidate)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/david/projects/property_analyzer/tests/test_physical_reuse.py", line 53, in test_physical_and_unknown_fields_invalidate
+    changed=deepcopy(case);changed['parcel']['coordinates'][0]=[[0,0],[1,0],[1,1],[0,0]]
+                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^
+TypeError: 'tuple' object does not support item assignment
+
+======================================================================
+FAIL: test_repeat_cached_scan_does_not_query_or_recompute_matches (test_record_reuse.PersistentSelectedTests.test_repeat_cached_scan_does_not_query_or_recompute_matches)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/david/projects/property_analyzer/tests/test_record_reuse.py", line 71, in test_repeat_cached_scan_does_not_query_or_recompute_matches
+    result=p.run_scan(root,cache=records)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/david/projects/property_analyzer/stormwater/prospects.py", line 442, in run_scan
+    with scan_lock(root):return _run_scan(root,**kwargs)
+                                ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/david/projects/property_analyzer/stormwater/prospects.py", line 521, in _run_scan
+    first, parcel_sources, failures = find_parcels(seeds[:5], cache, refresh, workers, notify)
+                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/david/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/unittest/mock.py", line 1139, in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/david/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/unittest/mock.py", line 1143, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/david/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/unittest/mock.py", line 1198, in _execute_mock_call
+    raise effect
+AssertionError: Reuse matches
+
+----------------------------------------------------------------------
+Ran 16 tests in 0.098s
+
+FAILED (failures=1, errors=1)
+
+Intermediate failures: initial loopback test bind raised PermissionError [Errno 1]; allowed local rerun passed. UTC-to-Philadelphia freshness correction changed two midnight date fixture expectations. A removed-baseline assertion initially used an absent billing.current field; changed to the existing blocked status contract. First cached diagnostic invocation lacked PYTHONPATH and failed to import stormwater; corrected below. None counted as a pass.
+
+Final command: PYTHONPATH=tests .venv/bin/python -m unittest test_record_reuse test_physical_reuse test_prospects test_saved_results test_saved_http test_jurisdiction_adapter test_core_boundaries.CoreBoundaryTests.test_fresh_core_imports_cannot_load_legacy_or_jurisdiction_packages -v
+Local HTTP permission allowed; public acquisition mocked. Exit 0.
+test_changed_cached_parcel_source_invalidates_match (test_record_reuse.PersistentSelectedTests.test_changed_cached_parcel_source_invalidates_match) ... ok
+test_changed_system_geometry_and_tampered_index_are_rejected (test_record_reuse.PersistentSelectedTests.test_changed_system_geometry_and_tampered_index_are_rejected) ... ok
+test_failed_selected_record_retains_earlier_value_and_flags_review (test_record_reuse.PersistentSelectedTests.test_failed_selected_record_retains_earlier_value_and_flags_review) ... ok
+test_new_government_owner_excluded_and_match_index_invalidated (test_record_reuse.PersistentSelectedTests.test_new_government_owner_excluded_and_match_index_invalidated) ... ok
+test_repeat_cached_scan_does_not_query_or_recompute_matches (test_record_reuse.PersistentSelectedTests.test_repeat_cached_scan_does_not_query_or_recompute_matches) ... ok
+test_selected_update_only_reads_selected_bill_and_preserves_others (test_record_reuse.PersistentSelectedTests.test_selected_update_only_reads_selected_bill_and_preserves_others) ... ok
+test_unknown_selection_never_requests_data (test_record_reuse.PersistentSelectedTests.test_unknown_selection_never_requests_data) ... ok
+test_utc_capture_uses_philadelphia_day (test_record_reuse.PersistentSelectedTests.test_utc_capture_uses_philadelphia_day) ... ok
+test_bad_legacy_bytes_are_rejected (test_record_reuse.SharedRecordTests.test_bad_legacy_bytes_are_rejected) ... ok
+test_explicit_refresh_stale_and_nonrecord_image_are_not_silently_reused (test_record_reuse.SharedRecordTests.test_explicit_refresh_stale_and_nonrecord_image_are_not_silently_reused) ... ok
+test_fresh_records_reused_even_when_full_workflow_requests_refresh (test_record_reuse.SharedRecordTests.test_fresh_records_reused_even_when_full_workflow_requests_refresh) ... ok
+test_latest_valid_legacy_capture_promoted_without_retimestamping (test_record_reuse.SharedRecordTests.test_latest_valid_legacy_capture_promoted_without_retimestamping) ... ok
+test_workflow_reuses_fresh_records_and_records_capture_provenance (test_record_reuse.SharedRecordTests.test_workflow_reuses_fresh_records_and_records_capture_provenance) ... ok
+test_billing_and_tariff_changes_reuse_original_artifact_and_hash (test_physical_reuse.PhysicalReuseTests.test_billing_and_tariff_changes_reuse_original_artifact_and_hash) ... ok
+test_corrupt_input_and_artifact_do_not_silently_reuse_or_reroute (test_physical_reuse.PhysicalReuseTests.test_corrupt_input_and_artifact_do_not_silently_reuse_or_reroute) ... ok
+test_physical_and_unknown_fields_invalidate (test_physical_reuse.PhysicalReuseTests.test_physical_and_unknown_fields_invalidate) ... ok
+test_physical_change_reaches_normal_analysis_path (test_physical_reuse.PhysicalReuseTests.test_physical_change_reaches_normal_analysis_path) ... ok
+test_removed_policy_fact_does_not_reappear_from_original_revision (test_physical_reuse.PhysicalReuseTests.test_removed_policy_fact_does_not_reappear_from_original_revision) ... ok
+test_save_policy_edit_keeps_frozen_gis_and_adds_current_revision (test_physical_reuse.PhysicalReuseTests.test_save_policy_edit_keeps_frozen_gis_and_adds_current_revision) ... ok
+test_current_parcel_total_is_used_once_and_rounded (test_prospects.BillingRankingTests.test_current_parcel_total_is_used_once_and_rounded) ... ok
+test_government_in_billing_vetoes_private_parcel_owner (test_prospects.BillingRankingTests.test_government_in_billing_vetoes_private_parcel_owner) ... ok
+test_known_gap_then_annual_charge_deterministic_and_not_savings (test_prospects.BillingRankingTests.test_known_gap_then_annual_charge_deterministic_and_not_savings) ... ok
+test_missing_credits_are_unknown_and_unranked (test_prospects.BillingRankingTests.test_missing_credits_are_unknown_and_unranked) ... ok
+test_rate_period_identity_multiple_current_and_errors_rejected (test_prospects.BillingRankingTests.test_rate_period_identity_multiple_current_and_errors_rejected) ... ok
+test_unknown_owner_is_not_ranked (test_prospects.BillingRankingTests.test_unknown_owner_is_not_ranked) ... ok
+test_dominant_overlap_is_explicit (test_prospects.MatchingTests.test_dominant_overlap_is_explicit) ... ok
+test_duplicate_systems_produce_one_parcel (test_prospects.MatchingTests.test_duplicate_systems_produce_one_parcel) ... ok
+test_private_existing_only (test_prospects.MatchingTests.test_private_existing_only) ... ok
+test_shared_footprint_and_point_touch_are_not_assigned (test_prospects.MatchingTests.test_shared_footprint_and_point_touch_are_not_assigned) ... ok
+test_government_variants_and_coowner_are_excluded (test_prospects.OwnershipTests.test_government_variants_and_coowner_are_excluded) ... ok
+test_missing_or_uncertain_public_bodies_require_review (test_prospects.OwnershipTests.test_missing_or_uncertain_public_bodies_require_review) ... ok
+test_private_names_containing_geography_or_federal_are_retained (test_prospects.OwnershipTests.test_private_names_containing_geography_or_federal_are_retained) ... ok
+test_billing_failure_is_partial_without_fabricated_zero_or_rank (test_prospects.WorkflowTests.test_billing_failure_is_partial_without_fabricated_zero_or_rank) ... ok
+test_cancel_stops_new_cached_and_network_work (test_prospects.WorkflowTests.test_cancel_stops_new_cached_and_network_work) ... ok
+test_failed_small_match_stops_expansion (test_prospects.WorkflowTests.test_failed_small_match_stops_expansion) ... ok
+test_freshness_explicit_dates_and_unknown (test_prospects.WorkflowTests.test_freshness_explicit_dates_and_unknown) ... ok
+test_one_writer_and_cleanup (test_prospects.WorkflowTests.test_one_writer_and_cleanup) ... ok
+test_request_cap_allows_cache_and_blocks_network_after_budget (test_prospects.WorkflowTests.test_request_cap_allows_cache_and_blocks_network_after_budget) ... ok
+test_scan_never_calls_full_flow_and_persists_hash_and_exports (test_prospects.WorkflowTests.test_scan_never_calls_full_flow_and_persists_hash_and_exports) ... ok
+test_site_grouping_keeps_distinct_owners_and_distant_locations (test_prospects.WorkflowTests.test_site_grouping_keeps_distinct_owners_and_distant_locations) ... ok
+test_stale_refresh_is_explicit_and_offline_cannot_send (test_prospects.WorkflowTests.test_stale_refresh_is_explicit_and_offline_cannot_send) ... ok
+test_time_budget_blocks_new_requests (test_prospects.WorkflowTests.test_time_budget_blocks_new_requests) ... ok
+test_worker_and_request_caps_cannot_be_expanded (test_prospects.WorkflowTests.test_worker_and_request_caps_cannot_be_expanded) ... ok
+test_display_keeps_measurements_findings_without_mutating_full_result (test_saved_results.SavedResultsTests.test_display_keeps_measurements_findings_without_mutating_full_result) ... ok
+test_generated_json_is_compact_with_identical_values (test_saved_results.SavedResultsTests.test_generated_json_is_compact_with_identical_values) ... ok
+test_missing_or_input_mismatch_never_automatically_recalculates (test_saved_results.SavedResultsTests.test_missing_or_input_mismatch_never_automatically_recalculates) ... ok
+test_open_builds_small_saved_view_then_reuses_it_without_analysis (test_saved_results.SavedResultsTests.test_open_builds_small_saved_view_then_reuses_it_without_analysis) ... ok
+test_tampered_view_rejected_and_source_change_invalidates_it (test_saved_results.SavedResultsTests.test_tampered_view_rejected_and_source_change_invalidates_it) ... ok
+test_cancel_and_duplicate_start_use_one_worker (test_saved_http.JobControlTests.test_cancel_and_duplicate_start_use_one_worker) ... ok
+test_rerank_job_cannot_invoke_acquisition (test_saved_http.JobControlTests.test_rerank_job_cannot_invoke_acquisition) ... ok
+test_saved_update_requires_selection_and_selected_job_skips_scan (test_saved_http.JobControlTests.test_saved_update_requires_selection_and_selected_job_skips_scan) ... ok
+test_analysis_route_uses_saved_case_store (test_saved_http.SavedHTTPTests.test_analysis_route_uses_saved_case_store) ... ok
+test_default_scan_is_local_rerank_and_cancel_is_available (test_saved_http.SavedHTTPTests.test_default_scan_is_local_rerank_and_cancel_is_available) ... ok
+test_saved_route_never_calls_analysis_or_acquisition (test_saved_http.SavedHTTPTests.test_saved_route_never_calls_analysis_or_acquisition) ... ok
+test_selected_parcels_reach_update_job (test_saved_http.SavedHTTPTests.test_selected_parcels_reach_update_job) ... ok
+test_traversal_does_not_read_another_case (test_saved_http.SavedHTTPTests.test_traversal_does_not_read_another_case) ... ok
+test_account_policy_changes_reuse_same_physical_analysis (test_jurisdiction_adapter.JurisdictionAdapterTests.test_account_policy_changes_reuse_same_physical_analysis) ... ok
+test_benefit_outside_measured_eligible_region_fails (test_jurisdiction_adapter.JurisdictionAdapterTests.test_benefit_outside_measured_eligible_region_fails) ... ok
+test_changed_physical_case_is_rejected_as_stale (test_jurisdiction_adapter.JurisdictionAdapterTests.test_changed_physical_case_is_rejected_as_stale) ... ok
+test_explicit_profile_dispatch_and_invalid_policy_rejected (test_jurisdiction_adapter.JurisdictionAdapterTests.test_explicit_profile_dispatch_and_invalid_policy_rejected) ... ok
+test_known_bill_and_spatial_credit_without_mutating_gis_or_case (test_jurisdiction_adapter.JurisdictionAdapterTests.test_known_bill_and_spatial_credit_without_mutating_gis_or_case) ... ok
+test_missing_baseline_is_policy_blocker_not_physical_zero (test_jurisdiction_adapter.JurisdictionAdapterTests.test_missing_baseline_is_policy_blocker_not_physical_zero) ... ok
+test_modified_measurements_or_composed_policy_results_cannot_be_reused_as_gis (test_jurisdiction_adapter.JurisdictionAdapterTests.test_modified_measurements_or_composed_policy_results_cannot_be_reused_as_gis) ... ok
+test_policy_reuse_does_not_reroute_and_records_different_policy_hash (test_jurisdiction_adapter.JurisdictionAdapterTests.test_policy_reuse_does_not_reroute_and_records_different_policy_hash) ... ok
+test_source_metadata_change_requires_matching_gis_artifact (test_jurisdiction_adapter.JurisdictionAdapterTests.test_source_metadata_change_requires_matching_gis_artifact) ... ok
+test_fresh_core_imports_cannot_load_legacy_or_jurisdiction_packages (test_core_boundaries.CoreBoundaryTests.test_fresh_core_imports_cannot_load_legacy_or_jurisdiction_packages) ... ok
+
+----------------------------------------------------------------------
+Ran 66 tests in 0.869s
+
+OK
+
+Node commands (all exit 0):
+node --check stormwater/web/prospects.js
+node --check drainage_core/web/app.js
+node tests/prospect-ui-checks.js
+Prospect UI checks passed: member parcels, escaping, local rerank default, explicit update, cancellation, no assessment calls.
+node tests/assessment-ui-checks.js
+UI behavior checks passed: local open, explicit assessment, unknowns, escaping, review lineage, history dates, GIS isolation.
+
+Cached diagnostic: PYTHONPATH=. .venv/bin/python /tmp/check-property-reuse.py (exit 0). Script retained in ignored data/validation/record-reuse-2026-11-15/check-property-reuse.py. Socket connect and stormwater.cases.analyze_gis blocked. Repeated scan additionally blocked find_parcels and match_systems. Selected update used an isolated result copy. Before/after SHA256 of all active/donor files matched.
+{
+  "initial_cached_scan": {
+    "seconds": 0.3755,
+    "matches": "rebuilt",
+    "requests": 0,
+    "parcels": 59,
+    "prospects": 57,
+    "run_id": "071119ea83864c48834d61d0719b29e9"
+  },
+  "repeat_cached_scan": {
+    "seconds": 0.3604,
+    "matches": "reused",
+    "requests": 0,
+    "top": 50,
+    "run_id": "9180e0f0f73d440bbf1555d92d778018"
+  },
+  "selected_update_copy": {
+    "seconds": 0.0618,
+    "selected_parcels": 1,
+    "untouched_rows_unchanged": 58,
+    "requests": 0
+  },
+  "whitaker_policy_only": {
+    "seconds": 3.2386,
+    "status": "reused_frozen_gis",
+    "frozen_input_sha256": "5e8d4c6743d3ef1a280d4cc9ede549464a4bcb11e2be6936cf219a8e9d850dd9",
+    "current_input_differs": true
+  },
+  "public_request_or_gis_calls": 0,
+  "original_case_donor_files_unchanged": 23
+}
+
+Local app restarted: .venv/bin/python -m stormwater.server --port 8879
+Startup: Open http://127.0.0.1:8879 — local drainage analysis
+No browser opened, no assessment requested.
+Final review: git diff --check passed; relative Markdown links in README, SETUP,
+PRD, STATE, TASK, PROSPECT-SCAN and RECORD-AND-GIS-REUSE all resolve locally.
+Final per-run reuse provenance reset is covered by the workflow test. The local
+app was restarted once more after that fix (session 35303, port 8879).

@@ -5,6 +5,8 @@ from drainage_core.report import map_svg,export_geojson as _export_geojson,COLOR
 
 
 def export_geojson(case,result):
+    from .quality import safe_analysis
+    result=safe_analysis(result)
     from shapely.geometry import shape,mapping
     from drainage_core.geometry import reproject
     data=_export_geojson(case,result)
@@ -36,6 +38,8 @@ def export_geojson(case,result):
     return data
 
 def render_report(case,result):
+    from .quality import safe_analysis
+    result=safe_analysis(result)
     e=lambda x:escape(str(x))
     num=lambda x:'Unknown' if x is None else f'{x:,.2f}'
     m=result['measurement']; baseline=case.get('baseline') or {}; b=result['billing']

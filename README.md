@@ -10,6 +10,12 @@ bill alternatives, alongside current results. The [actual Whitaker full-flow run
 now records imagery/model/terrain/drainage, per-area savings and appeals, isolated-browser
 review and saved exports. Independent real-site accuracy and actual eligibility remain unverified.
 
+**Model-quality review:** the [adversarial audit](docs/ADVERSARIAL-REVIEW-2026-11-15.md)
+documents the appearance-class-to-IA error and related defects. The
+[confirmed-defect fixes](docs/ADVERSARIAL-FIXES-2026-11-15.md) correct the interpretation
+and quarantine affected saved savings. 340 unit checks passed; no properties were
+rerun. Independent accuracy and corrected property savings remain unverified.
+
 ## Coding sessions: start here
 
 Open this repository in your coding agent and say **“Continue from the repository
@@ -67,16 +73,30 @@ determine, why it matters, datasets, measurement methods and proposed AI asset d
 
 ## Quick prospect scan
 
+The [top-ten no-credit review](docs/TOP10-NO-CREDIT-REVIEW-2026-11-15.md) records
+actual selected-site runs, annual section estimates and remaining evidence gaps.
+
 Use `.venv/bin/python -m stormwater.prospects --rerank` to rank saved matched records
-locally. `--offline` rebuilds matches using cached responses only; `--update-stale`
-explicitly checks stale/missing records under the request cap. Government
+locally. `--offline` reuses valid saved matches or rebuilds from cached responses;
+`--parcels 98627` updates only those selected billing parcels, reusing fresh records.
+Add `--offline` to prohibit new requests. `--update-stale` explicitly checks
+stale/missing records under the request cap. Government
 owner names are excluded; missing ownership/credits are held. This does not run imagery
 or a full assessment. See [scope, latest results and limits](docs/PROSPECT-SCAN.md).
 The separate app page is `/prospects` on a newly started Philadelphia local server.
 Saved case opening reads compact, hash-checked results without recalculating. Machine
 JSON exports are compact; readable HTML reports and frozen source snapshots remain available.
+Prospect and assessment workflows share public records. Billing/credit/tariff-only
+case changes reuse unchanged frozen GIS, preserving its original hashes. See
+[record and GIS reuse](docs/RECORD-AND-GIS-REUSE.md) for freshness, controls and measured results.
 
 ## Automatic property assessment
+
+The [automatic open-space CN worksheet](docs/OPEN-SPACE-CURVE-NUMBER.md) joins public
+USDA SSURGO soils to mapped open-space areas. It shows cover/condition, soil groups,
+weighted inputs and explicit unknowns; image candidates stay separate. Run an explicit
+assessment after restarting the local app to acquire soils. It creates no automatic
+award or new savings allocation.
 
 Run `.venv/bin/python -m stormwater.server --port 8876` and open
 `http://127.0.0.1:8876/`. Enter a Philadelphia street address or PWD parcel ID, then
@@ -143,6 +163,9 @@ does not refresh public records.
 
 Only Philadelphia credit rules are implemented. Generic GIS operation does not imply
 that another location's credit program, tariffs or public-data connectors are supported.
+The separate [NYC cooling-tower allowance source audit](docs/NYC-COOLING-ALLOWANCE-PUBLIC-RECORDS-2026-11-15.md)
+identifies prior FOIL leads but no usable current allowance register; it adds no NYC
+implementation or confirmed nonrecipient list.
 
 ## Source layout
 

@@ -211,6 +211,7 @@ class ResearchDrainageTests(unittest.TestCase):
     def test_conditional_bill_scenarios_preserve_baseline_and_evidence(self):
         from stormwater.assessment_policy import evaluate_assessment
         c=fixture();c['baseline']={'ga_sqft':6000,'ia_sqft':5001,'bill_date':'2026-09-01','property_type':'NonRes'}
+        c['terrain']['settings']['extent_sufficient']=True  # Explicit invented extent for arithmetic unit only.
         original=canonical(c);gis=analyze(c);a=evaluate_assessment(c,gis,as_of='2026-11-15')
         research=a['research_drainage_scenarios']['scenarios'][0]
         self.assertEqual(research['status'],'calculated')
@@ -224,6 +225,7 @@ class ResearchDrainageTests(unittest.TestCase):
         from stormwater.assessment_policy import evaluate_assessment
         c=fixture();c['baseline']={'ga_sqft':6000,'ia_sqft':5000,'bill_date':'2026-09-01',
                                  'existing_ia_credit_sqft':500,'existing_credits_spatially_reconciled':False}
+        c['terrain']['settings']['extent_sufficient']=True
         a=evaluate_assessment(c,analyze(c),as_of='2026-11-15')
         s=a['research_drainage_scenarios']['scenarios'][0]
         self.assertEqual(s['status'],'blocked');self.assertIsNone(s['gross_monthly_reduction'])
@@ -238,6 +240,7 @@ class ResearchDrainageTests(unittest.TestCase):
     def test_unknown_ground_upper_scenario_is_explicit_and_does_not_change_measurement(self):
         from stormwater.assessment_policy import evaluate_assessment
         c=fixture();c['features']['features']=[];c['baseline']={'ga_sqft':6000,'ia_sqft':5001}
+        c['terrain']['settings']['extent_sufficient']=True
         gis=analyze(c);before=canonical(gis)
         variants=evaluate_assessment(c,gis,as_of='2026-11-15')['research_drainage_scenarios']['scenarios']
         self.assertEqual(variants[0]['status'],'blocked')

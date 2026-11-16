@@ -1,5 +1,243 @@
 # Current state
 
+## Source publication authorized (2026-11-15)
+
+User requested commit and push of the completed changes to the existing
+`djdavidi/property_analyzer` origin. Publish the supporting source/tests/docs already
+in the checkout; runtime cases, raw imagery/model weights, private uploads and large
+caches remain ignored. The existing 340-unit result is the validation evidence;
+publication does not authorize property reruns, broader tests or deployment. Git
+records the resulting commit and remote state. The local app still needs a restart.
+
+## Confirmed adversarial defects fixed — unit checks complete (2026-11-15)
+
+[Implementation and limits](ADVERSARIAL-FIXES-2026-11-15.md): GIS v5/model integration
+v2 retain developed space as appearance, interpret the old pavement alias safely,
+and leave road/grass/soil permeability unknown. Old model-derived IA/savings are
+quarantined in updated saved readers, policy results and report/JSON/GeoJSON export
+paths; historical inputs/results stay unchanged. Processing fingerprints invalidate
+current use after relevant code/dependency changes. Policy-only saves preserve
+frozen GIS bytes and withhold stale finance rather than automatically rerouting.
+
+Known nonexisting receivers, inadequate known treatment and unverified catchment
+extent block affected finance; permit date failures survive what-ifs. Combined
+subsets list unusable records, preserve overlap blocks and distinguish credit-only
+effects from net area-corrected bill changes. A cited page and explicit human
+property/period/fact-support review are required for documented record screens;
+source content is not automatically authenticated.
+
+Refresh replaces changed unreviewed public candidates with history, stages reviewed
+conflicts and flags completed-query disappearances without inferring absence. Public
+baseline differences are staged and block finance until an explained reconciliation.
+Contradictory declared ArcGIS CRS is rejected; mocked reuse-event handling repaired.
+Concurrent CN/NYC work preserved. No jurisdiction rules/accounts/billing enter GIS.
+
+Only unit tests: **340 passed**, including 26 new adversarial regressions, mocked
+DOM/handler checks and 36 pre-fix case/GIS/analysis hashes preserved. Exact command,
+initial failures and warnings: [check record](adversarial-fix-checks-2026-11-15.txt).
+No real property/inference/acquisition, live HTTP/browser, actual bills/field accuracy,
+full suite, restart, commit or push. The existing running app must be restarted to
+load the new code; that is not a property rerun and has not been done here.
+
+No revised Whitaker/top-ten savings: original results remain historical and updated
+readers withhold affected values. Local model accuracy, canopy-hidden surfaces,
+private routes, treatment, watershed extent, bills/awards and ArcHydro equivalence
+remain unverified. Large-image sizing/fallback and native GDAL request accounting
+remain documented capability limits, not newly validated/fixed behavior. Next is
+code review/local-app restart; no automatic portfolio reassessment is authorized.
+
+## Automatic open-space CN worksheet (2026-11-15)
+
+Implemented and scoped verification complete. Explicit assessment acquires bounded
+USDA SSURGO polygon/component records, preserving original bytes, query/hashes,
+prior soil snapshots and failure status. PWD Table A-1 calculations intersect frozen
+mapped pervious areas with soil polygons, retaining missing/mixed/dual soil groups,
+unknown cover/condition, conflicting cover/soil and uncovered ground. Mapped-subset
+and known-portion averages stay separate from a complete property-wide CN; image
+candidates are separate and missing imagery does not imply zero candidate area.
+
+Worksheet and cover/condition review form are in the app, saved analysis and HTML
+report. Portable bundles include soil blobs/history when available. No manual benefit
+CN, award ledger or existing property result was changed; no automatic new savings
+allocation. Reviews become stale after mapped-input changes. Numeric JSON spelling
+normalization fixes false boundary staleness and preserves original frozen GIS during
+browser policy edits without altering source/full-case hashes.
+
+Evidence: 151 final focused checks passed, then 24 CN checks passed after the last
+unknown-candidate display guard; both Node harnesses, JS syntax and whitespace checks
+passed. Isolated browser verified synthetic CN58.6 → CN63.4 after fair-lawn review,
+save, and explicit Unknown for missing soil/condition. One actual public bbox query
+returned Urban land (mukey1479568) with null HSG for its two components: CN unknown.
+Initial DNS/timeout, numerical-sliver test failures, browser-coordinate bug and fixes
+are recorded. Full suite: 425 ran, 423 passed, one existing GeoJSON byte-order replay
+failure and one existing terrain-test mock error; not a green suite. The export
+failure reproduced with CN disabled; the mock error precedes soil acquisition and
+also appears in the concurrent adversarial review. No field/accuracy validation,
+large-site performance or comprehensive accessibility audit. See [method, usage and
+sources](OPEN-SPACE-CURVE-NUMBER.md), [raw checks](curve-number-checks-2026-11-15.txt).
+
+Next: restart the local app, run an explicit user-selected assessment and review
+unresolved soil/cover inputs. Existing saved cases remain historical. Broader
+[adversarial findings](ADVERSARIAL-REVIEW-2026-11-15.md), including the model-to-IA
+error, are preserved and unresolved; this task did not fix those algorithms.
+
+## Adversarial Philadelphia pipeline review — report complete (2026-11-15)
+
+[Full audit](ADVERSARIAL-REVIEW-2026-11-15.md) records 29 prioritized findings across
+classification, geometry, conservative/research drainage, scenarios, evidence,
+refresh/reuse, prospecting and reports. Confirmed core defect: developed-space
+appearance is interpreted as impermeable pavement. Twelve saved parcels: nine
+modeled IA totals exceed recorded IA; this is not independent truth. None of their
+per-case analyses has a machine-enforced invalidation for the known model defect.
+Three have research drainage, all with surrounding extent explicitly unverified.
+
+Eight small probes reproduced expired-permit scenario bypass, proposed receiver
+admission/generic finance, off-parcel combination blocking, stale candidate/baseline
+refresh and contradictory ArcGIS CRS acceptance; they also exposed the evidence-URL
+trust boundary and confirmed observed/model separation and a false-installation
+record guard. 223 focused units: 222 passed, one errored on `len(Mock.reuse_events)`
+in the terrain-reuse orchestrator test. No claim that normal real cache use crashes.
+Read-only twelve-parcel diagnostic preserved 36 file hashes. Exact commands, source
+links, artifact paths, failed/omitted checks and fix order are in the audit.
+
+Review only: no application edits, inference, live property refresh/full assessment,
+browser, field accuracy check, actual invoices, ArcHydro equivalence, commit or push.
+At the review checkpoint algorithm fixes were outstanding; the follow-up above now
+implements confirmed software corrections. Historical AI-based appeals/managed-IA finance and
+residual canopy constraints remain unreliable pending correction/reassessment.
+Concurrent NYC records research and automatic CN worksheet work preserved; the
+separate [review brief](ADVERSARIAL-REVIEW-TASK.md) avoids replacing their shared TASK.
+Follow-up: the bounded authorized fixes are recorded above. Newly added CN code
+received only a source spot check here; its own validation belongs to that task.
+
+## NYC cooling-tower allowance public-record research (2026-11-15)
+
+Dedicated-meter follow-up complete (research only): no confirmed missing-meter
+building found. Health-inspection metadata has no meter-status field; broad makeup
+text matches were maintenance-document findings, not missing quantity meters. A
+specific-meter wording query returned 0; two DOB violation queries returned eight
+and four unrelated records. These bounded checks do not establish zero unmetered
+towers. Current PC606.8, original PC606.7/2011 effective date and DEP new-installation
+guidance reviewed. Installation history, proposed/completed work, physical meters,
+DEP acceptance and allowance status remain separate. See the audit follow-up below.
+No property plans, complete DEP meter register, new FOIL/outreach, app code or
+assessment. Next is user-selected site-specific evidence or an existing meter record.
+
+Read-only source audit complete; NYC is not implemented. Direct logged-out OpenRecords
+searches found eleven relevant detail pages: a denied summary-statistics request,
+one pending 20-property request and nine historical requests reporting documents
+posted. No underlying attachment/current register or confirmed nonrecipient evidence
+was obtained. Missing download links do not establish legal withholding or nonexistence.
+
+DEP-filtered query totals were allowance 5, cooling 10, credit 7, wastewater 113;
+all title pages inspected, with relevant detail responses read after loading. Public
+catalog and current/historic permit-category checks found no allowance register;
+permit request status is not allowance status. Search coverage is bounded, not proof
+that no releasable register exists. Exact IDs, response dates, queries, source links,
+access failures and unrun checks are in the [source audit](NYC-COOLING-ALLOWANCE-PUBLIC-RECORDS-2026-11-15.md).
+
+No new FOIL, outreach, private login, application work, source/GIS behavior change,
+assessment, commit or push. Next evidence step requires recovering existing releases
+or obtaining a dated property/meter-level allowance record with scope/completeness.
+Registered towers with no verified match retain **allowance status unknown**. Existing
+Philadelphia work, concurrent Springside analysis and their limitations remain intact.
+
+## AI-to-IA interpretation error identified — historical outputs await reassessment (2026-11-15)
+
+Read-only Willow Grove audit found a substantive interpretation error: OpenEarthMap
+class 3 is **developed space**, explicitly including artificial sports fields,
+construction sites and compacted soil. The pre-fix `semantic_cover.py` renamed it
+other_pavement; the old join promoted that and road to modeled IA. Appearance classes do
+not establish hydraulic impermeability. At parcel 582706, 64,001 of 68,197 modeled
+IA sq ft comes from developed space, versus PWD recorded IA 18,440 (3.70×). The
+analytical overlay places predictions on baseball infield/athletic-field areas.
+Native UTM versus State Plane area difference is <0.1%; parcel area matches the
+recorded area within one sq ft, so scale conversion does not explain the discrepancy.
+
+Earlier AI-based IA appeals, managed-IA finance and total-IA canopy-residual constraints
+must not be treated as reliable estimates pending correction/reassessment. PWD totals
+are not independent ground truth either. Raw class predictions remain preserved and
+may be meaningful as appearance labels; neither developed space nor grass appearance
+alone establishes permeability. Top-ten report now carries a prominent quality notice;
+earlier report backed up and values retained as historical calculations. No application
+algorithm, frozen case or source data changed. Separate NYC research TASK preserved.
+Audit JSON, source/prediction overlay and script: `data/validation/willow-model-audit-2026-11-15/`.
+Three Willow case/artifact byte hashes unchanged. No inference, routing or new property
+downloads; primary-source class definitions reviewed via indexed paper supplement.
+
+## Top ten no-area-credit prospects assessed (2026-11-15)
+
+Springside read-only canopy/IA consistency follow-up: at 8000 Cherokee, recorded IA
+328,731 minus already identified modeled IA 306,243 leaves 22,488 sq ft to allocate
+among all unresolved ground. If both inputs are exact/current, canopy-hidden IA is
+compatible with 0–22,488 sq ft, rather than the previous 305,145 all-hidden-impervious
+assumption; the corresponding main-parcel credit-only test is 0–$1,945.20/year. This
+is a conditional consistency constraint, not verified eligibility or a confidence
+bound. Other campus parcels have modeled IA above recorded IA and cannot satisfy
+the exact-input assumption; negative residuals are not zero canopy overlap. Saved
+inputs have totals, roof vectors and AI cover, not verified ground-pavement polygons
+beneath trees. Diagnostic is local `data/assessments/top10-no-credit-2026-11-15/springside-canopy-balance.json`;
+nine case/artifact byte hashes unchanged. No source requests, rerouting or app change.
+
+Presentation clarification: the local report now retains every requested category,
+including IA/GA adjustments, canopy and explicit missing categories. Open-space CN65
+values are hypothetical illustrations, not verified property soil/cover estimates.
+Combined net bill change across corrected IA and all credits has not been calculated.
+The $66,071.28 management figure holds recorded areas unchanged and is not net savings.
+
+All ten selected sites / twelve billing parcels now have saved 2025 imagery, local
+OpenEarthMap estimates, GIS and assessment outputs. Native terrain/drainage succeeded
+on three parcels; remaining attempts hit one-tile/buffer/cell or metadata limits.
+This does not establish that public terrain is unavailable. Batch-specific smaller
+image exports avoid the model cell limit; ordinary app image sizing remains unchanged.
+
+Quantified management portions total $66,071.28/year across five sites, conditional
+on qualifying treatment, allocation, approval and maintenance. Other system areas
+remain unknown. Canopy and open-space illustrations are separate, nonadditive assumptions;
+no verified savings/award/refund established. Recycling has the largest quantified
+management scenario ($33,041.28/year); Penn and Recycling IA appeal ranges cross zero,
+while the others imply bill increases under both tested extremes. Existing green-roof,
+private discharge, qualifying industrial and history evidence remains unverified.
+
+Two clipped/mixed-dimension geometry failures fixed in area-only composition/sensitivity
+overlays; frozen measurements remain unchanged. Two units added: 53 focused tests and
+147 report checks passed. The failed properties completed from captured frozen GIS
+with rerouting/network blocked. 117 cache-mediated attempts, 105 success/12 failures,
+28.58 MB retrieved; raster ranges and web review are additional. Earlier failures and
+snapshots retained; no personal Chrome. Full suite, visual browser, field/actual-bill
+and hydraulic validation unrun. App restarted at port 8879.
+See [per-site results, report and limits](TOP10-NO-CREDIT-REVIEW-2026-11-15.md).
+Existing reuse work and these changes remain uncommitted.
+
+## Shared records, selected updates and frozen GIS (2026-11-15)
+
+Shared public record cache reads both existing roots and preserves original capture
+dates/bytes/history. Recent structured records are reused on the full-assessment path;
+explicit record refresh remains available. Hashed system/parcel matches persist and
+invalidate on observed relevant changes. Prospect UI/CLI can update only selected
+member bills, preserve untouched rows, retain failed records with review flags and
+exclude newly observed government owners. Existing caps and local rerank remain.
+
+Main saved-case analysis/save/review/history routes reuse matching frozen GIS for
+baseline/credit/tariff-only changes. Original input/artifact hashes and revisions stay
+intact; physical, model/settings, relevant source and unknown changes invalidate reuse.
+Core remains jurisdiction independent. See [implementation and controls](RECORD-AND-GIS-REUSE.md).
+
+Actual cached diagnostics: initial match build 0.3755 s, repeat scan with matching
+blocked 0.3604 s, selected bill on result copy 0.0618 s (58 other rows unchanged),
+Whitaker policy-only calculation with GIS blocked 3.2386 s. Zero public requests or
+GIS reruns; all 23 checked active/donor files unchanged. Latest cached shortlist:
+`data/prospects/runs/9180e0f0f73d440bbf1555d92d778018/`; 59 rows / 57 sites, top 50
+with 52 parcels and groups 21/8/21. Existing gaps remain: 20 billing failures,
+143 ambiguous systems, 83 invalid geometries; no savings established by screening.
+
+66 focused Python tests, two Node behavior harnesses and JS syntax passed. Initial
+UTC/local-day invalidation bug fixed; initial loopback permission failure reran
+successfully. [Exact evidence and omitted checks](record-reuse-checks-2026-11-15.txt).
+No live public refresh, imagery, AI inference, full assessment, visual browser or
+broad suite run. Current app restarted at port 8879 with this code. No personal Chrome.
+Changes remain local/uncommitted; independent accuracy and eligibility remain unverified.
+
 ## Compact storage, local rankings and saved views (2026-11-15)
 
 Generated machine JSON is compact. Whitaker active analysis 71.55→29.50 MB, GIS

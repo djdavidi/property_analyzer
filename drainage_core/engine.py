@@ -10,7 +10,7 @@ from shapely.geometry import shape,box,Point,mapping
 from .geometry import measure,effective_features,area_sqft,case_area_sqft,union,projected_crs
 from .validation import validate_case
 
-ENGINE_VERSION='gis-engine-v4'
+ENGINE_VERSION='gis-engine-v5'
 
 def canonical(value):
     return json.dumps(value,sort_keys=True,separators=(',',':'),allow_nan=False)
@@ -161,5 +161,7 @@ def analyze(case, *, source_dependencies=None):
         result['processing_settings']['imagery_age_policy']=deepcopy(case['imagery_age_policy'])
     if case.get('terrain_reuse'):
         result['processing_settings']['terrain_reuse']=deepcopy(case['terrain_reuse'])
+    from .quality import processing_fingerprint
+    result['processing_fingerprint']=processing_fingerprint()
     result['analysis_sha256']=result_hash(result)
     return result

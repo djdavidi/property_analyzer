@@ -46,15 +46,34 @@ class SavedHTTPTests(unittest.TestCase):
 
     def test_default_scan_is_local_rerank_and_cancel_is_available(self):
         code,_=self.request('/api/prospects/scan',{});self.assertEqual(code,202)
-        self.handler.prospect_jobs.start.assert_called_with(False,'rerank')
+        self.handler.prospect_jobs.start.assert_called_with(False,'rerank',None)
         code,_=self.request('/api/prospects/cancel',{});self.assertEqual(code,202)
         self.handler.prospect_jobs.cancel.assert_called_once()
 
     def test_traversal_does_not_read_another_case(self):
         code,_=self.request('/api/saved/..');self.assertEqual(code,404)
 
+    def test_selected_parcels_reach_update_job(self):
+        code,_=self.request('/api/prospects/scan',{'mode':'update','parcel_ids':['1','2']})
+        self.assertEqual(code,202);self.handler.prospect_jobs.start.assert_called_with(False,'update',['1','2'])
+
+    def test_analysis_route_uses_saved_case_store(self):
+        with patch.object(self.handler.store,'analyze',return_value={'physical_reuse':{'status':'reused_frozen_gis'}}) as analyze:
+            code,result=self.request('/api/analyze',{'case':{'id':'fixture'}})
+        self.assertEqual(code,200);analyze.assert_called_once_with({'id':'fixture'})
+        self.assertEqual(result['physical_reuse']['status'],'reused_frozen_gis')
+
 
 class JobControlTests(unittest.TestCase):
+    def test_saved_update_requires_selection_and_selected_job_skips_scan(self):
+        done=Event()
+        def updated(*args,**kw):done.set();return {'id':'selected-fixture'}
+        with TemporaryDirectory() as root,patch('stormwater.prospect_jobs.run_scan',side_effect=AssertionError('No scan')),patch('stormwater.prospect_jobs.update_selected',side_effect=updated) as update:
+            (Path(root)/'latest.json').write_text('{}');jobs=ProspectJobs(root)
+            with self.assertRaises(ValueError):jobs.start(mode='update')
+            jobs.start(mode='update',parcel_ids=['1']);self.assertTrue(done.wait(2))
+            self.assertEqual(update.call_args.args[1],['1'])
+
     def test_cancel_and_duplicate_start_use_one_worker(self):
         started=Event();release=Event();finished=Event()
         def work(*args,**kw):

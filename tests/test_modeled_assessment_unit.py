@@ -5,7 +5,7 @@ No inference, imagery retrieval, server, CLI, browser or real-site replay.
 from copy import deepcopy
 from datetime import date
 import unittest
-from shapely.geometry import box,mapping
+from shapely.geometry import box,mapping,shape
 from drainage_core.engine import new_case,canonical,analyze
 from drainage_core.geometry import measure,SQFT_PER_M2
 from drainage_core.freshness import age_policy
@@ -43,6 +43,7 @@ def fake_research(c,receivers=('G1',),kind='gsi'):
     c['research_drainage']={'features':[{'id':'receiver-'+g,'role':'gsi','gsi_id':g,
         'geometry':mapping(box(0,0,3.048,30.48))} for g in receivers]}
     primary={'parameters':{},'grid':{'cell_size':1,'horizontal_unit':'m'},'area_conservation_pass':True,
+        'extent_sufficient':True,
         'catchments':[],'outlet_catchments':[]}
     for g in receivers:
         primary['catchments' if kind=='gsi' else 'outlet_catchments'].append({
@@ -63,9 +64,32 @@ def rec_info(result,id='r'):
 
 
 class ModeledGeometryUnitTests(unittest.TestCase):
+    def test_multipart_footprint_clip_counts_area_and_ignores_boundary_touches(self):
+        from shapely.geometry import MultiPolygon
+        c=fixture();g=frozen_gis(c)['modeled_integration']
+        # One part is on the parcel; another touches its boundary along a line.
+        footprint=MultiPolygon([box(0,0,3.048,30.48),box(30.48,0,35,10)])
+        self.assertEqual(footprint.intersection(shape(c['parcel'])).geom_type,'GeometryCollection')
+        result=composition(c,g['ai'],g['measurement'],mapping(footprint))
+        self.assertAlmostEqual(result['region_area_sqft'],1000)
+        self.assertAlmostEqual(result['modeled_ia_sqft'],0)
+        self.assertAlmostEqual(next(r for r in result['classes'] if r['class']=='developed_space')['area_sqft'],1000)
+        self.assertAlmostEqual(result['unresolved_ground_sqft'],1000)
+
+    def test_mixed_measured_ia_uses_area_without_mutating_frozen_geometry(self):
+        from shapely.geometry import GeometryCollection,LineString
+        c=fixture();g=frozen_gis(c)['modeled_integration'];m=g['measurement']
+        m['geometries']['physical_ia']=mapping(GeometryCollection([shape(m['geometries']['physical_ia']),LineString([(0,0),(30.48,0)])]))
+        before=canonical(g)
+        result=composition(c,g['ai'],m,c['parcel']);bounds=ia_bounds(c,g,shape(c['parcel']))
+        self.assertAlmostEqual(result['modeled_ia_sqft'],0)
+        self.assertAlmostEqual(bounds['nominal'].area*SQFT_PER_M2,0)
+        self.assertEqual(canonical(g),before)
+
     def test_ai_fills_only_modeled_unknowns_and_leaves_source_intact(self):
         c=fixture();before=canonical(c);obs=measure(c);r=build(c,obs,{},{});m=r['measurement']
-        self.assertAlmostEqual(m['ia_sqft'],5000);self.assertAlmostEqual(m['pervious_sqft'],5000)
+        self.assertAlmostEqual(m['ia_sqft'],0);self.assertAlmostEqual(m['pervious_sqft'],0)
+        self.assertAlmostEqual(m['unknown_sqft'],10000)
         self.assertEqual(obs['ia_sqft'],0);self.assertAlmostEqual(obs['unknown_sqft'],10000)
         self.assertEqual(canonical(c),before)
 
@@ -73,12 +97,12 @@ class ModeledGeometryUnitTests(unittest.TestCase):
         c=fixture();c['features']['features'].append({'id':'survey','geometry':mapping(box(0,0,15.24,30.48)),
             'properties':{'layer':'surface','class':'pervious'}})
         r=build(c,measure(c),{},{});self.assertEqual(r['measurement']['ia_sqft'],0)
-        self.assertAlmostEqual(r['ai']['observation_disagreement_sqft'],5000)
+        self.assertAlmostEqual(r['ai']['observation_disagreement_sqft'],0)
 
     def test_overlapping_classes_are_unknown_not_double_counted(self):
         c=fixture();c['features']['features'].append(candidate('bare_soil',box(0,0,15.24,30.48)))
         r=build(c,measure(c),{},{});self.assertAlmostEqual(r['ai']['class_conflict_sqft'],5000)
-        self.assertEqual(r['measurement']['ia_sqft'],0);self.assertAlmostEqual(r['measurement']['unknown_sqft'],5000)
+        self.assertEqual(r['measurement']['ia_sqft'],0);self.assertAlmostEqual(r['measurement']['unknown_sqft'],10000)
 
     def test_shared_class_boundaries_are_not_conflicting_area(self):
         c=fixture();r=ai_surfaces(c,measure(c))
@@ -108,7 +132,7 @@ class ModeledGeometryUnitTests(unittest.TestCase):
         c=fixture();c['features']['features'].append({'id':'survey','geometry':mapping(box(15.24,0,30.48,30.48)),
             'properties':{'layer':'surface','class':'pervious'}})
         r=build(c,measure(c),{},{});bs=ia_bounds(c,r,box(0,0,30.48,30.48))
-        self.assertLess(bs['lower'].area,bs['nominal'].area);self.assertGreaterEqual(bs['upper'].area,bs['nominal'].area)
+        self.assertEqual(bs['lower'].area,bs['nominal'].area);self.assertGreater(bs['upper'].area,bs['nominal'].area)
         self.assertAlmostEqual(bs['upper'].area,15.24*30.48)
 
     def test_absent_pixel_size_has_no_invented_boundary_range(self):
@@ -119,12 +143,14 @@ class ModeledGeometryUnitTests(unittest.TestCase):
         from shapely.geometry import GeometryCollection,LineString
         c=fixture();geom=GeometryCollection([box(0,0,15.24,30.48),LineString([(20,0),(25,0)])])
         c['features']['features']=[candidate('other_pavement',geom)]
-        m=build(c,measure(c),{},{});self.assertAlmostEqual(m['measurement']['ia_sqft'],5000)
+        m=build(c,measure(c),{},{});self.assertAlmostEqual(m['measurement']['ia_sqft'],0)
+        self.assertAlmostEqual(shape(m['ai']['geometries']['developed_space']).area*SQFT_PER_M2,5000)
 
     def test_malformed_ai_geometry_is_reported_without_breaking_other_classes(self):
         c=fixture();c['features']['features'][0]['geometry']={'type':'InvalidShape','coordinates':[]}
         m=build(c,measure(c),{},{});self.assertEqual(len(m['ai']['excluded']),1)
-        self.assertAlmostEqual(m['measurement']['pervious_sqft'],5000)
+        self.assertAlmostEqual(m['measurement']['pervious_sqft'],0)
+        self.assertAlmostEqual(m['measurement']['unknown_sqft'],10000)
 
     def test_ai_roof_supplements_only_additional_draining_view(self):
         c=fixture();c['parcel']=mapping(box(0,0,7,7));roof=box(1,1,2,2)
@@ -138,7 +164,8 @@ class ModeledGeometryUnitTests(unittest.TestCase):
 
     def test_catchment_composition_uses_injected_geometry_and_ai(self):
         c=fixture();research=fake_research(c);r=build(c,measure(c),{},research)
-        co=r['runs'][0]['catchments'][0]['composition'];self.assertAlmostEqual(co['modeled_ia_sqft'],5000)
+        co=r['runs'][0]['catchments'][0]['composition'];self.assertAlmostEqual(co['modeled_ia_sqft'],0)
+        self.assertAlmostEqual(co['unresolved_ground_sqft'],10000)
         self.assertEqual(r['drainage_source'],'Existing research scenario')
 
     def test_explicit_pipe_to_external_outlet_is_not_a_gsi_or_proximity_guess(self):
@@ -159,7 +186,7 @@ class RecordJoinUnitTests(unittest.TestCase):
     def test_category_context_is_available_without_inventing_installed_systems(self):
         c=fixture();out=assess(c)
         pavement=next(v for v in out['categories'] if v['category']=='permeable_pavement')
-        self.assertAlmostEqual(pavement['modeled_context']['predicted_pavement_sqft'],5000)
+        self.assertAlmostEqual(pavement['modeled_context']['developed_or_road_appearance_sqft'],5000)
         self.assertEqual(pavement['modeled_context']['permeability'],'Unknown')
         self.assertEqual(pavement['records'],[]);self.assertEqual(pavement['status'],'missing_evidence')
 
@@ -199,7 +226,7 @@ class RecordJoinUnitTests(unittest.TestCase):
         c['assessment']['records'][0]['facts']['outfall_id']='O1'
         r=assess(c,frozen_gis(c,fake_research(c,('O1',),kind='outlet')))
         self.assertEqual(rec_info(r)['runs'][0]['receiver_id'],'O1')
-        self.assertEqual(rec_info(r)['runs'][0]['scenarios'][1]['status'],'calculated')
+        self.assertEqual(rec_info(r)['runs'][0]['scenarios'][2]['status'],'calculated')
 
     def test_rejection_and_npdes_are_not_overridden_by_ai(self):
         c=fixture();c['assessment']['records']=[record(decision='rejected'),record('permit','industrial_npdes')]
@@ -210,7 +237,7 @@ class RecordJoinUnitTests(unittest.TestCase):
     def test_footprint_fallback_is_explicit_direct_rainfall_scenario(self):
         c=fixture();c['assessment']['records']=[record()];r=assess(c)
         info=rec_info(r)['runs'][0];self.assertIn('upstream contributing area unknown',info['area_basis'])
-        nominal=next(s for s in info['scenarios'] if s['bound']=='nominal')
+        nominal=next(s for s in info['scenarios'] if s['bound']=='upper')
         self.assertAlmostEqual(nominal['area_sqft'],1000);self.assertEqual(nominal['status'],'calculated')
         self.assertEqual(nominal['gross_monthly_reduction'],8.05);self.assertEqual(nominal['gross_annual_reduction'],96.60)
         self.assertIn('material_confirmed',nominal['assumed_prerequisites'])
@@ -235,16 +262,16 @@ class ModeledSavingsUnitTests(unittest.TestCase):
 
     def test_modeled_ia_increase_is_negative_appeal_savings(self):
         c=fixture();c['baseline']['ia_sqft']=1000
-        v=assess(c)['modeled_integration']['surface_scenario']['area_alternatives'][1]
+        v=assess(c)['modeled_integration']['surface_scenario']['area_alternatives'][2]
         self.assertLess(v['monthly_savings'],0)
 
     def test_untyped_existing_gsi_has_its_own_ai_informed_alternative(self):
         c=fixture();r=assess(c,frozen_gis(c,fake_research(c)))
         values=r['modeled_integration']['catchment_scenarios']
-        v=next(v for v in values if v['receiver_id']=='G1' and v['bound']=='nominal')
-        self.assertAlmostEqual(v['area_sqft'],5000)
-        self.assertEqual(v['status'],'calculated');self.assertAlmostEqual(v['ledger']['new_ia_credit_sqft'],4000)
-        total=next(v for v in values if v['receiver_id']=='all_unassigned_gsi' and v['bound']=='nominal')
+        v=next(v for v in values if v['receiver_id']=='G1' and v['bound']=='upper')
+        self.assertAlmostEqual(v['area_sqft'],10000)
+        self.assertEqual(v['status'],'calculated');self.assertAlmostEqual(v['ledger']['new_ia_credit_sqft'],8000)
+        total=next(v for v in values if v['receiver_id']=='all_unassigned_gsi' and v['bound']=='upper')
         self.assertEqual(total['gross_monthly_reduction'],v['gross_monthly_reduction'])
 
     def test_gsi_already_linked_to_individual_record_is_not_recounted(self):
@@ -273,9 +300,9 @@ class ModeledSavingsUnitTests(unittest.TestCase):
     def test_per_record_linked_area_uses_catchment_not_footprint(self):
         c=fixture();c['assessment']['records']=[record(gsi_id='G1')]
         r=assess(c,frozen_gis(c,fake_research(c)))
-        nominal=rec_info(r)['runs'][0]['scenarios'][1]
-        self.assertAlmostEqual(nominal['area_sqft'],5000)
-        self.assertAlmostEqual(nominal['ledger']['new_ia_credit_sqft'],4000)
+        nominal=rec_info(r)['runs'][0]['scenarios'][2]
+        self.assertAlmostEqual(nominal['area_sqft'],10000)
+        self.assertAlmostEqual(nominal['ledger']['new_ia_credit_sqft'],8000)
 
     def test_known_failed_or_proposed_prerequisites_block_estimates(self):
         for facts in ({'material_confirmed':False},{'proposed_only':True},{'installed':False},{'treatment_depth_inches':.5}):
@@ -285,13 +312,13 @@ class ModeledSavingsUnitTests(unittest.TestCase):
 
     def test_overlapping_candidates_block_combined_but_keep_alternatives(self):
         c=fixture();c['assessment']['records']=[record('a'),record('b')]
-        r=assess(c);combined=next(v for v in r['modeled_integration']['combined'] if v['bound']=='nominal')
+        r=assess(c);combined=next(v for v in r['modeled_integration']['combined'] if v['bound']=='upper')
         self.assertEqual(combined['status'],'blocked');self.assertTrue(any('Overlapping' in x for x in combined['reasons']))
-        self.assertEqual(rec_info(r,'a')['runs'][0]['scenarios'][1]['status'],'calculated')
+        self.assertEqual(rec_info(r,'a')['runs'][0]['scenarios'][2]['status'],'calculated')
 
     def test_disjoint_records_share_one_ledger(self):
         c=fixture();c['assessment']['records']=[record('a'),record('b',x=3.048)]
-        r=assess(c);v=next(v for v in r['modeled_integration']['combined'] if v['bound']=='nominal')
+        r=assess(c);v=next(v for v in r['modeled_integration']['combined'] if v['bound']=='upper')
         self.assertEqual(v['status'],'calculated');self.assertEqual(set(v['record_areas_sqft']),{'a','b'})
         self.assertAlmostEqual(v['ledger']['new_ia_credit_sqft'],1600)
         self.assertAlmostEqual(v['gross_annual_reduction'],v['gross_monthly_reduction']*12)
@@ -299,13 +326,14 @@ class ModeledSavingsUnitTests(unittest.TestCase):
     def test_existing_unreconciled_credits_still_block(self):
         c=fixture();c['assessment']['records']=[record()]
         c['baseline'].update(existing_ia_credit_sqft=500,existing_credits_spatially_reconciled=False)
-        s=rec_info(assess(c))['runs'][0]['scenarios'][1]
+        s=rec_info(assess(c))['runs'][0]['scenarios'][2]
         self.assertEqual(s['status'],'blocked');self.assertTrue(any('reconciliation' in x for x in s['reasons']))
 
     def test_ai_surface_correction_is_conditional_and_separate(self):
         c=fixture();r=assess(c);s=r['modeled_integration']['surface_scenario']
-        self.assertEqual(s['measurement_only']['status'],'calculated')
-        self.assertAlmostEqual(s['measurement_only']['physical_ia_sqft'],5000)
+        self.assertEqual(s['measurement_only']['status'],'blocked')
+        self.assertAlmostEqual(s['area_alternatives'][1]['ia_sqft'],0)
+        self.assertAlmostEqual(s['area_alternatives'][2]['ia_sqft'],10000)
         self.assertEqual(r['economics']['measurement_only']['status'],'blocked')
 
     def test_canopy_known_and_hidden_ground_assumptions_are_separate(self):

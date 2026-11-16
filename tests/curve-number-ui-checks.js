@@ -1,0 +1,14 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const src=fs.readFileSync('drainage_core/web/app.js','utf8');
+const start=src.indexOf('function curveNumberHtml('),end=src.indexOf('function renderAssessment(){',start);
+const context=vm.createContext({esc:x=>String(x).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;'),fmt:x=>x==null?'Unknown':Number(x).toFixed(2)});
+vm.runInContext(src.slice(start,end),context);
+const w={claim:'Conditional, not approved',average_cn:null,mapped_open_space_average_cn:61,known_portion_average_cn:61,mapped_open_space_sqft:1000,unknown_cn_area_sqft:0,image_candidate_area_sqft:500,unresolved_ground_sqft:500,formula:'sum(area × CN) / area',credit_factor:null,rounding:'No automatic savings allocation',issues:['Missing soil'],rows:[{feature_id:'<img src=x>',basis:'image_candidate',area_sqft:500,cover:null,condition:null,soil_group:null,mapunit_name:'<script>bad</script>',curve_number:null,area_times_cn:null,candidate_cn_min:61,candidate_cn_max:89,missing:['Cover condition unknown'],input_basis:'mapped attributes'}]};
+context.w=w;const html=vm.runInContext('curveNumberHtml(w)',context);
+assert.match(html,/Property open-space CN: Unknown/);assert.match(html,/Mapped open-space average: 61.00/);
+assert.match(html,/Cover condition unknown/);assert.match(html,/Candidate range: 61.00–89.00/);
+assert.match(html,/cn-save-inputs/);assert(!html.includes('<script>bad</script>'));assert(!html.includes('<img src=x>'));
+assert.match(html,/&lt;script&gt;/);assert.match(html,/Soil components, source requests, dates/);
+w.rows=[];assert.match(vm.runInContext('curveNumberHtml(w)',context),/No zero area or credit/);
+console.log('CN worksheet UI: unknowns, subset averages, candidate ranges, review controls and escaping passed.');
