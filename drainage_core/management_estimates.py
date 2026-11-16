@@ -11,6 +11,7 @@ from rasterio.features import shapes
 from rasterio.transform import from_origin
 from shapely.geometry import Point, box, mapping, shape
 
+from .extent import catchment_extent, geometry_cells
 from .geometry import case_area_sqft, effective_features, measure, union
 from .installation import installation_issues
 from .model_integration import CLASSES, _area_only, _polygon, ai_surfaces
@@ -101,23 +102,17 @@ def _grid_array(case, run, field):
 
 def _diagnostics(case, run, geometry):
     result = {'extent_sufficient': run.get('extent_sufficient'),
-        'area_conservation_pass': run.get('area_conservation_pass'),
-        'touches_grid_boundary': None, 'touches_nodata': None,
+        'invariants': deepcopy(run.get('invariants')),
+        'touches_grid_boundary': None, 'touches_window_edge': None, 'touches_nodata': None, 'extent_complete': None,
         'roof_destinations': 'Only saved explicit routes are included; unconnected roofs are not assigned',
         'interpretation': 'An in-window catchment is retained when upstream extent is incomplete'}
     grid = run.get('grid', {})
     array = _grid_array(case, run, 'filled_elevations')
     if array is not None:
-        rows, cols = array.shape; x, y = grid['origin']; size = grid['cell_size']
-        extent = box(x, y-rows*size, x+cols*size, y)
-        result['touches_grid_boundary'] = bool(geometry.intersects(extent.boundary))
-        missing = ~np.isfinite(array)
-        if missing.any():
-            holes = union([shape(g) for g, _ in shapes(missing.astype('uint8'), mask=missing,
-                transform=from_origin(x, y, size, size))])
-            result['touches_nodata'] = bool(geometry.intersects(holes))
-        else:
-            result['touches_nodata'] = False
+        # Same definition as research/integration catchments (drainage_core.extent).
+        cells = geometry_cells(geometry, array.shape, grid['origin'], grid['cell_size'])
+        contact = catchment_extent(cells, ~np.isfinite(array), (run.get('coverage') or {}).get('terrain_covers_parcel_buffer'))
+        result.update(contact, touches_grid_boundary=contact['touches_window_edge'])
     elif run.get('nodata_cells') == 0:
         result['touches_nodata'] = False
     result['input_dem_sha256'] = run.get('input_dem_sha256')

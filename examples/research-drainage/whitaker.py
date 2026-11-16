@@ -40,7 +40,7 @@ def build(source, output):
             'gsi_catchments':len(v['catchments']),'on_parcel_modeled_ground_sqft':sum(c['on_parcel_area_sqft'] for c in v['catchments']),
             'on_parcel_known_ia_sqft':v['known_ia_union_sqft'],
             'on_parcel_unknown_surface_sqft':sum(c['on_parcel_unknown_surface_sqft'] for c in v['catchments']),
-            'area_conservation_pass':v['area_conservation_pass'],'routed_ground_cells':v['routed_ground_cells'],
+            'accounting_invariant':v['invariants']['terminal_accumulation_equals_routed_cells'],'routed_ground_cells':v['routed_ground_cells'],
             'terminal_accumulation_cells':v['terminal_accumulation_cells']})
     summary['conditional_billing']=result['assessment']['research_drainage_scenarios']
     assert summary['original_files_unchanged']

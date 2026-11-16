@@ -35,7 +35,7 @@ def fixture(system_id='G1', system_type='Rain Garden'):
          'properties': {'layer': 'footprint', 'kind': 'system_footprint',
              'gsi_system_id': system_id, 'gsi_system_type': system_type}}]
     run = {'grid': {}, 'catchments': [{'gsi_id': system_id, 'geometry': case['parcel']}],
-        'extent_sufficient': False, 'area_conservation_pass': True}
+        'extent_sufficient': False, 'invariants': {'terminal_accumulation_equals_routed_cells': True}}
     gis = {'engine_version': 'invented-unit-output',
         'research_drainage': {'method': 'invented-frozen', 'primary': run, 'sensitivity': []}}
     return case, gis

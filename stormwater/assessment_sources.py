@@ -67,7 +67,9 @@ def normalize_gsi(feature,source,crs,kind='system'):
     if any(word in text for word in ('porous','pervious paving','permeable')) or flag('porous_pavement') or flag('smp_perviouspaving'): categories.append('permeable_pavement')
     if 'direct discharge' in text: categories.append('direct_discharge')
     state=str(p.get('status',p.get('overallstatuscategory',p.get('project_type','unknown'))))
-    proposed=any(word in state.lower() for word in ('propos','upcoming','design','plan'))
+    # Shared allowlist classifier: construction/bid/planned are not existing systems.
+    from drainage_core.installation import classify_status
+    proposed=classify_status(state)=='not_yet_built'
     oid=feature.get('id',p.get('objectid',digest(feature)[:20]))
     output=[]
     for category in categories:

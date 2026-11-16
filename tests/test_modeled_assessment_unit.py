@@ -42,7 +42,7 @@ def fake_research(c,receivers=('G1',),kind='gsi'):
     """Inject a hand-defined hydrology output; do not exercise providers/workflows."""
     c['research_drainage']={'features':[{'id':'receiver-'+g,'role':'gsi','gsi_id':g,
         'geometry':mapping(box(0,0,3.048,30.48))} for g in receivers]}
-    primary={'parameters':{},'grid':{'cell_size':1,'horizontal_unit':'m'},'area_conservation_pass':True,
+    primary={'parameters':{},'grid':{'cell_size':1,'horizontal_unit':'m'},'invariants':{'terminal_accumulation_equals_routed_cells':True},
         'extent_sufficient':True,
         'catchments':[],'outlet_catchments':[]}
     for g in receivers:
@@ -177,7 +177,7 @@ class ModeledGeometryUnitTests(unittest.TestCase):
             'inlets':[{'id':'inlet','cell':[3,2]}],'connections':[{'from':'inlet','to':'O1','evidence':'scenario'}]}
         r=run_model(c,measure(c),feature_inputs(c)[0])
         self.assertEqual(r['catchments'],[]);self.assertEqual(r['outlet_catchments'][0]['outlet_id'],'O1')
-        self.assertTrue(r['area_conservation_pass'])
+        self.assertTrue(r['invariants']['terminal_accumulation_equals_routed_cells'])
         c['terrain']['connections'][0]['evidence']='unknown'
         self.assertEqual(run_model(c,measure(c),feature_inputs(c)[0])['outlet_catchments'],[])
 

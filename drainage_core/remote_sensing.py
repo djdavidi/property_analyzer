@@ -5,8 +5,8 @@ import numpy as np
 from rasterio.io import MemoryFile
 from rasterio.features import shapes
 from rasterio.transform import from_bounds
-from shapely.geometry import shape, mapping
-from .geometry import case_area_sqft, union
+from shapely.geometry import shape, mapping, box
+from .geometry import case_area_sqft, union, area_only, erode_against
 
 CLASS_NAMES={1:'canopy',2:'grass_shrub',3:'bare_soil',4:'water',5:'roof',6:'road',7:'other_pavement'}
 
@@ -54,13 +54,19 @@ def decode_classification(content,palette):
 def classified_features(classes,bounds,case,source,*,class_names=None):
     """Clip exact legend classes; canopy does not label its hidden ground surface."""
     parcel=shape(case['parcel']);transform=from_bounds(*bounds,classes.shape[1],classes.shape[0])
-    groups={i:[] for i in range(1,8)}
+    pixel=hypot(transform.a,transform.e)/2
+    # Pixel-edge ranges need class polygons slightly beyond the parcel: erosion and
+    # dilation happen before clipping, so the legal line is never a class edge (D1).
+    window=parcel.buffer(2*pixel+abs(transform.a)).intersection(box(*bounds))
+    groups={i:[] for i in range(1,8)};near={i:[] for i in range(1,8)}
     for geometry,value in shapes(classes,mask=classes>0,transform=transform):
-        g=shape(geometry).intersection(parcel)
+        polygon=shape(geometry)
+        if not polygon.intersects(window):continue
+        g=area_only(polygon.intersection(parcel))
         if not g.is_empty:groups[int(value)].append(g)
+        near[int(value)].append(area_only(polygon.intersection(window)))
     geoms={code:union(items) for code,items in groups.items()}
     seen=union(list(geoms.values()));unknown=parcel.difference(seen)
-    pixel=hypot(transform.a,transform.e)/2
     features=[];estimates=[]
     for code,g in geoms.items():
         name=(class_names or CLASS_NAMES)[code]
@@ -71,9 +77,14 @@ def classified_features(classes,bounds,case,source,*,class_names=None):
                    'acquisition_date':None,'source_vintage':source['vintage'],'classification':name,'reviewed':False}
             features.append({'type':'Feature','id':'auto-lc-'+str(code),'geometry':mapping(g),'properties':props})
         measured=case_area_sqft(g,case)
+        # Erode only against other classes/unclassified pixels (window edge is far
+        # enough from the parcel that it cannot reach it), then clip.
+        full=union(near[code]);other=window.difference(full)
+        lower=area_only(erode_against(full,other,pixel).intersection(parcel))
+        upper=area_only(full.buffer(pixel).intersection(parcel)).union(unknown)
         estimates.append({'feature':name,'area_sqft':measured if not seen.is_empty else None,
-            'edge_lower_sqft':case_area_sqft(g.buffer(-pixel),case) if not seen.is_empty else None,
-            'edge_upper_sqft':case_area_sqft(g.buffer(pixel).intersection(parcel).union(unknown),case) if not seen.is_empty else None,
+            'edge_lower_sqft':case_area_sqft(lower,case) if not seen.is_empty else None,
+            'edge_upper_sqft':case_area_sqft(upper,case) if not seen.is_empty else None,
             'basis':'historical source-derived estimate','source_vintage':source['vintage'],
             'uncertainty':'Pixel-edge sensitivity only, not a statistical confidence interval or current-site accuracy. Unknown coverage may contain this class.'})
     return {'features':features,'estimates':estimates,'unclassified_sqft':case_area_sqft(unknown,case),
@@ -121,13 +132,17 @@ def rgb_cover_candidates(content, bounds, case, source):
                    shapes(valid.astype('uint8'),mask=valid,transform=transform)]
     image_coverage=union(valid_regions)
     if image_coverage.is_empty:raise ValueError('No usable imagery coverage inside parcel')
-    groups={1:[],2:[]}
+    edge=hypot(transform.a,transform.e)/2
+    window=parcel.buffer(2*edge+abs(transform.a)).intersection(box(*bounds))
+    groups={1:[],2:[]};near={1:[],2:[]}
     for geometry,value in shapes(labels,mask=labels>0,transform=transform):
-        region=shape(geometry).intersection(parcel)
+        polygon=shape(geometry)
+        if not polygon.intersects(window):continue
+        region=area_only(polygon.intersection(parcel))
         if not region.is_empty:groups[int(value)].append(region)
+        near[int(value)].append(area_only(polygon.intersection(window)))
     geoms={code:union(items) for code,items in groups.items()}
     seen=union(list(geoms.values()));unknown=parcel.difference(seen)
-    edge=hypot(transform.a,transform.e)/2
     features=[];estimates=[]
     for code,name in ((1,'vegetation_candidate'),(2,'hard_surface_candidate')):
         region=geoms[code]
@@ -138,9 +153,12 @@ def rgb_cover_candidates(content, bounds, case, source):
                     'source_url':source.get('url'),'source_sha256':source['sha256'],
                     'source_vintage':source.get('source_vintage'),'acquisition_date':source.get('acquisition_date'),
                     'source_method':'RGB cover masks v1','reviewed':False}})
+        full=union(near[code])
+        # Erode before clipping, only against other/unlabelled pixels (D1).
+        lower=area_only(erode_against(full,window.difference(full),edge).intersection(parcel))
         estimates.append({'feature':name,'area_sqft':case_area_sqft(region,case),
-            'edge_lower_sqft':case_area_sqft(region.buffer(-edge),case),
-            'edge_upper_sqft':case_area_sqft(region.buffer(edge).intersection(parcel),case),
+            'edge_lower_sqft':case_area_sqft(lower,case),
+            'edge_upper_sqft':case_area_sqft(area_only(full.buffer(edge).intersection(parcel)),case),
             'basis':'modeled RGB candidate mask; not a physical surface classification',
             'source_vintage':source.get('source_vintage'),
             'uncertainty':'Pixel-edge sensitivity only; classification error is unmeasured. Not a confidence interval.'})
