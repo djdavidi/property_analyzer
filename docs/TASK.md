@@ -1,34 +1,28 @@
-# Current task: second adversarial review (code, analysis and measurements)
+# Current task: fix plan Phase 0, trustworthy suite
 
-Status: **complete** (review only), 2026-11-16. Findings:
-[ADVERSARIAL-REVIEW-2026-11-16.md](ADVERSARIAL-REVIEW-2026-11-16.md); reproduction
-scripts: [review-2026-11-16-repros/](review-2026-11-16-repros/). The previous
-(completed) adversarial-fix brief is archived in the newest checkpoint.
+Status: **in progress**, 2026-11-16. Plan: [FIX-PLAN-2026-11-16.md](FIX-PLAN-2026-11-16.md)
+(accepted defaults D1–D12). Review: [ADVERSARIAL-REVIEW-2026-11-16.md](ADVERSARIAL-REVIEW-2026-11-16.md).
 
-Objective/why: the user asked for an adversarial review of the code, analysis
-mechanisms and measurements: incorrect assumptions, missed opportunities, wasted
-effort, disconnected calculations and plainly wrong logic.
+Objective/why: a full documented suite that passes, without network or writes into
+`data/`, so that every later fix can be verified honestly.
 
-Constraints/scope: review only. No application code, frozen case, source or rule
-changed; no property rerun, inference, live acquisition, browser, commit or push.
-GIS/jurisdiction separation untouched.
+Scope:
+- **A4 / R3:** `gather` compares incoming source data with the last *public*
+  snapshot, not reviewer facts. A retained baseline review is not re-staged. The
+  disappearance flag clears when the record returns. Digests use normalized numbers.
+- **F3:** tests are hermetic. The cache/soil provider is injected, sockets are
+  blocked, and paths are absolute.
+- **F2:** pin `as_of` in the synthetic example and add a known-answer test, or
+  correct its README with a hand derivation.
+- **F1:** document the single verification command.
 
-Success criteria (met): each finding names file:line, input and observed output,
-and is marked CONFIRMED (reproduced) or PLAUSIBLE (source reading); prior-review
-items are not repeated unless their fix is wrong or incomplete; documented checks
-are run and reported as they actually came out.
+Constraints: no GIS/jurisdiction boundary change; frozen inputs and review history
+preserved; no property reruns.
 
-Verification run: `.venv/bin/python -m unittest discover -s tests` -> Ran 452,
-FAILED (failures=1, skipped=1); previous commit c883f7f -> Ran 376, OK. Node syntax
-and the three UI harnesses passed. Repro scripts ran on invented inputs. PWD primary
-sources could not be fetched (DNS blocked); those interpretations remain PLAUSIBLE.
+Success:
+- `.venv/bin/python -m unittest discover -s tests` is green.
+- No outbound connections, and no `data/` is created.
+- Repros `prospects/gather_repro.py` and `roundtrip.py` behave correctly.
 
-Next action: the [fix plan](FIX-PLAN-2026-11-16.md) is accepted with all default
-decisions (D1–D12, 2026-11-16). Phase 0 (refresh regression, hermetic suite, pinned
-example) is next. It needs a new bounded TASK brief once the user asks to start
-implementing. D5 still requires `water.phila.gov` access or the PWD PDFs before the
-rule-dependent Phase 2 items. The review's recommended order
-starts with the refresh regression (A4), so the documented suite is green again.
-Then the quarantine/extent gates (A1, A2), then the money defects B1-B6 with
-independently derived known-answer tests. Do not rerun properties or publish
-without instruction.
+Next after Phase 0: Phase 1 (result lifecycle). Each green phase is committed,
+merged into main and pushed (D11, user-authorized merges to main).
