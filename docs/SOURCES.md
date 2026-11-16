@@ -85,3 +85,46 @@ and acquisition period April 14, 2024–April 2, 2025. A bounded native window w
 frozen locally, vectors were transformed to EPSG:26918, and elevations were not
 resampled. See [DEM reconciliation](DEM-RECONCILIATION.md) for primary evidence,
 hashes, source-quality distinctions, diagnostics and remaining validation gaps.
+
+## Acquisition behaviour after Phase 5 (2026-11-16)
+
+Code: `drainage_core/sources.py`, `stormwater/{record_cache,acquisition,automatic_terrain,soil_sources}.py`.
+Tests: `tests/test_acquisition_prospect_fixes.py` (synthetic stubs only).
+
+- HTTP-200 error bodies (`{"error":…}`, PWD `ChargeSummary.Errors`, a non-object SDA
+  reply) are retained in `history/` with `invalid_response` but never move the URL's
+  manifest. A legacy manifest that points at an error body is skipped for the last
+  good dated capture; outage fallbacks (`_Fallback`, `post_json`) reuse that capture.
+- ArcGIS paging advances by the records actually returned, so a service
+  `maxRecordCount` below the requested page size no longer skips rows; a truncated
+  page with no progress fails. ESRI-only codes (e.g. `102729`) resolve in the ESRI
+  authority; unparseable CRS declarations are `SourceError`. A GeoJSON body with no
+  `crs` member for a non-4326 request is rejected when its coordinates miss the query
+  geometry or are lon/lat inside the requested CRS's area of use.
+- Records with a 30/90-day age limit are refetched once expired, while the record
+  policy is active; a failed refetch reuses the old record only with an explicit
+  `reused_expired_record_after_failure` event.
+- Imagery: vintages are discovered from the PASDA catalog
+  (`services.pasda.psu.edu/arcgis/rest/services/pasda?f=json`); capture dates are read
+  from `www.pasda.psu.edu/metadata/<service>.xml` (`idinfo/timeperd`). Exports are
+  `png32` with `transparent=true`. The Esri World Imagery export/tile fallback was
+  removed. Older cached palette PNGs still decode.
+- USGS 1 m DEM products are tried newest first by TNM `publicationDate` (then
+  `lastUpdated`); the product date and the metadata capture period are recorded.
+  NAVD88 is matched as `NAVD88`, `NAVD 88`, `NAVD 1988`, the full datum name or EPSG:5703.
+- SDA `STIntersection` geometry collections keep their polygonal parts.
+
+Live read-only checks on 2026-11-16 (a handful of requests; tests never use the network):
+
+- PASDA catalog lists `PhiladelphiaImagery` 1996–2025 (newest 2025; no 2021); the 2025
+  MapServer advertises `PNG32` and 4096-px maximum exports. A `png32`/`transparent=true`
+  export returned 8-bit RGBA; at the south-west city edge 87% of pixels had alpha 0.
+  The export extent reported `wkid 102729`, `latestWkid 2272`.
+- `PhiladelphiaImagery2025.xml` states `caldate` 2025 only; its abstract says April–May.
+  The 2025 Footprint layer has no capture-date field (`ItemTS` is a load timestamp).
+- City layers `GSI_SMP_TYPES`, `PWD_PARCELS`, `LI_BUILDING_FOOTPRINTS` report
+  `maxRecordCount` 2000; `f=geojson&outSR=2272` replies carry a `crs` member.
+- For a Center City box TNM listed `PA_17County_D24` (published 2026-10-23) and two
+  2015 Delaware Valley products (published 2020-03-30); the API does not document its
+  order, hence the explicit date sort. D24 metadata gives capture 2024-04-14 to
+  2025-04-02, metres and NAVD88.

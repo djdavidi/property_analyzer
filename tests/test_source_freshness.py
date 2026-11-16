@@ -83,16 +83,19 @@ class SourceFreshnessTests(unittest.TestCase):
         self.assertEqual(c['features']['features'][2]['properties']['source_vintage'],'2018')
 
     def test_export_fails_closed_without_falling_back_to_undated_world_tiles(self):
+        import stormwater.acquisition as acquisition
+        self.assertFalse(hasattr(acquisition,'acquire_tile_imagery'))
         cache=Mock();cache.fetch_json.side_effect=SourceError('PASDA offline')
-        with patch('stormwater.acquisition.acquire_tile_imagery') as tiles:
-            with self.assertRaisesRegex(SourceError,'three-year'):
-                acquire_imagery(fixture()['parcel'],cache,freshness_policy=age_policy('2026-11-15'))
-            tiles.assert_not_called()
+        # An outage is reported as an outage, never as "no recent imagery".
+        with self.assertRaisesRegex(SourceError,'outage'):
+            acquire_imagery(fixture()['parcel'],cache,freshness_policy=age_policy('2026-11-15'))
         self.assertEqual(cache.fetch_json.call_count,1)
-        cache.reset_mock()
+        self.assertNotIn('arcgisonline',str(cache.fetch_json.call_args_list))
+        cache.reset_mock();cache.fetch_json.side_effect=None
+        cache.fetch_json.return_value={'data':{'services':[{'name':'pasda/PhiladelphiaImagery2025','type':'MapServer'}]},'provenance':{}}
         with self.assertRaisesRegex(SourceError,'three-year'):
             acquire_imagery(fixture()['parcel'],cache,freshness_policy=age_policy('2029-01-02'))
-        cache.fetch_json.assert_not_called()
+        self.assertEqual(cache.fetch_json.call_count,1)  # catalog only; no export of an ineligible vintage
 
     def test_outage_does_not_reactivate_old_image_or_estimates(self):
         c=fixture();c['features']['features']=lc(c)['features']

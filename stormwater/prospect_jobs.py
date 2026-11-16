@@ -18,11 +18,18 @@ class ProspectJobs:
             return deepcopy(self.state)
 
     def start(self, refresh=False,mode='rerank',parcel_ids=None):
+        """``refresh`` re-downloads every record of an initial bounded scan.
+
+        Local reranking and selected-parcel updates cannot refresh everything;
+        selected updates already refresh stale or failed records under the cap.
+        """
         if not isinstance(refresh, bool):
             raise ValueError('Refresh must be true or false')
         if mode not in ('rerank','update'):raise ValueError('Choose local rerank or bounded update')
+        if refresh and mode=='rerank':raise ValueError('Local reranking cannot refresh records')
+        if refresh and parcel_ids:raise ValueError('Selected updates cannot use a full refresh')
         if mode=='update' and (self.root/'latest.json').exists() and not parcel_ids:
-            raise ValueError('Select saved member parcels before updating records')
+            raise ValueError('Select saved member parcels (or failed billing parcels to retry) before updating records')
         with self.lock:
             if self.state['status'] in ('running','cancelling'):
                 return deepcopy(self.state)
@@ -35,8 +42,12 @@ class ProspectJobs:
             try:
                 if mode=='rerank':result=rerank_saved(self.root)
                 elif parcel_ids:result=update_selected(self.root,parcel_ids,progress=progress,cancel=self.stop)
-                else:result=run_scan(self.root,refresh=False,refresh_stale=True,limit=50,workers=2,progress=progress,cancel=self.stop)
-                progress(status='complete', result_id=result['id'], completed_at=now())
+                else:result=run_scan(self.root,refresh=refresh,refresh_stale=True,limit=50,workers=2,progress=progress,cancel=self.stop)
+                # Results were saved: a cancel that arrived afterwards changed nothing.
+                late={'cancel_ignored':'Cancel arrived after results were saved'} if self.stop.is_set() else {}
+                promoted=result.get('promoted',True)
+                progress(status='complete', result_id=result['id'], completed_at=now(), promoted=promoted,
+                         **({'note':result.get('not_promoted_reason')} if not promoted else {}),**late)
             except Exception as exc:
                 progress(status='cancelled' if self.stop.is_set() else 'failed', error=str(exc), completed_at=now())
         Thread(target=work, daemon=True).start()

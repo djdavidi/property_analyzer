@@ -11,6 +11,36 @@ Top 50 now means owner/site prospects with visible member parcel bills. Updated 
 groups 21/8/21. Current annual charge determines economic scale across credit groups;
 no savings probability is asserted. Original v1 findings below remain historical.
 
+**Phase 5 fixes (2026-11-16, review E1–E3/E5, D3–D4).** Run/figures below predate
+them; rerun to apply. Verified only by synthetic tests
+(`tests/test_acquisition_prospect_fixes.py`), not a live citywide scan.
+
+- Owner screen (decision D8): names are normalized (`&`→AND, PWD abbreviations such
+  as PHILA/PENNA/AUTH/CORP expanded, single letters joined). Only an exact public
+  body, a named agency of the City/Commonwealth/United States, or a fixed-width
+  truncation of a listed body (e.g. `PHILADELPHIA AUTHORITY FO`) is excluded as
+  government; PGW, PIDC, PAID, Board of City Trusts, Land Bank and Amtrak are listed.
+  Names that only *begin* with a public body or public-sounding prefix are held for
+  `review`. Private look-alikes (`PHILADELPHIA WATERFRONT PARTNERS`, `COMMONWEALTH PLAZA
+  ASSOCIATES`, `U S AIRWAYS`) are no longer excluded.
+- Coverage: after the largest system per project, the uncovered footprint of every
+  other selected system is queried too (same request cap). Held systems carry
+  `reason_code` `ambiguous_overlap`, `no_parcel_found` or `parcel_not_queried`;
+  only the first counts as `ambiguous_systems`.
+- Retry and staleness: failed billing parcels are kept as `retry_targets` and listed
+  in `retry_parcel_ids`; **Retry failed billing records** (or `--parcels`) re-attempts
+  them. A stale bill whose refresh fails (or is out of budget) is kept as the flagged
+  stale copy (`stale_records_kept`, needs review). A partial run that ranks fewer
+  parcels than the latest shortlist is saved with `promoted: false` and does not move
+  `latest.json`. Selected updates and local reranks keep the saved `limit`.
+- Integrity: `results.json` stores each parcel geometry once under
+  `parcel_geometries` (rows carry `parcel_geometry_ref`; `load_result` restores them
+  and checks the hash). `latest.json` is written with a unique temp file and
+  `os.replace`. A cancel arriving after results were saved reports completion.
+- Sources: HTTP-200 error bodies (`{"error":…}`, PWD `ChargeSummary.Errors`) are kept
+  as history only and never become the cached record, so the next scan refetches
+  them within the cap; ArcGIS paging advances by records actually received.
+
 Records-only lead screening alongside the existing assessment. No imagery, AI, DEM,
 routing or full assessment is invoked. Public charges are not estimated savings.
 

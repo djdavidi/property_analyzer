@@ -18,17 +18,26 @@ def digest(value):
 
 
 class _Fallback:
+    """Outage fallback to the last good dated response (never to an error body)."""
     def __init__(self,cache):
-        self.cache=cache;self.failures=[];self.used_cache=False;self.reused_recent=False
+        self.cache=cache;self.failures=[];self.used_cache=False;self.reused_recent=False;self.reused_expired=False
+
+    def _saved(self,url):
+        reader=getattr(self.cache,'_read_usable',None) or getattr(self.cache,'_read',None)
+        return reader(url) if reader else None
 
     def fetch_json(self,url,refresh=False,metadata=None):
         try:
-            before=len(getattr(self.cache,'reuse_events',[]))
+            events=getattr(self.cache,'reuse_events',[]);before=len(events) if isinstance(events,list) else 0
             result=self.cache.fetch_json(url,refresh,metadata)
-            self.reused_recent=len(getattr(self.cache,'reuse_events',[]))>before
+            new=[e.get('status') for e in getattr(self.cache,'reuse_events',[])[before:]] if isinstance(events,list) else []
+            self.reused_recent='reused_recent_record' in new
+            if any(str(s).startswith('reused_expired_record') for s in new):
+                self.reused_expired=True;self.used_cache=True
+                self.failures.extend(str(e.get('error') or e.get('claim')) for e in self.cache.reuse_events[before:] if e.get('error') or e.get('claim'))
             return result
         except Exception as exc:
-            saved=self.cache._read(url) if hasattr(self.cache,'_read') else None
+            saved=self._saved(url)
             self.failures.append(str(exc))
             if not saved: raise
             data=json.loads(saved[0])

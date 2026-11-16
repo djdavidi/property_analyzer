@@ -3,16 +3,30 @@
 ## Automatic property entry
 
 Open the local Philadelphia app, enter an address or PWD parcel ID and select
-**Assess property**. New runs prefer the 2025 imagery and enforce an inclusive
-three-calendar-year limit **on satellite/aerial imagery only**, including cached fallbacks.
-Other datasets retain their own evidence/validity checks. Unknown image dates fail;
-source-year-only imagery uses January 1 conservatively. Download/review dates never
-refresh capture dates. The cutoff is saved with each run for reproducible replay.
+**Assess property**. New runs read the PASDA service catalog, use the newest
+`PhiladelphiaImagery<year>` vintage that passes an inclusive
+three-calendar-year limit **on satellite/aerial imagery only**, including cached fallbacks,
+and request it as RGBA (`png32`, transparent), so out-of-coverage pixels are NoData.
+Capture dates come from the published FGDC metadata when it states a day or month;
+the 2025 metadata states only the year (abstract: April–May), so January 1 is used
+conservatively. A PASDA outage is reported as an outage, not as "no recent imagery".
+Undated basemaps (the former Esri World Imagery fallback) are not used.
+Other datasets retain their own evidence/validity checks. Unknown image dates fail.
+Download/review dates never refresh capture dates. The cutoff is saved with each run
+for reproducible replay. Public records past their 30/90-day age limit are refetched;
+if that fails they are reused only with an explicit `reused_expired_record…` event
+shown with the case/assessment.
 
 With the optional [local classifier](../SETUP.md), **Automatic site estimates** shows
 modeled canopy, grass/shrub, bare soil, water, roofs, roads and other pavement areas.
 The free OpenEarthMap model runs on CPU locally, without uploading imagery. It uses
-approximately 0.5 m analysis pixels, overlapping tiles and low-score unknowns. Scores
+approximately 0.5 m analysis pixels, overlapping tiles and low-score unknowns. The cell
+size is chosen before imagery is requested: analysis boxes over about 25 ha are
+coarsened (up to the model's 1 m limit) to stay within 1,000,000 cells, and the image
+is requested fine enough for that cell (up to 4096 px). Larger boxes, a missing model
+or any model error fall back to RGB candidates with the reason shown in the source
+status ("fell back to RGB cover candidates because …"). A bad semantic cache entry is
+recomputed, not a permanent fallback. Scores
 and pixel-edge ranges are not calibrated accuracy intervals. Cropland is grouped with
 grass/shrub. Tree/ground classification and physical eligibility remain separate.
 

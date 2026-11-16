@@ -115,126 +115,221 @@ def acquire_property(parcel_id, cache, refresh=False):
             'independent_drainage_validation':'incomplete'}
 
 
-def acquire_imagery(parcel, cache, *, crs='EPSG:2272', refresh=False, size=1024, freshness_policy=None):
-    """Cache a bounded public aerial PNG; disclose fallback and unknown capture dates.
+PASDA_SERVICES = 'https://services.pasda.psu.edu/arcgis/rest/services'
+PASDA_CATALOG = PASDA_SERVICES+'/pasda?f=json'
+PASDA_METADATA = 'https://www.pasda.psu.edu/metadata/{name}.xml'
+MAX_IMAGE_SIDE = 4096          # PASDA MapServer maxImageWidth/maxImageHeight
+MAX_IMAGE_PIXELS = 8_000_000   # drainage_core.remote_sensing.image_array bound
 
-    Service vintage is not the exact acquisition date. No raster classifier is
-    silently applied to RGB values; trees/green roofs cannot prove perviousness.
-    """
+
+def imagery_bounds(parcel):
+    """Analysis box requested for measurement imagery (parcel plus 100 CRS units)."""
     from shapely.geometry import shape
-    from drainage_core.freshness import age_policy
-    freshness_policy=freshness_policy or age_policy(now()[:10])
-    bounds=list(shape(parcel).buffer(100).bounds)
-    width=int(size); height=max(1,round(width*(bounds[3]-bounds[1])/(bounds[2]-bounds[0])))
-    height=min(height,2048)
-    services=[('https://services.pasda.psu.edu/arcgis/rest/services/pasda/PhiladelphiaImagery2025/MapServer','2025'),
-              ('https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer',None)]
-    params={'f':'json','bbox':','.join(map(str,bounds)), 'bboxSR':crs.split(':')[-1],
-            'imageSR':crs.split(':')[-1], 'size':f'{width},{height}', 'format':'png','transparent':'false'}
-    warnings=[]
-    for service,vintage in services:
-        if freshness_policy:
-            from drainage_core.freshness import freshness
-            check=freshness({'service_vintage':vintage},freshness_policy)
-            if not check['eligible']:
-                warnings.append(service+': '+check['status']+'; excluded by three-year imagery limit')
-                continue
+    return list(shape(parcel).buffer(100).bounds)
+
+
+def _saved_json(cache, url):
+    reader = getattr(cache, '_read_usable', None)
+    saved = reader(url) if callable(reader) else None
+    if not (isinstance(saved, tuple) and len(saved) == 2):
+        return None
+    return {'data': json.loads(saved[0]), 'provenance': saved[1]}
+
+
+def imagery_vintages(cache, refresh=False, warnings=None):
+    """Discover PASDA Philadelphia aerial imagery services, newest year first.
+
+    A failed catalog refresh falls back to the last good dated catalog capture,
+    with a warning. No catalog at all is an outage, never "no imagery".
+    """
+    import re
+    try:
+        item = cache.fetch_json(PASDA_CATALOG, refresh)
+    except SourceError as exc:
+        item = _saved_json(cache, PASDA_CATALOG) if refresh else None
+        if item is None:
+            raise SourceError('Imagery source outage: PASDA service catalog unavailable: '+str(exc)) from exc
+        item['provenance'] = {**item['provenance'], 'cache_reused_after_failure': True, 'refresh_error': str(exc)}
+        if warnings is not None:
+            warnings.append('PASDA catalog refresh failed; using catalog captured '+str(item['provenance'].get('retrieved_at')))
+    services = item['data'].get('services')
+    if not isinstance(services, list):
+        raise SourceError('Imagery source outage: PASDA catalog lacks a service list')
+    found = []
+    for service in services:
+        name = str((service or {}).get('name', ''))
+        match = re.fullmatch(r'pasda/PhiladelphiaImagery(\d{4})', name)
+        if match and service.get('type') == 'MapServer':
+            found.append({'name': name, 'year': match.group(1), 'url': f'{PASDA_SERVICES}/{name}/MapServer'})
+    found.sort(key=lambda s: s['year'], reverse=True)
+    return found, item['provenance']
+
+
+def _fgdc_date(text):
+    import re
+    text = str(text or '').strip()
+    if re.fullmatch(r'\d{8}', text):
+        return f'{text[:4]}-{text[4:6]}-{text[6:]}', 'day'
+    if re.fullmatch(r'\d{6}', text):
+        return f'{text[:4]}-{text[4:6]}', 'month'
+    if re.fullmatch(r'\d{4}', text):
+        return text, 'year'
+    return None, None
+
+
+def capture_metadata(cache, name, refresh=False):
+    """Capture period from the published FGDC metadata (``idinfo/timeperd``).
+
+    Returns the earliest/latest stated capture dates and their precision. The
+    service year in its name is not a capture date.
+    """
+    from xml.etree import ElementTree
+    url = PASDA_METADATA.format(name=name.split('/')[-1])
+    item = cache.fetch_bytes(url, refresh)
+    try:
+        root = ElementTree.fromstring(item['content'])
+    except ElementTree.ParseError as exc:
+        raise SourceError('Imagery metadata is not readable XML') from exc
+    period = root.find('idinfo/timeperd/timeinfo')
+    values = []
+    if period is not None:
+        for tag in ('sngdate/caldate', 'mdattim/sngdate/caldate', 'rngdates/begdate', 'rngdates/enddate'):
+            values += [_fgdc_date(e.text) for e in period.findall(tag)]
+    values = [v for v in values if v[0]]
+    if not values:
+        raise SourceError('Imagery metadata states no capture date')
+    order = sorted(values, key=lambda v: v[0])
+    return {'url': url, 'sha256': item['provenance']['sha256'], 'retrieved_at': item['provenance'].get('retrieved_at'),
+            'earliest': order[0][0], 'earliest_precision': order[0][1], 'latest': order[-1][0], 'latest_precision': order[-1][1],
+            'source': 'FGDC idinfo/timeperd'}
+
+
+def image_size(bounds, size):
+    """Pixel dimensions whose longest side is ``size`` (bounded by the service)."""
+    width_units, height_units = bounds[2]-bounds[0], bounds[3]-bounds[1]
+    size = int(size)
+    if not 1 <= size <= MAX_IMAGE_SIDE:
+        raise ValueError(f'Image size must be 1–{MAX_IMAGE_SIDE} pixels')
+    if width_units >= height_units:
+        width, height = size, max(1, round(size*height_units/width_units))
+    else:
+        width, height = max(1, round(size*width_units/height_units)), size
+    if width*height > MAX_IMAGE_PIXELS:
+        raise ValueError('Requested image exceeds the bounded processing limit')
+    return width, height
+
+
+def _coverage_fraction(content):
+    """Opaque (in-coverage) share of an RGBA export; palette blobs count as opaque."""
+    from drainage_core.remote_sensing import image_array
+    try:
+        pixels = image_array(content)
+    except Exception as exc:
+        raise SourceError('Imagery export is not a readable image: '+str(exc)) from exc
+    if pixels.shape[2] < 4:
+        return 1.0
+    return float((pixels[:, :, 3] == 255).mean())
+
+
+def acquire_imagery(parcel, cache, *, crs='EPSG:2272', refresh=False, size=1024, freshness_policy=None):
+    """Cache a bounded PASDA aerial export within the three-year imagery rule.
+
+    Available vintages are discovered from the PASDA catalog; the newest one
+    within the rule is used. The export is RGBA (``png32``, transparent) so
+    out-of-coverage pixels are real NoData. Capture dates come from published
+    metadata when stated; a year-only date keeps the conservative January 1
+    bound. Source outages are reported as outages, not as missing recent imagery.
+    Undated basemaps are never used.
+    """
+    from drainage_core.freshness import age_policy, freshness
+    from pyproj import CRS
+    freshness_policy = freshness_policy or age_policy(now()[:10])
+    bounds = imagery_bounds(parcel)
+    width, height = image_size(bounds, size)
+    warnings = []
+    vintages, catalog = imagery_vintages(cache, refresh, warnings)
+    eligible = [v for v in vintages if freshness({'service_vintage': v['year']}, freshness_policy)['eligible']]
+    if not eligible:
+        newest = vintages[0]['year'] if vintages else 'none listed'
+        raise SourceError(f'No imagery within the three-year age limit: newest PASDA Philadelphia vintage {newest}; '
+                          f'cutoff {freshness_policy.get("cutoff")}')
+    params = {'f': 'json', 'bbox': ','.join(map(str, bounds)), 'bboxSR': crs.split(':')[-1],
+              'imageSR': crs.split(':')[-1], 'size': f'{width},{height}', 'format': 'png32', 'transparent': 'true'}
+    problems, outage = [], None
+    for vintage in eligible:
+        service = vintage['url']
         try:
-            source=cache.fetch_json(service+'/export?'+urlencode(params),refresh,
-                                    {'crs':crs,'horizontal_unit':'us-ft' if crs=='EPSG:2272' else None,
-                                     'service_vintage':vintage,'acquisition_date':None})
-            data=source['data']
+            metadata = capture_metadata(cache, vintage['name'])
+        except SourceError as exc:
+            metadata = None
+            warnings.append(f'{vintage["name"]}: capture-date metadata unavailable ({exc}); service year used with January 1 bound')
+        year = vintage['year']
+        acquisition_date, precision = None, 'year'
+        if metadata:
+            if metadata['earliest'][:4] != year:
+                warnings.append(f'{vintage["name"]}: metadata capture year {metadata["earliest"][:4]} differs from service year {year}; earlier year used')
+                year = min(year, metadata['earliest'][:4])
+            if metadata['earliest_precision'] == 'day':
+                acquisition_date, precision = metadata['earliest'], 'day'
+            elif metadata['earliest_precision'] == 'month':
+                acquisition_date, precision = metadata['earliest']+'-01', 'month (first day used)'
+        dated = {'service_vintage': year, 'acquisition_date': acquisition_date}
+        check = freshness(dated, freshness_policy)
+        if not check['eligible']:
+            problems.append(f'{vintage["name"]}: {check["status"]} by capture metadata')
+            continue
+        try:
+            source = cache.fetch_json(service+'/export?'+urlencode(params), refresh,
+                                      {'crs': crs, 'horizontal_unit': 'us-ft' if crs == 'EPSG:2272' else None,
+                                       'service_vintage': year, 'acquisition_date': acquisition_date})
+        except SourceError as exc:
+            if str(exc).startswith('Public source unavailable'):
+                outage = exc
+                break
+            problems.append(f'{vintage["name"]}: {exc}')
+            continue
+        try:
+            data = source['data']
             if not data.get('href'):
                 raise SourceError('Imagery export lacks image URL')
-            href=data['href']
+            extent = data.get('extent', {})
+            sr = extent.get('spatialReference', {})
+            returned = sr.get('latestWkid', sr.get('wkid', sr.get('wkt')))
+            from drainage_core.sources import crs_from_declaration
+            if returned is None or not crs_from_declaration(returned).equals(CRS(crs), ignore_axis_order=True):
+                raise SourceError('Imagery response CRS differs from measurement CRS')
+            if not all(k in extent for k in ('xmin', 'ymin', 'xmax', 'ymax')):
+                raise SourceError('Imagery response lacks exact rendering bounds')
+            href = data['href']
             # ArcGIS may publish an HTTP href from an HTTPS request; require TLS.
             if href.startswith('http://'):
-                href='https://'+href[len('http://'):]
-            image=cache.fetch_bytes(href,refresh,{'crs':crs,'acquisition_date':None,
-                                 'service_vintage':vintage,'bounds':data.get('extent'),
-                                 'resolution':[(bounds[2]-bounds[0])/width,(bounds[3]-bounds[1])/height]})
-            extent=data.get('extent',{})
-            if freshness_policy:
-                from pyproj import CRS
-                sr=extent.get('spatialReference',{})
-                returned=sr.get('latestWkid',sr.get('wkid',sr.get('wkt')))
-                if returned is None or not CRS(returned).equals(CRS(crs),ignore_axis_order=True):
-                    raise SourceError('Imagery response CRS differs from measurement CRS')
-                if not all(k in extent for k in ('xmin','ymin','xmax','ymax')):
-                    raise SourceError('Imagery response lacks exact rendering bounds')
-            actual=[extent.get(k,bounds[i]) for i,k in enumerate(['xmin','ymin','xmax','ymax'])]
-            return {'sha256':image['provenance']['sha256'],'blob_path':str(cache.root/'blobs'/image['provenance']['sha256']),
-                    'bounds':actual,'crs':crs,'width':width,'height':height,'media_type':'image/png',
-                    'sources':[source['provenance'],image['provenance']],
-                    'source_vintage':vintage,'acquisition_date':None,
-                    'imagery_age_policy':freshness_policy,
-                    'attribution':'PASDA / Philadelphia' if vintage else 'Esri World Imagery and contributors',
-                    'warnings':warnings+['Aerial capture date and season remain unverified; service vintage: '+str(vintage)]}
+                href = 'https://'+href[len('http://'):]
+            actual = [float(extent[k]) for k in ('xmin', 'ymin', 'xmax', 'ymax')]
+            image = cache.fetch_bytes(href, refresh, {'crs': crs, 'acquisition_date': acquisition_date,
+                                      'service_vintage': year, 'bounds': extent, 'format': 'png32 (RGBA, transparent NoData)',
+                                      'resolution': [(actual[2]-actual[0])/width, (actual[3]-actual[1])/height]})
+            coverage = _coverage_fraction(image['content'])
+            if coverage <= 0:
+                raise SourceError('Export has no imagery coverage for this analysis box')
         except SourceError as exc:
-            warnings.append(str(exc))
-    if freshness_policy:
-        raise SourceError('No imagery within the three-year age limit: '+'; '.join(warnings))
-    try:
-        image=acquire_tile_imagery(parcel,cache,crs=crs,size=size,refresh=refresh)
-        image['warnings']=warnings+image['warnings']
-        return image
-    except SourceError as exc:
-        raise SourceError('All public imagery sources unavailable: '+'; '.join(warnings)+'; '+str(exc)) from exc
-
-
-def acquire_tile_imagery(parcel, cache, *, crs='EPSG:2272', zoom=18, size=1024, refresh=False):
-    """Bounded free public aerial tile mosaic, reprojected locally into the case CRS."""
-    import io
-    import numpy as np
-    from rasterio.io import MemoryFile
-    from pyproj import Transformer
-    from shapely.geometry import shape
-    from shapely.ops import transform
-    from rasterio.transform import from_bounds
-    from rasterio.warp import reproject,Resampling
-    from concurrent.futures import ThreadPoolExecutor
-    bounds=list(shape(parcel).buffer(100).bounds)
-    merc=transform(Transformer.from_crs(crs,3857,always_xy=True).transform,shape(parcel).buffer(100))
-    xmin,ymin,xmax,ymax=merc.bounds
-    world=math.pi*6378137; span=2*world/(2**zoom)
-    tx0=int((xmin+world)//span);tx1=int((xmax+world)//span)
-    ty0=int((world-ymax)//span);ty1=int((world-ymin)//span)
-    tiles=[(x,y) for y in range(ty0,ty1+1) for x in range(tx0,tx1+1)]
-    if len(tiles)>36:raise SourceError('Aerial tile window exceeds bounded property acquisition limit')
-    template='https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
-    def fetch(tile):
-        x,y=tile
-        item=cache.fetch_bytes(template.format(z=zoom,y=y,x=x),refresh,
-                              {'crs':'EPSG:3857','acquisition_date':None,'horizontal_unit':'m',
-                               'resolution':[span/256,span/256],'tile':[zoom,x,y]})
-        with MemoryFile(item['content']) as mem:
-            with mem.open() as image:
-                array=np.moveaxis(image.read([1,2,3]),0,-1)
-        if array.shape!=(256,256,3):raise SourceError('Unexpected aerial tile size')
-        return tile,array,item['provenance']
-    canvas=np.zeros(((ty1-ty0+1)*256,(tx1-tx0+1)*256,3),dtype=np.uint8)
-    sources=[]
-    with ThreadPoolExecutor(max_workers=4) as executor:
-        for (x,y),array,source in executor.map(fetch,tiles):
-            canvas[(y-ty0)*256:(y-ty0+1)*256,(x-tx0)*256:(x-tx0+1)*256]=array
-            sources.append(source)
-    source_bounds=[tx0*span-world,world-(ty1+1)*span,(tx1+1)*span-world,world-ty0*span]
-    width=int(size);height=max(1,round(width*(bounds[3]-bounds[1])/(bounds[2]-bounds[0])))
-    destination=np.zeros((height,width,3),dtype=np.uint8)
-    for band in range(3):
-        reproject(canvas[:,:,band],destination[:,:,band],src_transform=from_bounds(*source_bounds,canvas.shape[1],canvas.shape[0]),
-                  src_crs='EPSG:3857',dst_transform=from_bounds(*bounds,width,height),dst_crs=crs,resampling=Resampling.bilinear)
-    with MemoryFile() as mem:
-        with mem.open(driver='PNG',width=width,height=height,count=3,dtype='uint8') as image:
-            image.write(np.moveaxis(destination,-1,0))
-        encoded=mem.read()
-    metadata={'crs':crs,'bounds':bounds,'acquisition_date':None,'horizontal_unit':'us-ft' if crs=='EPSG:2272' else None,
-              'resolution':[(bounds[2]-bounds[0])/width,(bounds[3]-bounds[1])/height],
-              'processing':{'method':'tile mosaic; EPSG:3857 to case CRS; bilinear display-only warp','zoom':zoom,
-                            'source_sha256':[s['sha256'] for s in sources]}}
-    _,derived=cache._store('derived:world-imagery-'+hashlib.sha256(canonical(metadata)).hexdigest(),encoded,metadata)
-    return {'sha256':derived['sha256'],'blob_path':str(cache.root/'blobs'/derived['sha256']),
-            'bounds':bounds,'crs':crs,'width':width,'height':height,'media_type':'image/png',
-            'attribution':'Esri World Imagery and contributors','sources':sources+[derived],
-            'warnings':['Aerial capture date/season unverified; free Esri World Imagery tiles used as display-only fallback.',
-                        'Display reprojection does not increase underlying imagery resolution.']}
+            if str(exc).startswith('Public source unavailable'):
+                outage = exc
+                break
+            problems.append(f'{vintage["name"]}: {exc}')
+            continue
+        if coverage < 1:
+            warnings.append(f'{round((1-coverage)*100, 1)}% of the analysis box lies outside {vintage["name"]} coverage (transparent NoData)')
+        return {'sha256': image['provenance']['sha256'], 'blob_path': str(cache.root/'blobs'/image['provenance']['sha256']),
+                'bounds': actual, 'crs': crs, 'width': width, 'height': height, 'media_type': 'image/png',
+                'format': 'png32', 'nodata': 'alpha', 'coverage_fraction': round(coverage, 6),
+                'sources': [catalog, *([{'url': metadata['url'], 'sha256': metadata['sha256'], 'retrieved_at': metadata['retrieved_at']}] if metadata else []),
+                            source['provenance'], image['provenance']],
+                'service': vintage['name'], 'source_vintage': year, 'acquisition_date': acquisition_date,
+                'capture_date_precision': precision, 'capture_metadata': metadata,
+                'available_vintages': [v['year'] for v in vintages],
+                'imagery_age_policy': freshness_policy, 'attribution': 'PASDA / City of Philadelphia',
+                'warnings': warnings+(['Aerial capture date stated only as year '+year+'; three-year rule uses January 1 of that year']
+                                      if precision == 'year' else [])}
+    if outage is not None:
+        raise SourceError('Imagery source outage: '+str(outage)+('; '+'; '.join(problems) if problems else ''))
+    raise SourceError('No usable imagery from eligible PASDA vintages: '+'; '.join(problems+warnings))

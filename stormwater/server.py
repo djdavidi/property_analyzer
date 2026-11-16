@@ -191,6 +191,12 @@ class Handler(BaseHTTPRequestHandler):
                 if (self.store.directory(id)/'case.json').exists():case=self.store.load(id)
                 else:case=acquired_case(acquire_property(selected['parcel_id'],cache))
                 case.setdefault('sources',[]).extend(found['sources'])
+                # Records past their age limit are refreshed; a failed refresh that
+                # reuses one is shown with the case, never applied silently.
+                for event in cache.reuse_events:
+                    if str(event.get('status','')).startswith('reused_expired_record'):
+                        case.setdefault('warnings',[]).append('Public record past its '+str(event.get('max_age_days'))+'-day age limit reused (captured '
+                            +str(event.get('retrieved_at'))+'): '+str(event.get('url'))+(' — refresh failed: '+str(event['error']) if event.get('error') else ''))
                 return self.send(self.store.run_assessment(case,cache))
             if path=='/api/acquire':
                 from .acquisition import Cache, acquire_property, acquire_imagery

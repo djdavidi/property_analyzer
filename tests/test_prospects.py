@@ -106,7 +106,10 @@ class WorkflowTests(unittest.TestCase):
             def _read(self,url):return ('{}',{'retrieved_at':'2000-01-01T00:00:00Z'})
             def fetch_json(self,*args):self.calls+=1;return {'data':{},'provenance':{}}
         c=Cache();p.CappedCache(c,max_requests=0).fetch_json('saved');self.assertEqual(c.calls,0)
-        with self.assertRaises(p.SourceError):p.CappedCache(c,max_requests=0,refresh_stale=True).fetch_json('saved')
+        # Offline cannot send: the stale copy is kept, flagged, and nothing is requested.
+        offline=p.CappedCache(c,max_requests=0,refresh_stale=True);kept=offline.fetch_json('saved')
+        self.assertEqual(c.calls,0);self.assertTrue(kept['provenance']['refresh_failed'])
+        self.assertEqual(offline.stale_reuse[0]['status'],'stale_record_kept_after_failed_refresh')
         p.CappedCache(c,refresh_stale=True).fetch_json('saved');self.assertEqual(c.calls,1)
 
     def test_cancel_stops_new_cached_and_network_work(self):

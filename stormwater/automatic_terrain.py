@@ -13,6 +13,31 @@ from drainage_core.projection import project_case,warp_display
 from drainage_core.raster import import_dem
 
 
+# NAVD88 is written several ways in USGS metadata.
+VERTICAL_DATUM=re.compile(r'\bNAVD\s*-?\s*(?:19)?88\b|North American Vertical Datum (?:of )?1988|EPSG\s*:?\s*5703\b',re.I)
+
+
+def product_date(item):
+    """Product date used to prefer the newest 1 m DEM (publication, then update)."""
+    for key in ('publicationDate','lastUpdated','dateCreated','modificationInfo'):
+        value=str(item.get(key) or '')[:10]
+        if re.fullmatch(r'\d{4}-\d{2}-\d{2}',value):return value
+    return ''
+
+
+def metadata_facts(xml):
+    """Units, vertical datum and capture period stated by FGDC tile metadata."""
+    text=' '.join(xml.itertext())
+    units=[(e.text or '').strip().lower() for e in xml.iter('altunits')]
+    metres=bool(re.search(r'elevation values are in meters',text,re.I)) or any(u in ('meters','metres','meter','metre') for u in units)
+    datum=VERTICAL_DATUM.search(text)
+    period={}
+    for tag,key in (('begdate','capture_start'),('enddate','capture_end'),('caldate','capture_date')):
+        value=next((e.text.strip() for e in xml.iter(tag) if e.text and re.fullmatch(r'\d{4}(\d{2}){0,2}',e.text.strip())),None)
+        if value:period[key]='-'.join(x for x in (value[:4],value[4:6],value[6:8]) if x)
+    return {'metres':metres,'vertical_datum':'NAVD88' if datum else None,'datum_text':datum.group(0) if datum else None,**period}
+
+
 def acquire(case,cache,*,case_root=None):
     if case.get('terrain'):return case,{'provider':'Elevation','status':'saved_native_grid','claim':'Saved terrain retained; current grading and private connections unverified'}
     rejected=None
@@ -28,7 +53,9 @@ def acquire(case,cache,*,case_root=None):
         if rejected:raise ValueError('Saved terrain preference rejected: '+rejected.get('error','unknown')+'; remote discovery unavailable: '+str(exc)) from exc
         raise
     errors=[]
-    for item in index['data'].get('items',[]):
+    # Newest product first (TNM order is not guaranteed); its date is recorded.
+    items=sorted(index['data'].get('items',[]),key=lambda i:(product_date(i),str(i.get('downloadURL',''))),reverse=True)
+    for item in items:
         url=item.get('downloadURL','');parsed=urlparse(url)
         if parsed.scheme!='https' or parsed.hostname!='prd-tnm.s3.amazonaws.com' or '/1m/Projects/' not in url:continue
         try:
@@ -36,8 +63,8 @@ def acquire(case,cache,*,case_root=None):
             metadata_url='https://thor-f5.er.usgs.gov/ngtoc/metadata/waf/elevation/1_meter/geotiff/'+project+'/'+filename[:-4]+'.xml'
             metadata=cache.fetch_bytes(metadata_url)
             from xml.etree import ElementTree as ET
-            xml=ET.fromstring(metadata['content']);text=' '.join(xml.itertext())
-            if not re.search(r'elevation values are in meters',text,re.I) or 'NAVD88' not in text:
+            xml=ET.fromstring(metadata['content']);facts=metadata_facts(xml)
+            if not facts['metres'] or not facts['vertical_datum']:
                 raise ValueError('Tile metadata does not explicitly establish metre elevations/NAVD88')
             with rasterio.Env(GDAL_DISABLE_READDIR_ON_OPEN='EMPTY_DIR',CPL_VSIL_CURL_ALLOWED_EXTENSIONS='.tif',
                     GDAL_HTTP_CONNECTTIMEOUT='10',GDAL_HTTP_TIMEOUT='20'):
@@ -59,6 +86,9 @@ def acquire(case,cache,*,case_root=None):
             _,provenance=cache._store('derived:usgs-native-window-'+sha256(content).hexdigest(),content,
                 {'source_url':url,'metadata_url':metadata_url,'metadata_sha256':metadata['provenance']['sha256'],
                  'crs':target_crs,'horizontal_unit':'m','vertical_unit':'m','vertical_datum':'NAVD88',
+                 'product_title':item.get('title'),'product_date':product_date(item) or None,
+                 'acquisition_date':facts.get('capture_start') or facts.get('capture_date'),
+                 'capture_period':{k:facts[k] for k in ('capture_start','capture_end','capture_date') if k in facts},
                  'window':[left,top,right-left,bottom-top],'processing':'Native HTTP range window; no elevation resampling'})
             path=cache.root/'blobs'/provenance['sha256'];terrain=import_dem(path,vertical_unit='m')
             out=project_case(case,target_crs) if case['crs']!=target_crs else case
@@ -71,7 +101,10 @@ def acquire(case,cache,*,case_root=None):
             return out,{'provider':'Elevation','status':'source_model','source_url':url,'sha256':provenance['sha256'],
                 'saved_terrain_attempt':rejected,
                 'metadata_sha256':metadata['provenance']['sha256'],'vertical_unit':'m','vertical_datum':'NAVD88',
-                'claim':'Modeled surface routing; roofs/private connections and sufficient watershed extent remain unresolved. Exact capture date/current grading unverified.'}
+                'vertical_datum_text':facts['datum_text'],'product_title':item.get('title'),'product_date':product_date(item) or None,
+                'capture_period':{k:facts[k] for k in ('capture_start','capture_end','capture_date') if k in facts},
+                'candidates_considered':len(items),
+                'claim':'Modeled surface routing; roofs/private connections and sufficient watershed extent remain unresolved. Current grading since the stated capture period is unverified.'}
         except Exception as exc:errors.append(str(exc))
     raise ValueError('No verified-unit native terrain window available: '+
                      ((rejected.get('error','')+'; ') if rejected else '')+'; '.join(errors))

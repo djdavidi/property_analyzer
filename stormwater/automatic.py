@@ -2,6 +2,7 @@
 from copy import deepcopy
 from hashlib import sha256
 import json
+import math
 import re
 from shapely.geometry import shape,mapping
 from drainage_core.geometry import case_area_sqft,union
@@ -12,6 +13,42 @@ from .assessment_sources import _Fallback
 PARCELS='https://services.arcgis.com/fLeGjb7u4uXqeF9q/ArcGIS/rest/services/PWD_PARCELS/FeatureServer/0'
 LANDCOVER='https://imagery.pasda.psu.edu/arcgis/rest/services/pasda/PhillyLULC/MapServer'
 VERSION='automatic-site-v2'
+
+
+def imagery_plan(parcel,crs,*,minimum=2048):
+    """Choose the imagery request so the semantic model runs within its cell limit.
+
+    The model cell size is chosen first (0.5 m, coarsened to fit 1,000,000
+    cells, at most 1 m); the image is then requested fine enough for that cell
+    (at least ``minimum`` px on the long side, at most the service's 4096 px).
+    A box too large for 1 m cells is recorded as such; RGB fallback then follows
+    with that reason instead of a silent rejection.
+    """
+    from pyproj import CRS
+    from drainage_core.semantic_cover import analysis_resolution
+    from .acquisition import imagery_bounds,image_size,MAX_IMAGE_SIDE,MAX_IMAGE_PIXELS
+    bounds=imagery_bounds(parcel);unit=CRS(crs).axis_info[0].unit_conversion_factor
+    long_m=max(bounds[2]-bounds[0],bounds[3]-bounds[1])*unit
+    try:
+        target=analysis_resolution(bounds,crs);reason=None
+    except ValueError as exc:
+        target=None;reason=str(exc)
+    size=minimum if target is None else max(minimum,math.ceil(long_m/target))
+    size=min(size,MAX_IMAGE_SIDE)
+    while not _fits(bounds,size,MAX_IMAGE_PIXELS):size-=64
+    width,height=image_size(bounds,size)
+    native=long_m/size
+    model_ready=target is not None and native<=1
+    if target is not None and native>target:target=native
+    return {'analysis_box':bounds,'crs':crs,'image_size':size,'image_pixels':[width,height],'native_metres':round(native,4),
+            'model_target_metres':round(target,4) if model_ready else None,'model_within_limit':model_ready,
+            'reason':reason or (None if model_ready else f'Imagery cells of {native:.2f} m exceed the model\'s 1 m limit')}
+
+
+def _fits(bounds,size,limit):
+    w,h=bounds[2]-bounds[0],bounds[3]-bounds[1]
+    other=round(size*min(w,h)/max(w,h))
+    return size*max(1,other)<=limit
 
 
 def _image_generated(feature):
@@ -76,9 +113,13 @@ def landcover(case,cache,refresh):
         result=semantic_cover(payload,image['bounds'],grid_case,info,
             runtime=root/'data/model-runtime/bin/python',weights=root/'data/models/openearthmap/weights.pth',
             cache=cache.root/'semantic' if isinstance(getattr(cache,'root',None),Path) else None)
-    except (FileNotFoundError,ValueError,TimeoutError) as exc:
+    except Exception as exc:
+        # Any model failure falls back visibly: the reason is kept next to the result.
+        reason=f'{type(exc).__name__}: {exc}'
         result=rgb_cover_candidates(payload,image['bounds'],grid_case,info)
-        result['model_unavailable']=str(exc)
+        result['model_unavailable']=reason
+        result['fallback']={'method':'RGB cover candidates','reason':reason,
+            'message':'Semantic model not used; fell back to RGB cover candidates because '+reason}
     if image_crs!=case['crs']:
         for f in result['features']:f['geometry']=mapping(reproject(shape(f['geometry']),image_crs,case['crs']))
         result['coverage_geometry']=mapping(reproject(shape(result['coverage_geometry']),image_crs,case['crs']))
@@ -134,7 +175,8 @@ def acquire(case,cache,refresh=True,*,case_root=None):
         from drainage_core.projection import warp_display
         grid_crs=result.get('area_crs',result['crs'])
         parcel=reproject(shape(result['parcel']),result['crs'],grid_crs) if grid_crs!=result['crs'] else shape(result['parcel'])
-        image=acquire_imagery(mapping(parcel),cache,crs=grid_crs,refresh=refresh,size=2048,freshness_policy=result['imagery_age_policy'])
+        plan=imagery_plan(mapping(parcel),grid_crs);record['imagery_plan']=plan
+        image=acquire_imagery(mapping(parcel),cache,crs=grid_crs,refresh=refresh,size=plan['image_size'],freshness_policy=result['imagery_age_policy'])
         check=freshness(image,result['imagery_age_policy'])
         if not check['eligible']:raise SourceError('Imagery excluded by three-year limit: '+check['status'])
         result['measurement_imagery']=deepcopy(image)
@@ -170,8 +212,12 @@ def acquire(case,cache,refresh=True,*,case_root=None):
             result['canopy_observation']={'status':'complete','automatic':True,'source_vintage':lc['source_vintage'],
                                     'coverage_geometry':lc['coverage_geometry'],'source_snapshots':lc['source_snapshots']}
         else:result.setdefault('canopy_observation',{'status':'unavailable'})
-        record['source_status'].append({'provider':'Recent imagery cover candidates','status':lc['status'],'retrieved_at':lc['retrieved_at'],
-                                        'unknown_sqft':lc['unclassified_sqft'],'source_vintage':lc['source_vintage'],'freshness':check})
+        status={'provider':'Recent imagery cover candidates','status':lc['status'],'retrieved_at':lc['retrieved_at'],
+                'unknown_sqft':lc['unclassified_sqft'],'source_vintage':lc['source_vintage'],'freshness':check}
+        if lc.get('fallback'):
+            status.update(fallback_reason=lc['fallback']['reason'],claim=lc['fallback']['message'])
+            record.setdefault('warnings',[]).append(lc['fallback']['message'])
+        record['source_status'].append(status)
     except Exception as exc:
         # Old classifications and estimates are history, never an outage fallback.
         record['source_status'].append({'provider':'Recent imagery cover candidates','status':'unavailable','error':str(exc)})
@@ -243,7 +289,15 @@ def enrich_candidates(case):
                 green=union([shape(f['geometry']) for f in cover['features']
                              if f['properties'].get('layer') in ('vegetation_candidate','canopy_candidate')])
             else:
-                green=vegetation_candidates(read_blob(image),image['bounds'],out)
+                # Image bounds are in the image's CRS; measure there with the parcel
+                # reprojected, then bring the candidates back to the case CRS.
+                from drainage_core.geometry import reproject
+                image_crs=image.get('crs') or out['crs']
+                if image_crs!=out['crs']:
+                    grid={**out,'crs':image_crs,'parcel':mapping(reproject(shape(out['parcel']),out['crs'],image_crs))}
+                    green=reproject(vegetation_candidates(read_blob(image),image['bounds'],grid),image_crs,out['crs'])
+                else:
+                    green=vegetation_candidates(read_blob(image),image['bounds'],out)
             automatic['image_vegetation_candidate_sqft']=case_area_sqft(green,out)
             canopy=union([shape(f['geometry']) for f in effective_features(out) if f['properties'].get('layer')=='canopy'])
             automatic['image_green_overlap_historical_canopy_sqft']=case_area_sqft(green.intersection(canopy),out) if not canopy.is_empty else None
@@ -269,7 +323,7 @@ def enrich_candidates(case):
                 'claim':'Vegetation candidate heuristic only; not a tree-canopy classifier, green-roof confirmation or permeability measurement.',
                 'source_sha256':image['sha256'],'capture_date':image.get('acquisition_date'),'source_vintage':image.get('source_vintage'),
                 'thresholds':{'green_red_ratio':1.12,'green_blue_ratio':1.08,'minimum_green':45,'minimum_excess_green':25},
-                'bounds':image['bounds'],'crs':out['crs']}
+                'bounds':image['bounds'],'crs':image.get('crs') or out['crs']}
             if from_cover:
                 automatic['image_method']={**cover['settings'],'claim':cover['claim'],
                     'source_vintage':image.get('source_vintage'),'capture_date':image.get('acquisition_date')}
