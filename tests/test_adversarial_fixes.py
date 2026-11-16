@@ -17,7 +17,7 @@ from drainage_core.research import feature_inputs
 from drainage_core.sources import arcgis_features,SourceError
 from stormwater.assessment_workflow import gather,review_record,reconcile_baseline
 from stormwater.quality import safe_analysis
-from test_modeled_assessment_unit import fixture,candidate,record,fake_research,frozen_gis,assess,rec_info
+from test_modeled_assessment_unit import fixture,candidate,record,fake_research,frozen_gis,assess,rec_info,COMPLETE_EXTENT
 from test_assessment_policy import fixture as policy_fixture,record as supported_record,run
 
 
@@ -189,13 +189,31 @@ class ScenarioTests(IsolatedUnitTests):
         c=fixture();c['research_drainage']={'features':[{'id':'g','role':'gsi','geometry':c['parcel'],'source':{'installed':False}}]}
         fs,omitted=feature_inputs(c);self.assertEqual(fs,[]);self.assertTrue(omitted)
 
-    def test_extent_propagates_and_blocks_generic_and_record_catchment_finance(self):
+    def test_per_catchment_extent_gates_generic_and_record_catchment_finance(self):
+        # D2 / review A2: the per-catchment test decides, not the run-level review flag.
         c=fixture();research=fake_research(c);research['primary']['extent_sufficient']=False;g=frozen_gis(c,research)
         self.assertFalse(g['modeled_integration']['runs'][0]['extent_sufficient'])
         generic=assess(c,g)['modeled_integration']['catchment_scenarios']
-        self.assertTrue(generic);self.assertTrue(all(v['status']=='blocked' for v in generic))
+        self.assertTrue(any(v['status']=='calculated' for v in generic))
+        self.assertTrue(all(v['route_state']=='complete_in_window' and v['partial_label'] is None for v in generic))
+        # Window-edge contact: in-window figure, labelled partial.
+        c=fixture();g=frozen_gis(c,fake_research(c,extent={'touches_window_edge':True,'touches_nodata':False,'extent_complete':False}))
+        generic=assess(c,g)['modeled_integration']['catchment_scenarios']
+        upper=next(v for v in generic if v['receiver_id']=='G1' and v['bound']=='upper')
+        self.assertEqual(upper['status'],'calculated');self.assertEqual(upper['route_state'],'partial_upstream_unknown')
+        self.assertEqual(upper['partial_label'],'partial: true value may be higher')
         c['assessment']['records']=[record(gsi_id='G1')]
-        self.assertTrue(all(v['status']=='blocked' for v in rec_info(assess(c,g))['runs'][0]['scenarios']))
+        rows=rec_info(assess(c,g))['runs'][0]['scenarios']
+        self.assertTrue(all(v['partial_label']=='partial: true value may be higher' for v in rows))
+        # Untestable extent (legacy catchment without the fields) or a failed invariant blocks.
+        for extent,invariant,text in (({},True,'cannot be tested'),(COMPLETE_EXTENT,False,'invariant failed')):
+            c=fixture();research=fake_research(c,extent=extent)
+            research['primary']['invariants']['terminal_accumulation_equals_routed_cells']=invariant
+            g=frozen_gis(c,research);generic=assess(c,g)['modeled_integration']['catchment_scenarios']
+            self.assertTrue(generic and all(v['status']=='blocked' for v in generic))
+            self.assertTrue(all(any(text in r for r in v['reasons']) for v in generic))
+            c['assessment']['records']=[record(gsi_id='G1')]
+            self.assertTrue(all(v['status']=='blocked' for v in rec_info(assess(c,g))['runs'][0]['scenarios']))
 
     def test_off_parcel_and_known_failed_records_do_not_poison_calculable_subset(self):
         c=fixture();c['assessment']['records']=[record('valid')]

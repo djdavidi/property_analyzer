@@ -4,7 +4,8 @@ Saved policy results are judged by an explicit interpretation version, never by
 source-file bytes. Bump ``POLICY_INTERPRETATION_VERSION`` (an integer) whenever a
 change alters what saved policy money or eligibility means (the modules in
 ``POLICY_SCOPE``: rules, billing, assessment policy, model assessment, curve
-number, renewals, management estimates, runoff capacity and the management pilot).
+number, renewals, management estimates, runoff capacity, the management pilot, the shared
+system pricing gates and the portfolio report).
 
 An outdated result stays visible, labelled, with a **Recompute from saved
 inputs** action. Recorded public observations (the published bill, public
@@ -16,9 +17,15 @@ from hashlib import sha256
 import json
 from drainage_core.quality import OUTDATED, RECOMPUTE_HINT, artifact_quality, version_label, withhold_physical
 
-POLICY_INTERPRETATION_VERSION=2  # 2: Phase 2 money corrections (per-account minimum, NPDES residual base, managed open space, D6/D7)
+# 2: Phase 2 money corrections (per-account minimum, NPDES residual base, managed open space, D6/D7).
+# 3: Phase 4b: one ledger for system/pilot/portfolio prices (D7), per-catchment route gate (D2),
+#    range-first storage-limited pricing with per-component and off-parcel load budgets (D4, R6/R7),
+#    system-bed exclusion (H16), one identity resolver (H1/H10), nominal headline (H2), required
+#    lineage and published-gap gate (H7/H9), labelled class-table road bound in the app (D3).
+POLICY_INTERPRETATION_VERSION=3
 POLICY_SCOPE=('rules','billing','assessment_policy','model_assessment','curve_number','renewals',
-              'management_estimates','runoff_capacity','management_pilot','jurisdictions/philadelphia')
+              'management_estimates','runoff_capacity','management_pilot','system_pricing','portfolio_report',
+              'jurisdictions/philadelphia')
 # A saved policy output carries one of these. One without an interpretation version
 # predates explicit versions: "unknown/legacy".
 POLICY_TRACKED_MARKERS=('policy_interpretation_version','policy_processing_fingerprint','profile_version','policy_input_sha256')

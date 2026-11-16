@@ -30,6 +30,8 @@ from rasterio.features import shapes
 from rasterio.transform import from_origin
 from shapely.geometry import Point, box, mapping, shape
 
+from .class_interpretation import (MEASUREMENT_SCENARIO, SCENARIOS as INTERPRETATION, SYSTEM_SCENARIOS,
+                                   VERSION as INTERPRETATION_VERSION, classes as interpreted)
 from .extent import catchment_extent, geometry_cells
 from .geometry import case_area_sqft, effective_features, measure, union
 from .installation import installation_issues
@@ -176,13 +178,14 @@ def _surface_run(case, observation, ai, name, geometry, run, footprint, **extra)
     observed = _polygon(observation['geometries']['physical_ia'])
     unknown = _polygon(observation['geometries']['unknown'])
     identified = _area_only(observed.union(shape(ai['ai_ia_on_unknown_geometry'])).intersection(region))
-    road = _area_only(shape(ai['geometries']['road']).intersection(unknown).intersection(region))
-    developed = _area_only(shape(ai['geometries']['developed_space']).intersection(unknown).intersection(region))
-    scenarios = [('low', identified, 'Identified observations plus dated modeled roof IA only', []),
-        ('base', identified.union(road), 'Road appearance assumed impervious',
-         ['All road-appearance pixels in this catchment are impermeable; this is unverified']),
-        ('high', identified.union(road).union(developed), 'Road and developed-space appearance assumed impervious',
-         ['All road/developed-space pixels in this catchment are impermeable; this is unverified'])]
+    # One class-interpretation table for the app, these estimates and the pilot (D3).
+    basis_classes = set(interpreted(MEASUREMENT_SCENARIO, 'impervious'))
+    scenarios = []
+    for key, interpretation in SYSTEM_SCENARIOS:
+        added = [_area_only(shape(ai['geometries'][k]).intersection(unknown).intersection(region))
+                 for k in interpreted(interpretation, 'impervious') if k not in basis_classes]
+        scenarios.append((key, _area_only(union([identified] + added)), INTERPRETATION[interpretation]['label'],
+                          list(INTERPRETATION[interpretation]['assumptions']), interpretation))
     sf = lambda g: case_area_sqft(_area_only(g), case)
     row = {'name': name, 'geometry': mapping(geometry), 'on_parcel_geometry': mapping(region),
         'contributing_area_sqft': sf(geometry), 'on_parcel_area_sqft': sf(region),
@@ -195,9 +198,10 @@ def _surface_run(case, observation, ai, name, geometry, run, footprint, **extra)
             'ia_within_footprint_sqft': sf(g.intersection(footprint)),
             'area_outside_footprint_sqft': sf(g.difference(footprint)),
             'basis': basis, 'assumptions': assumptions,
+            'interpretation_scenario': interpretation, 'interpretation_version': INTERPRETATION_VERSION,
             'scope': ('On-parcel candidate hard surface routed toward receiver, not established managed area; '
                       'ia_within_footprint_sqft is the system bed, not managed contributing area')}
-            for key, g, basis, assumptions in scenarios],
+            for key, g, basis, assumptions, interpretation in scenarios],
         'all_unknown_impervious_ceiling_sqft': sf(identified.union(unknown.intersection(region))),
         'captured_area_sqft': None, 'adequately_treated_area_sqft': None,
         'diagnostics': _diagnostics(case, run, geometry), **extra}

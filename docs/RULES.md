@@ -40,6 +40,6 @@ Existing aggregate credits need `existing_credits_spatially_reconciled=true` bef
 ## Outstanding
 
 - Obtain actual bills; reconcile cent rounding, special rates, payer and multi-account minimum cases against the per-account rule.
-- The report's billing table is now a view of the assessment ledger (`ledger_billing_view`, decision D7); `calculate_scenarios` remains only as the pricing library of the management, pilot and portfolio adapters.
+- The report's billing table is now a view of the assessment ledger (`ledger_billing_view`, decision D7); Since Phase 4b the management, capacity, pilot and portfolio adapters also price through the assessment ledger (`system_pricing.price_benefit` → `_economics`); `calculate_scenarios` is a standalone billing library, not used by any report or adapter.
 - Obtain spatial schedules before enabling existing-credit, IAR/management or NPDES combinations whose overlap is unresolved.
 - Confirm fractional-CN treatment against a PWD determination.

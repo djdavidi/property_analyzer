@@ -38,8 +38,14 @@ def record(id='r',category='permeable_pavement',x=0,width=3.048,**extra):
         'evidence_refs':[{'source_url':'https://example.test/invented-only'}],**extra}
 
 
-def fake_research(c,receivers=('G1',),kind='gsi'):
-    """Inject a hand-defined hydrology output; do not exercise providers/workflows."""
+COMPLETE_EXTENT={'touches_window_edge':False,'touches_nodata':False,'extent_complete':True}
+
+
+def fake_research(c,receivers=('G1',),kind='gsi',extent=COMPLETE_EXTENT):
+    """Inject a hand-defined hydrology output; do not exercise providers/workflows.
+
+    ``extent`` is the hand-set per-catchment extent test (D2); the default is an
+    interior catchment of a terrain window that covers the parcel and buffer."""
     c['research_drainage']={'features':[{'id':'receiver-'+g,'role':'gsi','gsi_id':g,
         'geometry':mapping(box(0,0,3.048,30.48))} for g in receivers]}
     primary={'parameters':{},'grid':{'cell_size':1,'horizontal_unit':'m'},'invariants':{'terminal_accumulation_equals_routed_cells':True},
@@ -47,7 +53,7 @@ def fake_research(c,receivers=('G1',),kind='gsi'):
         'catchments':[],'outlet_catchments':[]}
     for g in receivers:
         primary['catchments' if kind=='gsi' else 'outlet_catchments'].append({
-            'gsi_id' if kind=='gsi' else 'outlet_id':g,'geometry':c['parcel'],'off_parcel_area_sqft':0})
+            'gsi_id' if kind=='gsi' else 'outlet_id':g,'geometry':c['parcel'],'off_parcel_area_sqft':0,**dict(extent)})
     return {'method':'invented-unit-output','primary':primary,'sensitivity':[]}
 
 
@@ -269,8 +275,12 @@ class ModeledSavingsUnitTests(unittest.TestCase):
         c=fixture();r=assess(c,frozen_gis(c,fake_research(c)))
         values=r['modeled_integration']['catchment_scenarios']
         v=next(v for v in values if v['receiver_id']=='G1' and v['bound']=='upper')
-        self.assertAlmostEqual(v['area_sqft'],10000)
-        self.assertEqual(v['status'],'calculated');self.assertAlmostEqual(v['ledger']['new_ia_credit_sqft'],8000)
+        # H16: the receiver's own 1000 sq ft footprint (its bed) is excluded: 10000 - 1000.
+        # 7200 sq ft credits -> billed 2800 -> 6 units: GA 20.06 -> 6.02, IA 140.96 -> 42.29;
+        # 14.04 + 98.67 = 112.71/month.
+        self.assertAlmostEqual(v['area_sqft'],9000);self.assertAlmostEqual(v['system_bed_ia_excluded_sqft'],1000)
+        self.assertEqual(v['status'],'calculated');self.assertAlmostEqual(v['ledger']['new_ia_credit_sqft'],7200)
+        self.assertEqual(v['gross_monthly_reduction'],112.71)
         total=next(v for v in values if v['receiver_id']=='all_unassigned_gsi' and v['bound']=='upper')
         self.assertEqual(total['gross_monthly_reduction'],v['gross_monthly_reduction'])
 

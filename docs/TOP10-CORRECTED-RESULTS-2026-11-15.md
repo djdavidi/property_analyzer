@@ -2,11 +2,20 @@
 
 Results from November 15, 2026. Wording updated November 16; the calculations have not changed.
 
+> **Charge labels corrected (Phase 4b).** The amounts in the table were generated before
+> the report distinguished charges: they are charges **computed** from the recorded
+> billing areas at the current tariff, not verified published charges (review H6). The
+> report generator now shows the published charge as the public record, labels a
+> computed charge as computed, runs the saved-result quality and input-hash checks,
+> takes its date from the saved assessments and renders status lines from the data.
+> These saved pages were not regenerated here (the saved data is not in this
+> environment).
+
 **We found leads worth checking, but we cannot give a reliable total saving for any property yet.** Missing information does not mean there is no saving.
 
 [Open the simple property-by-property report](../data/assessments/top10-corrected-2026-11-15/report.html). Click a property to see what we found, example amounts and the next check. All twelve saving categories are retained; less relevant checks are expandable.
 
-| Property | Annual charge in public records | Lead to check | First next step |
+| Property | Annual charge (computed from recorded areas) | Lead to check | First next step |
 | --- | ---: | --- | --- |
 | 5600 CITY AVE | $197,225 | Possible permeable pavement (1 mapped records) | Look for the approved pavement plan and current bill/credit record. |
 | 8000 CHEROKEE ST | $163,409 | Possible permeable pavement (5 mapped records) | Look for the approved pavement plan and current bill/credit record. |
@@ -21,7 +30,7 @@ Results from November 15, 2026. Wording updated November 16; the calculations ha
 
 ## What the money means
 
-- **Current charge:** taken from public records. We have not checked the actual invoice.
+- **Current charge:** computed from the recorded billing areas when this page was made; not yet compared with the published charge or an actual invoice.
 - **Example saving:** what a credit could be worth if the missing checks pass. It is not a forecast or approved credit.
 - **Cannot estimate yet:** we need more information. It does not mean $0.
 - **Do not add the examples:** some may cover the same ground or represent different assumptions.

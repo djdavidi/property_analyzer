@@ -22,24 +22,57 @@ def footprint(record,case):
     return None
 
 
+SYSTEM_ID_FIELDS=('gsi_system_id','gsi_id','system_id','smp_id','smpid')
+ID_CONTAINERS=('facts','raw_record','source','properties')
+
+
+def system_identity(value):
+    """Canonical system ID text: surrounding space removed, leading zeros of an
+    all-digit ID removed ('062571' and '62571' are one system)."""
+    text=str(value if value is not None else '').strip()
+    return str(int(text)) if text.isdigit() else text
+
+
+def system_ids(item,generic_id=False):
+    """Explicit system identities of a record or feature: the one resolver (H1/H10).
+
+    Reads every system-ID field (``SYSTEM_ID_FIELDS``) on the item and on its
+    ``facts``, ``raw_record`` (where discovered PWD GSI records keep
+    ``gsi_system_id``), ``source`` and ``properties``. The generic ``id`` is used
+    only when ``generic_id`` is set and no system-ID field exists, so an unrelated
+    feature whose OBJECTID equals a system number cannot claim that system.
+    """
+    found=set()
+    if not isinstance(item,dict):return found
+    for container in (item,)+tuple(item.get(k) for k in ID_CONTAINERS):
+        if not isinstance(container,dict):continue
+        for key in SYSTEM_ID_FIELDS:
+            value=container.get(key)
+            if value is not None and not isinstance(value,(dict,list,bool)) and str(value).strip():
+                found.add(system_identity(value))
+    if not found and generic_id and item.get('id') is not None and str(item['id']).strip():
+        found.add(system_identity(item['id']))
+    return found
+
+
 def match(record,case,integration,run):
     """Identity first; a unique actual receiving-footprint overlap is a candidate."""
-    facts=record.get('facts',{});raw=record.get('raw_record',{})
-    category=record['category'];kind='outlet' if category=='direct_discharge' else 'gsi'
-    wanted=[str(v) for v in ([facts.get('outfall_id'),record.get('outfall_id')] if kind=='outlet' else
-            [record.get('gsi_id'),record.get('gsi_system_id'),facts.get('gsi_id'),facts.get('gsi_system_id'),raw.get('gsi_system_id')]) if v is not None and str(v).strip()]
-    wanted=set(wanted)
+    facts=record.get('facts') or {}
+    category=record.get('category');kind='outlet' if category=='direct_discharge' else 'gsi'
+    wanted={str(v).strip() for v in [facts.get('outfall_id'),record.get('outfall_id')] if v is not None and str(v).strip()} \
+        if kind=='outlet' else system_ids(record)
     if len(wanted)>1:return {'status':'ambiguous','reason':'Conflicting receiver identifiers','candidate_ids':sorted(wanted)}
     if wanted:
-        matches=[c for c in run['catchments'] if c['kind']==kind and c['receiver_id'] in wanted]
+        matches=[c for c in run['catchments'] if c['kind']==kind and
+                 (system_identity(c['receiver_id']) if kind=='gsi' else str(c['receiver_id'])) in wanted]
         if len(matches)==1:return {'status':'linked','basis':'explicit '+kind+' identity','catchment':matches[0]}
         return {'status':'missing','reason':'Explicit receiver has no modeled catchment','candidate_ids':sorted(wanted)}
     if kind=='outlet':return {'status':'missing','reason':'No explicit outfall identity; proximity does not establish discharge'}
     fp=footprint(record,case)
     if fp is None:return {'status':'missing','reason':'No receiver identity or usable system footprint'}
-    ids={f['gsi_id'] for f in integration.get('receiving_features',[])
+    ids={system_identity(f['gsi_id']) for f in integration.get('receiving_features',[])
          if case_area_sqft(fp.intersection(shape(f['geometry'])),case)>.000001}
-    matches=[c for c in run['catchments'] if c['kind']=='gsi' and c['receiver_id'] in ids]
+    matches=[c for c in run['catchments'] if c['kind']=='gsi' and system_identity(c['receiver_id']) in ids]
     if len(ids)==1 and len(matches)==1:return {'status':'linked','basis':'unique receiving-footprint overlap; unverified','catchment':matches[0]}
     return {'status':'ambiguous' if len(ids)>1 else 'missing',
         'reason':'Multiple overlapping receiving systems' if len(ids)>1 else 'No uniquely linked receiving catchment',
@@ -177,8 +210,9 @@ def catchment_alternatives(case,gis,screened,as_of,tariff,occupied,record_infos,
         e=_economics(working,view,screened,as_of,tariff)
         return {**e['modeled'],'financial_scope':'credits only against retained recorded areas; not net of area correction',
             'net_with_area_correction':e.get('modeled_combined')}
+    from .system_pricing import catchment_route,combine_routes
     for run in integrated['runs']:
-        unions={k:[] for k in ('lower','nominal','upper')}
+        unions={};union_routes={}
         for c in run['catchments']:
             linked=links.get(run['name'],{}).get(c['receiver_id'],[])
             if c['kind']!='gsi' or c['composition']['region_area_sqft']<.000001:continue
@@ -187,21 +221,31 @@ def catchment_alternatives(case,gis,screened,as_of,tariff,occupied,record_infos,
             source=(receiver or {}).get('source',{})
             failed,_=_conditions({'category':'green_roof','facts':{**source,**source.get('facts',{})}},as_of=as_of)
             failed=vetoes+[reason for l in linked for reason in l['vetoes']]+failed
-            if run.get('extent_sufficient') is not True:failed.append('Surrounding watershed extent is unverified')
+            # D2: per-catchment extent test, the same rule as the pilot.
+            route=catchment_route(c,run.get('invariants'))
+            failed+=route['blocked_reasons']
             if receiver is None:failed.append('Receiving feature source is unavailable')
+            # H16: the receiver's own bed (surface GSI footprint) is never contributing IA.
+            bed=_region((receiver or {}).get('geometry'))
             for bound,region in ia_bounds(case,integrated,shape(c['geometry'])).items():
                 region=region.difference(occupied)
-                if not failed:unions[bound].append(region)
+                bed_area=case_area_sqft(region.intersection(bed),case) if bed is not None else 0.
+                if bed is not None:region=region.difference(bed)
+                if not failed:
+                    unions.setdefault(bound,[]).append(region);union_routes.setdefault(bound,[]).append(route)
                 out.append({'name':run['name'],'receiver_id':c['receiver_id'],'bound':bound,
                     'area_sqft':case_area_sqft(region,case),'on_parcel_contributing_sqft':c['composition']['region_area_sqft'],
+                    'system_bed_ia_excluded_sqft':bed_area,
                     **(_blocked(failed) if failed else value(region)),'basis':'conditional mapped-GSI management alternative',
+                    **_route_fields(route),
                     'assumptions':['Mapped receiver is an existing eligible system and serves this parcel',
                         'All management prerequisites, 1.5-inch treatment and approved allocation are assumed',
                         'AI classes and modeled flow are unvalidated; upper adds unresolved ground as impervious',
-                        'No verified inlet, ownership, treatment performance or award is established']})
+                        'No verified inlet, ownership, treatment performance or award is established']+_bound_assumptions(bound)})
         for bound,regions in unions.items():
             if regions:out.append({'name':run['name'],'receiver_id':'all_unassigned_gsi','bound':bound,
                 'area_sqft':case_area_sqft(union(regions),case),**value(union(regions)),
+                **_route_fields(combine_routes(union_routes[bound])),
                 'basis':'conditional combined mapped-GSI alternative; deduplicated union, not sum of savings'})
     return out
 
@@ -230,8 +274,22 @@ def permit_alternatives(case,gis,screened,as_of,tariff):
     return out
 
 
+def _route_fields(route):
+    return {k:route[k] for k in ('route_state','route_state_reason','partial_label')}
+
+
+def _bound_assumptions(bound):
+    """Labels of the shared class table's extra app bound (D3)."""
+    from drainage_core.class_interpretation import APP_LABELLED_BOUNDS,SCENARIOS
+    labelled=dict(APP_LABELLED_BOUNDS)
+    if bound not in labelled:return []
+    scenario=SCENARIOS[labelled[bound]]
+    return [scenario['label']]+list(scenario['assumptions'])
+
+
 def integrate(case,gis,screened,as_of,tariff):
     from .assessment_policy import _blocked,_area_decimal,RULES
+    from .system_pricing import catchment_route,combine_routes
     from .billing import default_tariff
     integrated=gis.get('modeled_integration')
     if not integrated:return {'status':'unavailable','records':[],'combined':[]}
@@ -297,16 +355,21 @@ def integrate(case,gis,screened,as_of,tariff):
                 # unconfirmed ground in this region is qualifying IA.
                 observed_pervious=shape(integrated['observed_pervious_geometry'])
                 bounds['upper']=bounds['upper'].union(region.difference(observed_pervious))
+                # D2: a linked research catchment carries the per-catchment extent test.
+                route=catchment_route(linked['catchment'],run.get('invariants')) if linked['status']=='linked' else None
+                if route:output.update(_route_fields(route))
                 for bound,geom in bounds.items():
                     geom=geom.difference(occupied)
                     assumptions=assumed+['AI class accuracy and modeled drainage are unverified',area_basis,
                         'Required approval, condition and treatment evidence must cover the modeled area, not only an earlier recorded area']
                     if bound=='upper':assumptions+=['All unconfirmed ground in this region assumed impervious; not a confidence bound']
                     if bound=='lower':assumptions+=['Observed IA plus eroded AI boundaries; classification error remains unbounded']
-                    route_failed=['Surrounding watershed extent is unverified'] if linked['status']=='linked' and run.get('extent_sufficient') is not True else []
-                    recipe={'id':rid,'region':geom,'failed':failed+route_failed,'assumed':assumptions}
+                    assumptions+=_bound_assumptions(bound)
+                    route_failed=route['blocked_reasons'] if route else []
+                    recipe={'id':rid,'region':geom,'failed':failed+route_failed,'assumed':assumptions,'route':route}
                     s=_counterfactual(case,gis,screened,[recipe],as_of,tariff)
-                    output['scenarios'].append({'bound':bound,'area_sqft':case_area_sqft(geom,case),**s})
+                    output['scenarios'].append({'bound':bound,'area_sqft':case_area_sqft(geom,case),**s,
+                                                **(_route_fields(route) if route else {})})
                     recipes_by_key.setdefault((run['name'],bound),[]).append(recipe)
             else:output['scenarios'].append({'bound':'unavailable',**_blocked([linked.get('reason','Catchment unavailable')])})
             info['runs'].append(output)
@@ -315,7 +378,9 @@ def integrate(case,gis,screened,as_of,tariff):
     for (run,bound),recipes in recipes_by_key.items():
         usable=[r for r in recipes if not r['failed'] and case_area_sqft(r['region'],case)>.000001]
         excluded=[{'record_id':r['id'],'reasons':r['failed'] or ['No positive on-parcel modeled area; not zero savings']} for r in recipes if r not in usable]
+        routes=[r['route'] for r in usable if r.get('route')]
         combined.append({'name':run,'bound':bound,**_counterfactual(case,gis,screened,usable,as_of,tariff),
+            **(_route_fields(combine_routes(routes)) if routes else {}),
             'scope':'calculable subset' if excluded else 'listed record alternatives',
             'excluded_records':excluded,'complete_opportunity':False})
     surface={};t=tariff or default_tariff()
