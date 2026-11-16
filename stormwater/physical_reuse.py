@@ -33,9 +33,12 @@ def load_frozen(folder,case,*,allow_historical=False):
     if input_hash(original)!=digest:raise ValueError('Frozen input revision hash mismatch')
     if gis.get('analysis_sha256')!=result_hash(gis):raise ValueError('Frozen GIS content hash mismatch')
     if physical_signature(original)!=physical_signature(case):return None
-    from drainage_core.quality import processing_fingerprint
+    # Judged by explicit interpretation versions only (never code bytes or libraries).
+    # allow_historical=True reuses an outdated artifact, labelled, for policy-only
+    # changes; recompute passes False so an outdated artifact is rerun.
+    from drainage_core.quality import artifact_quality
     if not allow_historical and (gis.get('engine_version')!=ENGINE_VERSION or
-        gis.get('processing_fingerprint')!=processing_fingerprint()):return None
+        artifact_quality(gis)['status']=='outdated'):return None
     return original,gis
 
 

@@ -28,7 +28,7 @@ def modeled_record_section(info):
 def modeled_combined_section(data):
     if not data:return ''
     e=lambda x:escape(str(x))
-    if data.get('status') in ('invalidated','blocked'):return '<h3>Model-derived savings unavailable</h3><p>'+e(data.get('reason',data.get('claim')))+'</p>'
+    if data.get('status') in ('invalidated','outdated','blocked'):return '<h3>Model-derived savings unavailable</h3><p>'+e(data.get('reason',data.get('claim')))+'</p>'
     n=lambda v:'Unknown' if v is None else f'{v:,.2f}'
     out=['<h3>AI/catchment-informed alternatives</h3><p>'+e(data['claim'])+'</p><p>These are alternatives to the existing findings and to each other. Tested bounds are assumptions, not statistical confidence. No approval or actual savings is established.</p><table><tr><th>Drainage run / area assumption</th><th>Status</th><th>Monthly reduction</th><th>Annual reduction</th><th>Blockers</th></tr>']
     for s in data.get('combined',[]):

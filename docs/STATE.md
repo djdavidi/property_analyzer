@@ -1,5 +1,9 @@
 # Current state
 
+## Fix plan Phase 1 complete: saved-result lifecycle (2026-11-16)
+
+full suite Ran 610, OK, 1 data-dependent skip; no network; no data/ writes. Details in the newest checkpoint.
+
 ## Fix plan Phase 0 complete (2026-11-16)
 
 The documented suite is green and hermetic: 593 ran, OK, 1 data-dependent skip, no

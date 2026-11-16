@@ -209,7 +209,7 @@ def build_portfolio(selection,root):
         for member in site.get('member_parcels',[site]):
             folder=root/'cases'/('pwd-'+str(member['parcel_id']))
             c=json.loads((folder/'case.json').read_text());r=json.loads((folder/'analysis.json').read_text())
-            if r.get('quality_review',{}).get('status')=='invalidated':raise ValueError('Refuse invalidated portfolio input')
+            if r.get('quality_review',{}).get('status') in ('invalidated','outdated'):raise ValueError('Refuse invalidated or outdated portfolio input')
             members.append(parcel_view(c,r,member))
         totals={k:complete_sum(m[k] for m in members) for k in ('current_annual_public_charge','recorded_ga_sqft','recorded_ia_sqft','identified_ia_sqft','unresolved_ground_sqft','visible_canopy_sqft','supported_additional_annual_change','net_annual_change')}
         sites.append({'rank':rank,'address':site['address'],'owner':site.get('owner'),'parcel_count':len(members),

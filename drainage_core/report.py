@@ -105,7 +105,7 @@ def modeled_sections(result):
     m=result.get('modeled_integration')
     if not m:return ''
     e=lambda v:escape(str(v))
-    if m.get('status')=='invalidated':return '<h2>AI-derived results invalidated</h2><p>'+e(m['reason'])+'</p>'
+    if m.get('status') in ('invalidated','outdated'):return '<h2>AI-derived results withheld (outdated interpretation)</h2><p>'+e(m['reason'])+'</p>'
     summary={'status':m['status'],'ai_sources':m['ai']['sources'],'excluded':m['ai']['excluded'],
         'modeled_ia_sqft':m['measurement']['ia_sqft'],'unresolved_ground_sqft':m['measurement']['unknown_sqft'],
         'roof_supplement_sqft':m['roof_supplement_sqft'],'class_conflict_sqft':m['ai']['class_conflict_sqft'],

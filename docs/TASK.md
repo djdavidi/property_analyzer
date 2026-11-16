@@ -1,6 +1,6 @@
 # Current task: fix plan Phase 1, saved-result lifecycle
 
-Status: **in progress**, 2026-11-16. Plan: [FIX-PLAN-2026-11-16.md](FIX-PLAN-2026-11-16.md),
+Status: **complete**, 2026-11-16 (full suite Ran 610, OK, 1 data-dependent skip; no network; no data/ writes). Plan: [FIX-PLAN-2026-11-16.md](FIX-PLAN-2026-11-16.md),
 Phase 1; decision D1.
 
 Objective/why: today a comment-only code edit hides every saved result, including

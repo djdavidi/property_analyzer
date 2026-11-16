@@ -45,7 +45,8 @@ class Handler(BaseHTTPRequestHandler):
                 formats={'case.json':'application/json','analysis.json':'application/json','report.html':'text/html; charset=utf-8',
                          'measurements.geojson':'application/geo+json'}
                 if name not in formats:raise ValueError('Unknown export')
-                return self.send((self.store.root/name).read_bytes(),mime=formats[name])
+                # Same quality gate as the saved view: outdated results are labelled.
+                return self.send(self.store.export_artifact(name),mime=formats[name])
             if path.startswith('/api/blob/'):
                 digest=path.split('/')[-1];case=self.store.load();info=case.get('imagery') or {}
                 if not re.fullmatch('[a-f0-9]{64}',digest) or digest!=info.get('sha256') or not info.get('blob_path'):

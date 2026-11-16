@@ -29,7 +29,7 @@ def _frozen(case, gis):
         raise ValueError('Frozen GIS content hash does not match')
     if str(gis.get('engine_version', '')).startswith('gis-engine-'):
         from .quality import artifact_quality
-        if gis['engine_version'] != ENGINE_VERSION or artifact_quality(gis)['status'] == 'invalidated':
+        if gis['engine_version'] != ENGINE_VERSION or artifact_quality(gis)['status'] == 'outdated':
             raise ValueError('Historical or invalidated GIS requires an explicitly updated physical artifact')
     # Re-measure source observations, never historical AI-promoted IA totals.
     observation = measure(case)

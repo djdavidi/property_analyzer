@@ -456,7 +456,7 @@ def evaluate_assessment(case, gis_result, as_of=None, tariff=None):
         result['open_space_curve_number'].pop('worksheet_sha256',None)
         result['open_space_curve_number']['worksheet_sha256']=sha256(json.dumps(result['open_space_curve_number'],sort_keys=True,separators=(',',':'),allow_nan=False).encode()).hexdigest()
     from drainage_core.quality import artifact_quality
-    if artifact_quality(gis_result)['status']=='invalidated':
+    if artifact_quality(gis_result)['status']=='outdated':
         from .quality import safe_analysis
         result=safe_analysis({**gis_result,'assessment':result})['assessment']
     result['baseline_refresh']=deepcopy(assessment.get('baseline_refresh'))

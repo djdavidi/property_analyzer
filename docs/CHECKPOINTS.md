@@ -4,6 +4,44 @@ Newest entries first. Current truth belongs in STATE; the active bounded task be
 in TASK. These records preserve changes, decisions, evidence, unresolved issues and
 handoffs. Do not rewrite past results to match later runs.
 
+## 2026-11-16 — Fix plan Phase 1 complete: saved-result lifecycle
+
+**Changes (D1).** Byte-hash fingerprints are replaced by explicit
+`PHYSICAL_INTERPRETATION_VERSION` and `POLICY_INTERPRETATION_VERSION` constants.
+- **Code edits.** A comment-only or code-only edit no longer changes status.
+  Library versions are provenance only.
+- **Outdated artifacts.** Older artifacts (fingerprints, or research-only without a
+  version) are labelled `outdated` with `recompute_available`. Only an explicit
+  allowlist of derived-money keys is withheld. The recorded bill and public
+  observations stay visible.
+- **Recompute.** `/api/analyze {recompute_gis:true}` previews and
+  `/api/save {recompute_gis:true}` persists a recompute from saved inputs (no
+  network). Replaced artifacts are archived under `<case>/superseded/`. The UI gains
+  a "Recompute from saved inputs" bar.
+- **Saved views and exports.** The generic saved-view cache is keyed by version, and
+  generic `/exports/` is gated.
+- **Map features.** Frozen-GIS reuse shows the current case's map features (E4).
+- **Writes and revisions (E5/R11).** Writes are atomic with unique temp files, and
+  corrupt blobs are repaired. Saves use a per-case lock and an optional
+  `expected_revision` (409 on conflict). Assessment runs pin the revision.
+
+**Consequence.** Every existing saved case under `data/` (Whitaker, the top ten,
+01073) will open as `outdated` and offer recompute. The management pilot refuses
+legacy GIS until it is recomputed.
+
+**Evidence.**
+- Full suite: Ran 610, OK (skipped=1); no `data/` created.
+- All three Node UI harnesses pass; `node --check` passes.
+- Repros `cross/fingerprint_overreach.py` and `prospects/{stuck,benefit_map,race,blob}.py`
+  behave correctly.
+
+**Limits.**
+- The UI does not yet send `expected_revision`, and the GIS-only server has a lock
+  but no revision check.
+- A corrupt blob read without refresh raises until the next store repairs it.
+- Bundle-import writes are not yet atomic.
+- No real-browser check.
+
 ## 2026-11-16 — Fix plan Phase 0 complete: trustworthy suite
 
 **Changes.**

@@ -5,6 +5,7 @@ Legacy imports remain compatible. Use drainage_core for location-neutral analysi
 from pathlib import Path
 import json
 import re
+import threading
 import time
 from copy import deepcopy
 from datetime import datetime, timezone
@@ -14,6 +15,21 @@ from drainage_core.engine import canonical,input_hash,validate_input,routing
 from drainage_core.engine import new_case as _new_case,analyze as analyze_gis
 
 ROOT=Path(__file__).resolve().parents[1]
+_CASE_LOCKS={};_CASE_LOCKS_GUARD=threading.Lock()
+
+
+def _case_lock(folder):
+    """One re-entrant lock per case folder, shared by every store in this process."""
+    key=str(Path(folder).resolve())
+    with _CASE_LOCKS_GUARD:return _CASE_LOCKS.setdefault(key,threading.RLock())
+
+
+class RevisionConflict(ValueError):
+    """The saved case changed after the caller's expected revision (HTTP 409)."""
+    def __init__(self,expected,current):
+        self.expected,self.current=expected,current
+        super().__init__('Saved case changed since revision '+str(expected)[:12]+
+                         '; reload the saved case before saving again (current revision '+str(current)[:12]+')')
 
 
 def new_case(name='Untitled property'):
@@ -40,9 +56,18 @@ def _analyze_pair(case,frozen=None,as_of=None):
     result.pop('analysis_sha256',None)
     result['input_sha256']=input_hash(case)
     if frozen:
+        from drainage_core.geometry import effective_features
+        from drainage_core.quality import artifact_quality
+        # Physical measurements stay frozen; map display follows the current case's
+        # effective features so moved policy geometry (benefits) is drawn where it is.
+        result['map_features']=effective_features(case)
+        quality=artifact_quality(gis);outdated=quality['status']=='outdated'
         result['physical_reuse']={'status':'reused_frozen_gis','frozen_input_sha256':gis['input_sha256'],
             'current_case_sha256':input_hash(case),'physical_signature':physical_signature(case),
+            'interpretation_status':'outdated' if outdated else 'current','recompute_available':outdated,
+            'map_features':'current case effective features; physical measurements from the frozen GIS',
             'claim':'Original GIS input and artifact hashes retained; only policy recomputed'}
+        if outdated:result['physical_reuse']['label']=quality['label']
     if case.get('automatic'):
         result['automatic']=deepcopy(case['automatic'])
     from .quality import safe_analysis
@@ -76,15 +101,22 @@ class CaseStore:
     def load(self,id):
         return json.loads((self.directory(id)/'case.json').read_text())
 
+    def revision(self,id):
+        """Input hash of the saved case.json (the saved revision), or None."""
+        path=self.directory(id)/'case.json'
+        return input_hash(json.loads(path.read_text())) if path.exists() else None
+
     def saved(self,id):
         from drainage_core.saved import saved_view
         from .rules import RULE_VERSION
-        view=saved_view(self.directory(id),self.load(id))
+        with _case_lock(self.directory(id)):
+            view=saved_view(self.directory(id),self.load(id))
         from .quality import safe_analysis
         if view['analysis']:
             view['analysis']=safe_analysis(view['analysis'])
-            if view['analysis']['quality_review']['status']=='invalidated':
-                view['saved_status'].update(state='invalidated',message=view['analysis']['quality_review']['reason'])
+            q=view['analysis']['quality_review']
+            if q['status']=='outdated':
+                view['saved_status'].update(state='outdated',message=q['reason'],label=q.get('label'),recompute_available=True)
         if view['analysis'] and view['analysis'].get('rule_version') not in (None,RULE_VERSION):
             view['saved_status']['policy_changed']=True
             view['saved_status']['message']+=' Saved policy version differs from current code.'
@@ -95,9 +127,11 @@ class CaseStore:
         from .quality import safe_analysis
         from .report import render_report,export_geojson
         folder=self.directory(id)
-        if name=='case.json':return (folder/name).read_bytes()
-        source='gis-analysis.json' if name=='gis-analysis.json' else 'analysis.json'
-        raw=json.loads((folder/source).read_text());view=safe_analysis(raw)
+        with _case_lock(folder):
+            if name=='case.json':return (folder/name).read_bytes()
+            source='gis-analysis.json' if name=='gis-analysis.json' else 'analysis.json'
+            raw=json.loads((folder/source).read_text())
+        view=safe_analysis(raw)
         if source=='analysis.json' and raw.get('input_sha256')!=input_hash(self.load(id)):
             raise ValueError('Saved result does not match current inputs; no automatic recalculation')
         if name in ('analysis.json','gis-analysis.json'):return canonical(view).encode()
@@ -106,36 +140,65 @@ class CaseStore:
         if name=='measurements.geojson':return canonical(export_geojson(case,view)).encode()
         raise ValueError('Unknown export')
 
-    def save(self,case):
-        from .report import render_report, export_geojson
-        from drainage_core.evidence import AttachmentStore, validate_references
-        assessment=case.get('assessment',{})
-        validate_references(assessment)
-        if assessment.get('attachments'):
-            AttachmentStore(self.directory(case['id'])/'attachments').verify(assessment['attachments'])
-        gis,result=self._pair(case); folder=self.directory(case['id']); folder.mkdir(exist_ok=True)
-        revisions=folder/'revisions'; revisions.mkdir(exist_ok=True)
-        digest=result['input_sha256']; payload=canonical(case)+'\n'
-        frozen=revisions/(digest+'.json')
-        if not frozen.exists(): frozen.write_text(payload)
-        outputs={'case.json':payload,'analysis.json':canonical(result),
-                 'report.html':render_report(case,result),
-                 'measurements.geojson':canonical(export_geojson(case,result))}
-        if not result.get('physical_reuse'):outputs['gis-analysis.json']=canonical(gis)
-        for name,body in outputs.items():
-            temp=folder/(name+'.tmp'); temp.write_text(body); temp.replace(folder/name)
-        return result
+    def save(self,case,*,expected_revision=None,recompute_gis=False):
+        """Save one case revision and its exports atomically under a per-case lock.
 
-    def _pair(self,case):
+        ``expected_revision`` (optional) is the saved revision (``input_sha256`` of
+        case.json) the caller's edit is based on; a different saved revision raises
+        RevisionConflict. ``recompute_gis`` reruns an outdated frozen GIS from the
+        saved inputs (no source refresh); superseded outdated artifacts are kept.
+        """
+        from .report import render_report, export_geojson
+        from .quality import interpretation_outdated
+        from drainage_core.evidence import AttachmentStore, validate_references
+        from drainage_core.saved import atomic_write
+        if not isinstance(recompute_gis,bool):raise ValueError('recompute_gis must be true or false')
+        folder=self.directory(case['id'])
+        with _case_lock(folder):
+            current=self.revision(case['id'])
+            if expected_revision is not None and expected_revision!=current:
+                raise RevisionConflict(expected_revision,current)
+            assessment=case.get('assessment',{})
+            validate_references(assessment)
+            if assessment.get('attachments'):
+                AttachmentStore(folder/'attachments').verify(assessment['attachments'])
+            gis,result=self._pair(case,recompute_gis=recompute_gis); folder.mkdir(exist_ok=True)
+            revisions=folder/'revisions'; revisions.mkdir(exist_ok=True)
+            digest=result['input_sha256']; payload=canonical(case)+'\n'
+            frozen=revisions/(digest+'.json')
+            if not frozen.exists(): atomic_write(frozen,payload)
+            outputs={'case.json':payload,'analysis.json':canonical(result),
+                     'report.html':render_report(case,result),
+                     'measurements.geojson':canonical(export_geojson(case,result))}
+            if not result.get('physical_reuse'):outputs['gis-analysis.json']=canonical(gis)
+            # An outdated artifact cannot be reproduced by current code; keep its bytes.
+            for name in ('gis-analysis.json','analysis.json'):
+                old=folder/name
+                if name not in outputs or not old.exists():continue
+                content=old.read_bytes()
+                if content==outputs[name].encode():continue
+                try:saved=json.loads(content)
+                except ValueError:continue # unreadable bytes are not a usable historical result
+                if not saved.get('presentation_only') and interpretation_outdated(saved):
+                    archive=folder/'superseded';archive.mkdir(exist_ok=True)
+                    target=archive/(sha256(content).hexdigest()+'.'+name)
+                    if not target.exists():atomic_write(target,content)
+            for name,body in outputs.items():atomic_write(folder/name,body)
+            return result
+
+    def _pair(self,case,recompute_gis=False):
         from .physical_reuse import load_frozen
         # Policy edits and saves must not silently reroute after a code update.
-        # A matching old artifact is retained as historical, with derived finance
-        # quarantined. Explicit acquisition/physical changes take the normal path.
-        frozen=load_frozen(self.directory(case['id']),case,allow_historical=True)
+        # A matching old artifact is reused with an outdated label and derived finance
+        # withheld. Recompute from saved inputs (recompute_gis) accepts only a current
+        # frozen artifact and otherwise reruns the physical engine locally.
+        frozen=load_frozen(self.directory(case['id']),case,allow_historical=not recompute_gis)
         return _analyze_pair(case,frozen) if frozen else _analyze_pair(case)
 
-    def analyze(self,case):
-        return self._pair(case)[1]
+    def analyze(self,case,*,recompute_gis=False):
+        """Read-only preview; ``recompute_gis`` previews a recompute without saving."""
+        if not isinstance(recompute_gis,bool):raise ValueError('recompute_gis must be true or false')
+        return self._pair(case,recompute_gis=recompute_gis)[1]
 
     def policy_analysis(self,case):
         from .physical_reuse import load_frozen
@@ -166,8 +229,10 @@ class CaseStore:
             updated['assessment']['attachments'].append(attachment)
         return updated,attachment
 
-    def run_assessment(self,case,cache=None,*,refresh_records=False):
+    def run_assessment(self,case,cache=None,*,refresh_records=False,expected_revision=None):
         if not isinstance(refresh_records,bool):raise ValueError('Record refresh must be true or false')
+        # A long public-record run must not overwrite a save made while it ran.
+        start_revision=expected_revision if expected_revision is not None else self.revision(case['id']) if case.get('id') else None
         from .record_cache import SharedCache
         from .assessment_workflow import gather
         if cache is None:
@@ -191,7 +256,7 @@ class CaseStore:
         updated['assessment'].setdefault('snapshots',[]).append({'id':run_id,'at':now,
             'source_status':deepcopy(updated['assessment'].get('source_status',[])),
             'artifact':'assessments/'+run_id+'.json'})
-        result=self.save(updated)
+        result=self.save(updated,expected_revision=start_revision)
         folder=self.directory(updated['id'])/'assessments';folder.mkdir(exist_ok=True)
         snapshot={'id':run_id,'at':now,'case':updated,'analysis':result}
         body=canonical(snapshot)

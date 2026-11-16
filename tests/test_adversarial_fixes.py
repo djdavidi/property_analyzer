@@ -12,7 +12,7 @@ from shapely.geometry import box,mapping,shape
 from drainage_core.engine import canonical,result_hash
 from drainage_core.geometry import measure,SQFT_PER_M2
 from drainage_core.model_integration import build,INTERPRETATION_VERSION
-from drainage_core.quality import processing_fingerprint,artifact_quality
+from drainage_core.quality import PHYSICAL_INTERPRETATION_VERSION,artifact_quality
 from drainage_core.research import feature_inputs
 from drainage_core.sources import arcgis_features,SourceError
 from stormwater.assessment_workflow import gather,review_record,reconcile_baseline
@@ -54,24 +54,36 @@ class QuarantineTests(IsolatedUnitTests):
 
     def test_legacy_money_removed_without_mutating_input_and_is_idempotent(self):
         c,r=self.legacy();before=canonical(r);view=safe_analysis(r)
-        self.assertEqual(view['billing']['status'],'invalidated')
-        self.assertEqual(view['modeled_integration']['status'],'invalidated')
+        self.assertEqual(view['quality_review']['status'],'outdated')
+        self.assertTrue(view['quality_review']['recompute_available'])
+        self.assertEqual(view['billing']['combined']['status'],'outdated')
+        self.assertEqual(view['modeled_integration']['status'],'outdated')
         self.assertNotIn('987654.32',canonical(view));self.assertEqual(canonical(r),before)
-        again=safe_analysis(view);self.assertEqual(again['billing']['status'],'invalidated')
+        again=safe_analysis(view);self.assertEqual(again['billing']['combined']['status'],'outdated')
         self.assertEqual(canonical(again),canonical(view))
 
     def test_new_interpretation_not_invalidated_and_versions_fail_closed(self):
-        c=fixture();g=frozen_gis(c);self.assertNotEqual(artifact_quality(g)['status'],'invalidated')
-        g['processing_fingerprint']='old';self.assertEqual(artifact_quality(g)['status'],'invalidated')
+        c=fixture();g=frozen_gis(c);self.assertEqual(artifact_quality(g)['status'],'not_independently_validated')
+        older=dict(g,physical_interpretation_version=PHYSICAL_INTERPRETATION_VERSION-1)
+        self.assertEqual(artifact_quality(older)['status'],'outdated')
+        self.assertIn('older physical interpretation version',artifact_quality(older)['label'])
+        # A byte fingerprint without a version is legacy/unknown, not silently current.
+        legacy=dict(g,processing_fingerprint='old')
+        self.assertEqual(artifact_quality(legacy)['status'],'outdated')
+        self.assertIn('unknown (legacy)',artifact_quality(legacy)['label'])
 
-    def test_changed_policy_code_invalidates_savings_without_discarding_current_physical_gis(self):
+    def test_changed_policy_version_withholds_savings_without_discarding_current_physical_gis(self):
         from stormwater.cases import analyze
-        from stormwater.quality import policy_fingerprint
+        from stormwater.quality import POLICY_INTERPRETATION_VERSION
         c=fixture();r=analyze(c);before=canonical(r['modeled_integration'])
-        self.assertEqual(r['policy_processing_fingerprint'],policy_fingerprint())
-        with patch('stormwater.quality.policy_fingerprint',return_value='changed-policy'):
+        self.assertEqual(r['policy_interpretation_version'],POLICY_INTERPRETATION_VERSION)
+        self.assertEqual(r['quality_review']['status'],'not_independently_validated')
+        with patch('stormwater.quality.POLICY_INTERPRETATION_VERSION',POLICY_INTERPRETATION_VERSION+1):
             view=safe_analysis(r)
-        self.assertEqual(view['billing']['status'],'invalidated')
+        self.assertEqual(view['quality_review']['status'],'outdated')
+        self.assertEqual(view['quality_review']['affected'],['derived_scenarios'])
+        for key in ('appeal_only','credit_only','combined'):
+            if key in r['billing']:self.assertEqual(view['billing'][key]['status'],'outdated')
         self.assertEqual(canonical(view['modeled_integration']),before)
 
     def test_saved_view_and_exports_do_not_call_analysis_or_mutate_frozen_bytes(self):
@@ -82,25 +94,30 @@ class QuarantineTests(IsolatedUnitTests):
             (folder/'case.json').write_text(canonical(c));(folder/'analysis.json').write_text(canonical(r))
             before=(folder/'analysis.json').read_bytes()
             with patch.object(store,'analyze',side_effect=AssertionError('No analysis')):
-                v=store.saved(c['id']);self.assertEqual(v['saved_status']['state'],'invalidated')
+                v=store.saved(c['id']);self.assertEqual(v['saved_status']['state'],'outdated')
+                self.assertTrue(v['saved_status']['recompute_available'])
                 for name in ('analysis.json','report.html','measurements.geojson'):
                     body=store.export_artifact(c['id'],name)
                     self.assertNotIn(b'987654.32',body)
-                self.assertIn(b'invalidated',store.export_artifact(c['id'],'report.html'))
+                self.assertIn(b'older AI model-integration interpretation version',store.export_artifact(c['id'],'report.html'))
             self.assertEqual((folder/'analysis.json').read_bytes(),before)
 
     def test_direct_policy_over_old_frozen_gis_cannot_emit_legacy_model_money(self):
         c=fixture();g=frozen_gis(c);g['modeled_integration']['version']='ai-drainage-integration-v1'
         g['modeled_integration']['ai']['geometries'].pop('developed_space')
-        r=assess(c,g);self.assertEqual(r['modeled_integration']['status'],'invalidated')
-        self.assertTrue(all(v.get('status')=='invalidated' for v in r['economics'].values()))
+        r=assess(c,g);self.assertEqual(r['modeled_integration']['status'],'outdated')
+        derived={k:v for k,v in r['economics'].items() if k not in ('baseline','tariff','claim')}
+        self.assertTrue(derived and all(v.get('status')=='outdated' for v in derived.values()))
+        base=r['economics'].get('baseline')
+        if base:self.assertEqual(base['interpretation_status'],'outdated');self.assertIsNotNone(base['monthly_total'])
 
-    def test_relevant_processing_change_invalidates_reuse_even_without_engine_bump(self):
+    def test_interpretation_bump_invalidates_reuse_even_without_engine_bump(self):
         from test_physical_reuse import frozen
         from stormwater.physical_reuse import load_frozen
         with TemporaryDirectory() as temp:
             c,g,folder=frozen(temp)
-            with patch('drainage_core.quality.processing_fingerprint',return_value='different'):
+            self.assertIsNotNone(load_frozen(folder,c))
+            with patch('drainage_core.quality.PHYSICAL_INTERPRETATION_VERSION',PHYSICAL_INTERPRETATION_VERSION+1):
                 self.assertIsNone(load_frozen(folder,c))
                 self.assertIsNotNone(load_frozen(folder,c,allow_historical=True))
 
@@ -119,26 +136,33 @@ class QuarantineTests(IsolatedUnitTests):
         from test_physical_reuse import frozen
         from stormwater.cases import CaseStore
         with TemporaryDirectory() as temp:
-            c,g,folder=frozen(temp);g['processing_fingerprint']='old-code';g['analysis_sha256']=result_hash(g)
-            (folder/'gis-analysis.json').write_text(canonical(g))
+            c,g,folder=frozen(temp);g.pop('physical_interpretation_version');g['processing_fingerprint']='old-code'
+            g['analysis_sha256']=result_hash(g);(folder/'gis-analysis.json').write_text(canonical(g))
             c['baseline']['ia_sqft']=9000
             with patch('stormwater.cases.analyze_gis',side_effect=AssertionError('No routing')):
                 r=CaseStore(temp).policy_analysis(c)
             self.assertEqual(r['physical_reuse']['status'],'reused_frozen_gis')
-            self.assertEqual(r['billing']['status'],'invalidated')
+            self.assertEqual(r['physical_reuse']['interpretation_status'],'outdated')
+            self.assertTrue(r['physical_reuse']['recompute_available'])
+            self.assertEqual(r['quality_review']['status'],'outdated')
+            self.assertEqual(r['billing']['credit_only']['status'],'outdated')
+            self.assertIsNone(r['billing']['credit_only'].get('annual_savings'))
+            self.assertIsNotNone(r['billing']['baseline']['monthly_total'])
 
     def test_policy_save_over_old_processing_keeps_gis_and_quarantines_money(self):
         from test_physical_reuse import frozen
         from stormwater.cases import CaseStore
         with TemporaryDirectory() as temp:
-            c,g,folder=frozen(temp);g['processing_fingerprint']='old';g['analysis_sha256']=result_hash(g)
-            before=canonical(g);(folder/'gis-analysis.json').write_text(before)
+            c,g,folder=frozen(temp);g['physical_interpretation_version']=PHYSICAL_INTERPRETATION_VERSION-1
+            g['analysis_sha256']=result_hash(g);before=canonical(g);(folder/'gis-analysis.json').write_text(before)
             c['baseline']['ia_sqft']=9000
             with (patch('stormwater.cases.analyze_gis',side_effect=AssertionError('No rerouting')),
                  patch('stormwater.report.render_report',return_value='fixture'),
                  patch('stormwater.report.export_geojson',return_value={'features':[]})):
                 r=CaseStore(temp).save(c)
-            self.assertEqual(r['billing']['status'],'invalidated')
+            self.assertEqual(r['quality_review']['status'],'outdated')
+            self.assertEqual(r['billing']['credit_only']['status'],'outdated')
+            self.assertEqual(r['billing']['baseline']['interpretation_status'],'outdated')
             self.assertEqual((folder/'gis-analysis.json').read_bytes(),before.encode())
 
 

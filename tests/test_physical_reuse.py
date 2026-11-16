@@ -14,8 +14,8 @@ from test_jurisdiction_adapter import fixture
 
 def frozen(root):
     case,gis,policy=fixture();case['baseline']=policy['baseline'];case['benefits']=policy['benefits']
-    from drainage_core.quality import processing_fingerprint
-    gis['engine_version']=ENGINE_VERSION;gis['processing_fingerprint']=processing_fingerprint()
+    from drainage_core.quality import PHYSICAL_INTERPRETATION_VERSION
+    gis['engine_version']=ENGINE_VERSION;gis['physical_interpretation_version']=PHYSICAL_INTERPRETATION_VERSION
     gis['input_sha256']=input_hash(case);gis['analysis_sha256']=result_hash(gis)
     folder=Path(root)/case['id'];(folder/'revisions').mkdir(parents=True)
     (folder/'case.json').write_text(canonical(case));(folder/'gis-analysis.json').write_text(canonical(gis))

@@ -161,7 +161,9 @@ def analyze(case, *, source_dependencies=None):
         result['processing_settings']['imagery_age_policy']=deepcopy(case['imagery_age_policy'])
     if case.get('terrain_reuse'):
         result['processing_settings']['terrain_reuse']=deepcopy(case['terrain_reuse'])
-    from .quality import processing_fingerprint
-    result['processing_fingerprint']=processing_fingerprint()
+    # Explicit interpretation version; library versions are provenance only.
+    from .quality import PHYSICAL_INTERPRETATION_VERSION,library_versions
+    result['physical_interpretation_version']=PHYSICAL_INTERPRETATION_VERSION
+    result['library_versions']=library_versions()
     result['analysis_sha256']=result_hash(result)
     return result

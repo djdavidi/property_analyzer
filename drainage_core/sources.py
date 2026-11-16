@@ -24,6 +24,23 @@ class SourceError(RuntimeError):
 
 
 
+def _atomic_write(path, data):
+    """Unique same-folder temporary file, then os.replace; concurrent writers never share a temp."""
+    import tempfile
+    descriptor, temp = tempfile.mkstemp(dir=path.parent, prefix='.'+path.name+'.', suffix='.tmp')
+    try:
+        with os.fdopen(descriptor, 'wb') as stream:
+            stream.write(data)
+        os.replace(temp, path)
+    except BaseException:
+        try:
+            os.unlink(temp)
+        except FileNotFoundError:
+            pass
+        raise
+
+
+
 class Cache:
     """URL manifests point at immutable SHA256 blobs; explicit refresh creates history.
 
@@ -64,14 +81,15 @@ class Cache:
                 'bytes': len(content), **(metadata or {})}
         info.update({'url': url, 'sha256': sha, 'bytes':len(content)})
         blob = self.root/'blobs'/sha
-        if not blob.exists():
-            blob.write_bytes(content)
+        # Content-addressed: an existing blob is reused only when its bytes verify.
+        # A partial or corrupt blob (crash, concurrent writer) is repaired here.
+        if not blob.exists() or hashlib.sha256(blob.read_bytes()).hexdigest() != sha:
+            _atomic_write(blob, content)
         encoded = canonical(info)
-        (self.root/'history'/f'{self._key(url)}-{hashlib.sha256(encoded).hexdigest()}.json').write_bytes(encoded)
-        manifest = self.root/'manifests'/f'{self._key(url)}.json'
-        temp = manifest.with_suffix('.tmp')
-        temp.write_bytes(encoded)
-        os.replace(temp, manifest)
+        history = self.root/'history'/f'{self._key(url)}-{hashlib.sha256(encoded).hexdigest()}.json'
+        if not history.exists():
+            _atomic_write(history, encoded)
+        _atomic_write(self.root/'manifests'/f'{self._key(url)}.json', encoded)
         return content, info
 
     def fetch_bytes(self, url, refresh=False, metadata=None):

@@ -1,64 +1,113 @@
-"""Presentation/policy quarantine over immutable physical artifacts. No routing."""
+"""Presentation/policy quarantine over immutable physical artifacts. No routing.
+
+Saved policy results are judged by an explicit interpretation version, never by
+source-file bytes. Bump ``POLICY_INTERPRETATION_VERSION`` (an integer) whenever a
+change alters what saved policy money or eligibility means (the modules in
+``POLICY_SCOPE``: rules, billing, assessment policy, model assessment, curve
+number, renewals, management estimates, runoff capacity and the management pilot).
+
+An outdated result stays visible, labelled, with a **Recompute from saved
+inputs** action. Recorded public observations (the published bill, public
+charges, recorded GA/IA) are never hidden. Only an explicit allowlist of derived
+money is withheld, together with the derived scenario blocks that carry it.
+"""
 from copy import deepcopy
 from hashlib import sha256
 import json
-from pathlib import Path
-from drainage_core.quality import artifact_quality
+from drainage_core.quality import OUTDATED, RECOMPUTE_HINT, artifact_quality, version_label, withhold_physical
+
+POLICY_INTERPRETATION_VERSION=1
+POLICY_SCOPE=('rules','billing','assessment_policy','model_assessment','curve_number','renewals',
+              'management_estimates','runoff_capacity','management_pilot','jurisdictions/philadelphia')
+# A saved policy output carries one of these. One without an interpretation version
+# predates explicit versions: "unknown/legacy".
+POLICY_TRACKED_MARKERS=('policy_interpretation_version','policy_processing_fingerprint','profile_version','policy_input_sha256')
+# Derived money withheld from an outdated result, wherever it appears.
+DERIVED_MONEY_KEYS=frozenset({'monthly_savings','annual_savings','gross_monthly_reduction','gross_annual_reduction',
+    'annual_savings_estimate','annual_savings_range','estimated_savings','annual_change','net_annual_change',
+    'supported_annual_change','supported_additional_annual_change','conditional_final_annual_bill'})
+# Recorded observations that are never withheld (documentation and tests).
+OBSERVATION_KEYS=frozenset({'published_monthly_total','actual_bill_total','monthly_public_charge','annual_public_charge',
+    'current_monthly_public_charge','current_annual_public_charge','source_published_monthly_charge',
+    'ga_sqft','ia_sqft','existing_ga_credit_sqft','existing_ia_credit_sqft','existing_iar_sqft'})
+DERIVED_SCENARIOS=('appeal_only','credit_only','combined','documented_credit_only','documented_combined')
+ECONOMICS_KEPT=('baseline','tariff','claim')
 
 
 def policy_fingerprint():
-    folder=Path(__file__).parent
-    names=('rules.py','billing.py','assessment_policy.py','model_assessment.py',
-           'jurisdictions/philadelphia.py','quality.py','curve_number.py','renewals.py')
-    return sha256('\n'.join(name+':'+sha256((folder/name).read_bytes()).hexdigest() for name in names).encode()).hexdigest()
+    """Semantic fingerprint of the explicit policy version; never file bytes."""
+    return sha256(json.dumps({'policy':POLICY_INTERPRETATION_VERSION}).encode()).hexdigest()
+
+
+def policy_version_status(result):
+    """(outdated, saved version) for the policy layer of a saved result."""
+    tracked=any(key in result for key in POLICY_TRACKED_MARKERS)
+    saved=result.get('policy_interpretation_version')
+    return tracked and saved!=POLICY_INTERPRETATION_VERSION,saved
+
+
+def interpretation_outdated(result):
+    return artifact_quality(result)['status']==OUTDATED or policy_version_status(result)[0]
 
 
 def safe_analysis(result):
     """Return an explicitly derived safe view, never edit a frozen artifact.
 
     Historical bytes remain exportable in evidence bundles with a quarantine
-    manifest. Ordinary views/reports/exports must not serve their old dollars.
+    manifest. Ordinary views/reports/exports label old results and do not serve
+    their derived dollars as current; recorded observations remain visible.
     """
     q=artifact_quality(result)
-    policy_changed=result.get('policy_processing_fingerprint') is not None and result['policy_processing_fingerprint']!=policy_fingerprint()
-    physical_invalid=q['status']=='invalidated'
-    if policy_changed and not physical_invalid:
-        q={**q,'status':'invalidated','reason':'Saved policy processing changed; recalculate policy over frozen GIS before using these savings.',
-           'affected':['derived_scenarios']}
-    if q['status']!='invalidated':return {**result,'quality_review':q}
+    policy_old,policy_saved=policy_version_status(result)
+    q['interpretation']['saved']['policy']=policy_saved
+    q['interpretation']['current']['policy']=POLICY_INTERPRETATION_VERSION
+    physical_outdated=q['status']==OUTDATED
+    if policy_old and not physical_outdated:
+        label=version_label('policy',policy_saved,POLICY_INTERPRETATION_VERSION)
+        q={**q,'status':OUTDATED,'label':label,'reason':label+' '+RECOMPUTE_HINT,
+           'affected':['derived_scenarios'],'recompute_available':True,'observations_retained':True}
+    if q['status']!=OUTDATED:return {**result,'quality_review':q}
     out=deepcopy(result);out['quality_review']=q
-    reason=q['reason']
-    def redact(value):
-        if isinstance(value,list):return [redact(v) for v in value]
+    reason,label=q['reason'],q['label']
+    withheld={'status':OUTDATED,'reason':reason,'reasons':[reason],'recompute_available':True}
+    note={'interpretation_status':OUTDATED,'interpretation_label':label}
+
+    def withhold(value):
+        if isinstance(value,list):return [withhold(v) for v in value]
         if not isinstance(value,dict):return value
-        value={k:redact(v) for k,v in value.items()}
-        monetary=[k for k in value if any(s in k.lower() for s in
-            ('savings','reduction','monthly_','annual_','annualized_')) or k in
-            ('ga_charge','ia_charge','collection_charge','total_weighted_charge')]
-        for key in monetary:
-            if isinstance(value[key],(int,float)) and not isinstance(value[key],bool):value[key]=None
-        if monetary and value.get('status') in ('calculated','conditional','screen_pass'):
-            value.update(status='invalidated',reasons=[reason])
+        value={k:withhold(v) for k,v in value.items()}
+        derived=[k for k in value if k in DERIVED_MONEY_KEYS and value[k] is not None]
+        for key in derived:value[key]=None
+        if derived and value.get('status') in ('calculated','conditional','screen_pass'):
+            value.update(status=OUTDATED,reasons=[reason])
         return value
-    out=redact(out)
-    for row in out.get('automatic',{}).get('estimates',[]):
-        if row.get('feature')=='other_pavement':
-            row.update(feature='developed_space',original_feature='other_pavement',
-                basis='Historical image appearance only; not a physical IA measurement')
-    blocked={'status':'invalidated','reason':reason,'reasons':[reason]}
-    if 'billing' in out:out['billing']=deepcopy(blocked)
-    if 'surface_assumption_scenarios' in out:out['surface_assumption_scenarios']={}
+
+    billing=out.get('billing')
+    if isinstance(billing,dict):
+        for key in DERIVED_SCENARIOS:
+            if key in billing:billing[key]=deepcopy(withheld)
+        billing.update(note)
+        if isinstance(billing.get('baseline'),dict):billing['baseline'].update(note)
+    if out.get('surface_assumption_scenarios'):out['surface_assumption_scenarios']={}
     if out.get('assessment'):
-        a=out['assessment'];a['economics']={k:deepcopy(blocked) for k in a.get('economics',{})}
-        a['modeled_integration']={'status':'invalidated','reason':reason,'claim':reason,'records':[],'combined':[]}
-        a['research_drainage_scenarios']=deepcopy(blocked)
+        a=out['assessment']
+        economics=a.get('economics') or {}
+        for key in list(economics):
+            if key not in ECONOMICS_KEPT:economics[key]=deepcopy(withheld)
+        if isinstance(economics.get('baseline'),dict):economics['baseline'].update(note)
+        a['modeled_integration']={'status':OUTDATED,'reason':reason,'claim':reason,'records':[],'combined':[],
+                                  'recompute_available':True}
+        a['research_drainage_scenarios']=deepcopy(withheld)
         for category in a.get('categories',[]):
             category.pop('modeled_context',None)
             for record in category.get('records',[]):record.pop('modeled_context',None)
         a.pop('assessment_sha256',None)
-    if physical_invalid and out.get('modeled_integration'):
-        out['modeled_integration']={'status':'invalidated','reason':reason,
-            'version':out['modeled_integration'].get('version'),'runs':[]}
+    out=withhold(out)
+    for row in out.get('automatic',{}).get('estimates',[]):
+        if row.get('feature')=='other_pavement':
+            row.update(feature='developed_space',original_feature='other_pavement',
+                basis='Historical image appearance only; not a physical IA measurement')
+    if physical_outdated:withhold_physical(out,q)
     out['warnings']=list(dict.fromkeys([reason,*out.get('warnings',[])]))
     out['presentation_only']=True
     out.setdefault('presentation_input_sha256',sha256(json.dumps(result,sort_keys=True,separators=(',',':'),allow_nan=False).encode()).hexdigest())

@@ -10,7 +10,7 @@ from threading import Lock
 from urllib.parse import urlparse
 import uuid
 from shapely.geometry import shape, mapping
-from .cases import CaseStore, ROOT, new_case
+from .cases import CaseStore, ROOT, RevisionConflict, new_case
 from .geometry import reproject
 from .prospect_jobs import ProspectJobs
 
@@ -138,11 +138,17 @@ class Handler(BaseHTTPRequestHandler):
             payload=json.loads(self.rfile.read(length))
             if path=='/api/prospects/scan':return self.send(self.prospect_jobs.start(payload.get('refresh',False),payload.get('mode','rerank'),payload.get('parcel_ids')),202)
             if path=='/api/prospects/cancel':return self.send(self.prospect_jobs.cancel(),202)
-            if path=='/api/analyze':return self.send(self.store.analyze(payload['case']))
-            if path=='/api/save':return self.send(self.store.save(payload['case']))
+            # recompute_gis: rerun an outdated frozen GIS from the saved inputs (no source
+            # refresh). expected_revision: optional saved revision; a mismatch is HTTP 409.
+            # Both are optional; existing clients send neither.
+            options={k:payload[k] for k in ('recompute_gis','expected_revision') if k in payload}
+            if path=='/api/analyze':
+                return self.send(self.store.analyze(payload['case'],**{k:v for k,v in options.items() if k=='recompute_gis'}))
+            if path=='/api/save':return self.send(self.store.save(payload['case'],**options))
             if path=='/api/assessment/run':
                 cache=self.public_cache(timeout=15)
-                result=self.store.run_assessment(payload['case'],cache,refresh_records=payload.get('refresh_records',False))
+                revision={'expected_revision':payload['expected_revision']} if 'expected_revision' in payload else {}
+                result=self.store.run_assessment(payload['case'],cache,refresh_records=payload.get('refresh_records',False),**revision)
                 return self.send(result)
             if path=='/api/assessment/baseline-review':
                 from .assessment_workflow import reconcile_baseline
@@ -213,6 +219,8 @@ class Handler(BaseHTTPRequestHandler):
                             f['geometry']=mapping(reproject(shape(f['geometry']),data['crs'],payload['target_crs']))
                 return self.send(data)
             return self.send({'error':'Not found'},404)
+        except RevisionConflict as exc:
+            self.send({'error':str(exc),'expected_revision':exc.expected,'current_revision':exc.current},409)
         except Exception as exc:
             self.send({'error':str(exc)},400)
 

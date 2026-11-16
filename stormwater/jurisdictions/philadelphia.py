@@ -137,9 +137,9 @@ def apply(case, gis_result, policy_inputs=None, tariff=None, as_of=None):
                    'baseline':working.get('baseline'),'benefits':all_benefits,'tariff':selected_tariff,
                    'assessment':working.get('assessment'),'assessment_rules':assessment.get('rules'),
                    'assessment_as_of':assessment.get('as_of')}
-    from ..quality import policy_fingerprint
+    from ..quality import POLICY_INTERPRETATION_VERSION
     output={
-        'policy_processing_fingerprint':policy_fingerprint(),
+        'policy_interpretation_version':POLICY_INTERPRETATION_VERSION,
         'jurisdiction':PROFILE_ID,'profile_version':PROFILE_VERSION,'rule_version':RULE_VERSION,
         'gis_input_sha256':expected,
         'gis_analysis_sha256':analysis_digest,
@@ -150,7 +150,7 @@ def apply(case, gis_result, policy_inputs=None, tariff=None, as_of=None):
         'warnings':list(dict.fromkeys(warnings)),
         'policy_claim':'Philadelphia PWD screening only; eligibility, approval and actual billed savings require separate evidence.'}
     from drainage_core.quality import artifact_quality
-    if artifact_quality(gis_result)['status']=='invalidated':
+    if artifact_quality(gis_result)['status']=='outdated':
         from ..quality import safe_analysis
         safe=safe_analysis({**gis_result,**output})
         output={k:safe[k] for k in output};output['quality_review']=safe['quality_review']

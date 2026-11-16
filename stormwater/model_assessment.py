@@ -186,8 +186,8 @@ def integrate(case,gis,screened,as_of,tariff):
     if not integrated:return {'status':'unavailable','records':[],'combined':[]}
     from drainage_core.quality import artifact_quality
     quality=artifact_quality(gis)
-    if quality['status']=='invalidated':return {'status':'invalidated','records':[],'combined':[],
-        'claim':quality['reason'],'reason':quality['reason']}
+    if quality['status']=='outdated':return {'status':'outdated','records':[],'combined':[],
+        'claim':quality['reason'],'reason':quality['reason'],'recompute_available':True}
     if case.get('assessment',{}).get('baseline_refresh',{}).get('status')=='pending_review':
         return {'status':'blocked','records':[],'combined':[],'claim':'Public billing baseline changed; reconcile before calculating savings'}
     parcel=shape(case['parcel']);sources=case.get('assessment',{}).get('records',[])
