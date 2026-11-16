@@ -43,8 +43,8 @@ it is not a claim about security severity or a verified amount of financial loss
 
 ### 1. Developed space is not a permeability class — confirmed defect, critical
 
-[semantic_cover.py](../drainage_core/semantic_cover.py:49) maps OEM class 3 to
-`other_pavement`. [model_integration.py](../drainage_core/model_integration.py:68)
+`drainage_core/semantic_cover.py:49` maps OEM class 3 to
+`other_pavement`. `drainage_core/model_integration.py:68`
 then includes every such polygon in modeled IA. The model's own class definition
 includes construction sites, artificial sports surfaces and compacted soil as well
 as conventional paved surfaces. A correct appearance prediction can therefore
@@ -78,7 +78,7 @@ material, hydrologic and regulatory interpretations.
 
 ### 3. Confidence thresholds do not measure local accuracy — confirmed limitation, high
 
-[model_worker.py](../drainage_core/model_worker.py:40) discards pixels below softmax
+`drainage_core/model_worker.py:40` discards pixels below softmax
 0.60 or margin 0.15. Neither threshold was calibrated against independent
 Philadelphia labels. A confidently wrong class survives both. The worker saves
 labels only, discarding probability/margin arrays, which prevents later inspection
@@ -112,8 +112,8 @@ load are useful safeguards, not proof of accuracy on this image service.
 
 ### 5. Pixel-edge ranges omit the largest uncertainty — confirmed limitation, high
 
-[remote_sensing.py](../drainage_core/remote_sensing.py:54) and
-[model_integration.py](../drainage_core/model_integration.py:88) buffer/erode class
+`drainage_core/remote_sensing.py:54` and
+`drainage_core/model_integration.py:88` buffer/erode class
 boundaries. This measures a positional perturbation, not semantic class error,
 registration error, hidden ground, seasonal change or a statistical interval.
 Generic cover upper ranges also add all unknown coverage to each class separately:
@@ -123,8 +123,8 @@ money ranges can still misleadingly suggest bounded accuracy.
 
 ### 6. Public building footprints are privileged over newer conflicting imagery — confirmed limitation, high
 
-[automatic.py](../stormwater/automatic.py:22) imports city buildings as unreviewed
-roof observations with unknown acquisition date. [geometry.py](../drainage_core/geometry.py:103)
+`stormwater/automatic.py:22` imports city buildings as unreviewed
+roof observations with unknown acquisition date. `drainage_core/geometry.py:103`
 measures them, and the modeled join gives observations precedence over conflicting
 AI. Building footprint is not exact roof extent or drainage destination; demolition,
 new additions, overhang and source alignment can matter. Disagreement is recorded,
@@ -159,7 +159,7 @@ and dated surface evidence; never calibrate the model merely to force PWD totals
 
 ### 9. Proposed systems can become receiving features — reproduced defect, high
 
-[research.feature_inputs](../drainage_core/research.py:69) assigns `gsi` role from
+`research.feature_inputs` (`drainage_core/research.py:69`) assigns `gsi` role from
 rain-garden/bioretention/swale/planter type without checking proposed status,
 installation false or installation year. The probe supplied a rain garden explicitly
 marked **Proposed**, `installed=False`, year **2099**; it was normalized to a receiver.
@@ -175,7 +175,7 @@ Do not let filtering in the prospect scanner substitute for a full-flow guard.
 
 ### 10. Lowering a whole system footprint can manufacture a connection — confirmed model assumption, high
 
-[research.condition](../drainage_core/research.py:127) fills depressions, then burns
+`research.condition` (`drainage_core/research.py:127`) fills depressions, then burns
 GSI polygons and supplied inlets/curb cuts using enforced offsets. A footprint is
 not an independently located entrance. A lowered polygon can collect flow that
 real curbs, grading, walls, disconnected pipes or raised rims prevent from entering.
@@ -187,7 +187,7 @@ for delineation, not surveyed elevations or proof of hydraulic capture.
 
 D8 topology does not establish inlet capture efficiency, bypass, treatment depth,
 storage, drawdown, clogging, maintenance, exfiltration, outlet control, upstream
-competition or approved drainage allocation. [catchment_alternatives](../stormwater/model_assessment.py:104)
+competition or approved drainage allocation. `catchment_alternatives` (`stormwater/model_assessment.py:104`)
 creates a disposable modeled benefit with treatment and other prerequisites assumed
 true. It labels that assumption, but the resulting dollars must not be described as
 expected savings. No storm/event capacity model or observed-event calibration
@@ -206,8 +206,8 @@ than a reason to select whichever produces more savings.
 
 ### 13. Watershed extent warnings are not carried into every integrated run — source-confirmed defect/limitation, high
 
-[run_model](../drainage_core/research.py:317) exposes `extent_sufficient`, but
-[build](../drainage_core/model_integration.py:128) copies catchments, grid and area
+`run_model` (`drainage_core/research.py:317`) exposes `extent_sufficient`, but
+`build` (`drainage_core/model_integration.py:128`) copies catchments, grid and area
 conservation without this extent flag into its joined runs. Finance does not use
 extent sufficiency as a gate. All three selected parcels with native research
 results explicitly have **extent_sufficient=False**. Offsite contributing flow or
@@ -228,7 +228,7 @@ exercise these mechanisms but do not measure their site error.
 
 ### 15. Sensitivity envelope is not research replication or a confidence interval — confirmed limitation, high
 
-[analyze_research](../drainage_core/research.py:322) changes offsets, buffers and
+`analyze_research` (`drainage_core/research.py:322`) changes offsets, buffers and
 touched-cell rasterization together, and adds a coarser grid. That confounds effects
 and cannot isolate why a catchment changed. It does not test all plausible input
 errors or replace a finer native survey. The journal study's resolution result
@@ -242,7 +242,7 @@ The existing [method description](RESEARCH-METHOD.md) records the adaptations an
 
 ### 16. Terrain acquisition limits create missing coverage and partial automation — confirmed limitation, moderate
 
-[automatic_terrain.py](../stormwater/automatic_terrain.py:17) retains supplied terrain
+`stormwater/automatic_terrain.py:17` retains supplied terrain
 without checking for later grading. Automatic discovery tries at most five products,
 constructs metadata URLs, requires one tile covering parcel plus buffer and limits
 the native window to 250,000 cells. It does not mosaic tiles. Metadata units are
@@ -255,8 +255,8 @@ means this workflow failed, not that elevation data or savings do not exist.
 
 ### 17. Conditional permit path ignores known disqualifying dates — reproduced defect, high
 
-[screen_record](../stormwater/assessment_policy.py:91) checks effective, expiry,
-termination and compliance dates. [permit_alternatives](../stormwater/model_assessment.py:141)
+`screen_record` (`stormwater/assessment_policy.py:91`) checks effective, expiry,
+termination and compliance dates. `permit_alternatives` (`stormwater/model_assessment.py:141`)
 checks selected booleans and type, then replaces that screen with a modeled pass;
 it does not carry the known date failures through. In the invented 10,000 sq ft
 fixture, a permit expired **2026-11-14**, assessment **2026-11-15**, was flagged
@@ -269,8 +269,8 @@ and all other known failures should survive scenario construction.
 
 ### 18. Financial what-ifs intentionally manufacture prerequisite truth in disposable views — confirmed behavior, high communication risk
 
-[model_assessment.py](../stormwater/model_assessment.py:75) and
-[assessment_policy.research_economics](../stormwater/assessment_policy.py:321) create
+`stormwater/model_assessment.py:75` and
+`assessment_policy.research_economics` (`stormwater/assessment_policy.py:321`) create
 modeled alternatives with assumed eligibility and modeled areas. These do not
 overwrite frozen observed measurements or reviewed facts, which is important.
 But arithmetic status `calculated` means only the ledger ran; it does not mean
@@ -286,7 +286,7 @@ avoid expected-savings language without a defensible probability/model basis.
 
 ### 19. Evidence URL is structural linkage, not validation of content — reproduced trust limitation, high
 
-[assessment_policy._evidence](../stormwater/assessment_policy.py:84) accepts a
+`assessment_policy._evidence` (`stormwater/assessment_policy.py:84`) accepts a
 well-formed HTTP(S) URL or a registered attachment reference. It does not establish
 that the source contains the asserted fact, belongs to the property, is current or
 supports the claimed area. A fixture with all required asserted facts true and an
@@ -296,13 +296,13 @@ nevertheless “documented” is only as trustworthy as the person/input supplyi
 
 Use per-fact support, property/period/page linkage and review status; distinguish
 manual assertion from independently checked evidence. Reference independence is
-also self-declared in [validation.py](../drainage_core/validation.py:25); synthetic
+also self-declared in `drainage_core/validation.py:25`; synthetic
 flags are rejected, but authenticity/independence is not automatically established.
 `accuracy_target=None` means a measured comparison is not an accuracy acceptance.
 
 ### 20. Individual record bounds can assume an entire footprint qualifies — confirmed limitation, high
 
-[integrate](../stormwater/model_assessment.py:203) uses a linked catchment, declared
+`integrate` (`stormwater/model_assessment.py:203`) uses a linked catchment, declared
 managed geometry, or direct rainfall on a green-roof/permeable footprint. Its upper
 scenario adds all unconfirmed ground in that region except observed pervious.
 This deliberately allows generic AI misclassification of specialty surfaces, but
@@ -362,13 +362,13 @@ bug**. This review did not discover a proven tariff-rate error.
 
 ### 24. Refresh does not reconcile existing candidates or the baseline — reproduced defect, high
 
-[gather](../stormwater/assessment_workflow.py:95) adds only previously unseen record
+`gather` (`stormwater/assessment_workflow.py:95`) adds only previously unseen record
 IDs, preserving even unreviewed public candidates with changed facts or geometry.
 It also appends fresh billing observations without updating/staging changes to
 `case.baseline`. The probe changed the same candidate's footprint and installation
 fact and supplied new billing/credit observations: the old candidate and baseline
 remained identical, while the new observation was appended. The normal
-[assessment orchestrator](../stormwater/cases.py:130) calls this path; public-source
+assessment orchestrator (`stormwater/cases.py:130`) calls this path; public-source
 status can therefore appear fresh while the finance inputs remain older.
 
 Preserve manual reviews and raw history, but distinguish current source version,
@@ -380,7 +380,7 @@ that baseline, rather than implied to have been refreshed.
 
 The portfolio HTML/metadata and docs warn about finding 1, but none of the twelve
 saved `analysis.json` files has a model-quality invalidation field checked by the
-view or finance path. [saved._status](../drainage_core/saved.py:55) checks an engine
+view or finance path. `saved._status` (`drainage_core/saved.py:55`) checks an engine
 version difference; it does not enforce this quality notice. Someone opening a
 property directly can still see affected calculated numbers. Add a centralized,
 versioned quality gate, preserving historical values but preventing them from being
@@ -388,7 +388,7 @@ presented as current supported estimates. This audit did not alter those files.
 
 ### 26. Hash reproducibility does not protect against stale algorithm interpretation — confirmed limitation, moderate
 
-[physical_reuse.py](../stormwater/physical_reuse.py:16) verifies revisions, artifacts,
+`stormwater/physical_reuse.py:16` verifies revisions, artifacts,
 physical signatures and a manually maintained `ENGINE_VERSION`. It does not include
 an automatic digest of all processing code/dependencies. An algorithm change that
 forgets the version bump can reuse old GIS. Semantic cache keys include weights,
@@ -399,7 +399,7 @@ identity/integrity, not source truth or empirical accuracy.
 
 ### 27. ArcGIS response CRS is assumed from the request — reproduced defect, moderate
 
-[arcgis_features](../drainage_core/sources.py:151) reports the requested CRS without
+`arcgis_features` (`drainage_core/sources.py:151`) reports the requested CRS without
 rejecting a contradictory returned CRS. A fake service response explicitly marked
 EPSG:4326 with longitude/latitude coordinates was accepted and labeled EPSG:2272.
 This is a robustness counterexample, not evidence that Philadelphia's actual
@@ -409,7 +409,7 @@ do reject repeated IDs, no-progress pages and page-limit incompleteness.
 
 ### 28. “Top prospects” is economic scale in a bounded sample, not highest expected savings — confirmed limitation, moderate
 
-[prospects.py](../stormwater/prospects.py:354) ranks current public annual charges
+`stormwater/prospects.py:354` ranks current public annual charges
 with credit-share tie-breaking. It first selects a capped pool of projects largely
 by mapped footprint area. This can miss small high-value systems, unlisted systems,
 cross-parcel allocations, sites with failed billing reads and opportunities outside

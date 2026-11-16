@@ -1,5 +1,16 @@
 # Whitaker: actual full-flow results, November 15, 2026
 
+> **Superseded (2026-11-16). Do not use the dollar figures on this page.** The
+> $314.00/month ($3,768/year) rain garden 62571 figure and the impervious-area
+> appeal "bill increase" range both depended on modeled developed space counted as
+> impervious area; the rain-garden figure also depended on the old watershed-extent
+> gate. Both interpretations were withdrawn ([review finding A6](ADVERSARIAL-REVIEW-2026-11-16.md),
+> [fix plan](FIX-PLAN-2026-11-16.md)). Current code (physical interpretation v3,
+> policy interpretation v2 when this notice was written; later phases may bump
+> them) opens this saved case as outdated and requires a recompute from saved
+> inputs. That rerun is fix-plan Phase 8 and has not been done.
+> The page below is preserved unchanged as a record of the November 15 run.
+
 Entering **5300 Whitaker Ave** successfully ran address lookup, public imagery and
 record acquisition, local image classification, saved native 1 m elevation reuse,
 conservative drainage, the additional Villanova/Temple adaptation, assessments,

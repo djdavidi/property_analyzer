@@ -4,7 +4,7 @@ Completed the user-authorized local rerun of the same ten no-area-credit sites /
 
 **No supported net annual savings or IA appeal amount is established for any of the ten sites.** This is Unknown, not $0. The figures below are current public baseline calculations and explicitly conditional stress tests. No category amounts may be added.
 
-[Full local report](../data/assessments/top10-corrected-2026-11-15/report.html) · [comparison JSON](../data/assessments/top10-corrected-2026-11-15/comparison.json). Outputs stay local/Git-ignored; original active cases and earlier reports were preserved.
+Full local report (`data/assessments/top10-corrected-2026-11-15/report.html`, local only, not in Git) · comparison JSON (`data/assessments/top10-corrected-2026-11-15/comparison.json`, local only, not in Git). Outputs stay local/Git-ignored; original active cases and earlier reports were preserved.
 
 | Site | Annual public charge | Recorded GA / IA (sq ft) | Identified IA (sq ft) | Unresolved ground (sq ft) |
 | --- | ---: | ---: | ---: | ---: |

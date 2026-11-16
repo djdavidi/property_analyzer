@@ -1,8 +1,9 @@
 # Property analyzer repository instructions
 
-Read README.md, docs/PRD.md, docs/STATE.md and docs/TASK.md before implementation.
-Then read docs/SESSION.md and the latest entry in docs/CHECKPOINTS.md. Repository
-state, source and recorded evidence are the handoff; old chats are not required.
+Before implementation read docs/STATE.md (a short snapshot), docs/TASK.md, the
+newest entry in docs/CHECKPOINTS.md and docs/SESSION.md. Read docs/PRD.md before
+changing product behavior or scope; README.md is navigation. Repository state,
+source and recorded evidence are the handoff; old chats are not required.
 The interview decisions in PRD are accepted. Ask only about consequential unresolved
 scope or external access; do not restart a generic feature interview.
 
@@ -12,12 +13,16 @@ scope, plan and success criteria. Archive the previous brief in CHECKPOINTS befo
 replacing it. A completed brief is history, not an instruction to redo that work.
 Preserve unrelated working-tree changes. Do not ask the user to shuttle context.
 
-Keep implementation and verification separate. Record exact check commands, actual
-results and limits; failed, skipped, blocked or unrun checks are not passes. At each
-meaningful stopping point update TASK status, STATE and CHECKPOINTS with changes,
-decisions, evidence, unresolved issues and the next action. Incomplete work gets an
-honest partial checkpoint. Before finishing, use only repository files to answer
-the five resume questions in SESSION.md and repair obvious handoff gaps.
+Keep implementation and verification separate. "Verified" requires the full
+documented suite (`.venv/bin/python -m unittest discover -s tests`) to pass with no
+network. Record exact check commands, actual results and limits as one summary line
+per run in CHECKPOINTS; failed, skipped, blocked or unrun checks are not passes. Do
+not commit verbose test logs; write full output under ignored data/ if needed. At each
+meaningful stopping point update TASK status, the short STATE snapshot (≤80 lines,
+replace rather than append) and CHECKPOINTS with changes, decisions, evidence,
+unresolved issues and the next action. Incomplete work gets an honest partial
+checkpoint. Before finishing, use only repository files to answer the five resume
+questions in SESSION.md and repair obvious handoff gaps.
 
 Keep physical GIS in drainage_core independent of jurisdiction providers, rules,
 accounts, credits and billing. Policy modules consume frozen GIS artifacts without
@@ -36,6 +41,6 @@ Run meaningful domain and workflow checks. Synthetic success is not empirical ac
 Report failed, omitted and blocked verification honestly. Keep public example gaps explicit.
 Keep private uploads, runtime cases and large caches out of Git by default.
 
-README owns navigation; PRD owns accepted requirements; STATE owns current reality;
+README owns navigation; PRD owns accepted requirements; STATE owns the current snapshot;
 TASK owns implementation sequence/checks and remaining work. Preserve unresolved issues.
 Do not commit, push, publish or create external resources unless the user asks.

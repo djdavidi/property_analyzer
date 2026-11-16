@@ -4,6 +4,61 @@ Newest entries first. Current truth belongs in STATE; the active bounded task be
 in TASK. These records preserve changes, decisions, evidence, unresolved issues and
 handoffs. Do not rewrite past results to match later runs.
 
+## 2026-11-16 — Fix plan Phase 7: docs and process cleanup (D9, part of A6)
+
+Parallel worktree branched from `ba563b4`; Phase 4b runs separately. Docs and one
+new script only; no application code changed.
+
+**Changes.**
+- **STATE** rewritten as a 79-line current snapshot (D9). The long version stays in
+  Git history (`git show ba563b4:docs/STATE.md`); all its dated history was already
+  in this file, so nothing was moved.
+- **AGENTS.md / SESSION.md / SETUP.md (D9, user-approved):** STATE is a short
+  snapshot that is rewritten, not appended. Record one summary line per verification
+  run here. Do not commit verbose `-v` logs; keep full output under ignored `data/`
+  if needed. "Verified" requires the full suite with no network. The mandatory reading
+  list is now STATE, TASK, newest checkpoint and SESSION; PRD before product or scope
+  changes; README is navigation. The existing `docs/*.txt` logs are marked historical
+  and kept, because older checkpoints link to them.
+- **A6:** [Whitaker results](WHITAKER-LIVE-RESULTS-2026-11-15.md) carries a
+  superseded notice at the top; its body is unchanged.
+- **README:** removed the "no Git history" and "extract this folder / git init"
+  claims and the stale 340/282/567 test counts; it points to STATE for verification
+  and summarizes fix-plan status. Pilot and 01073 figures are noted as superseded
+  pending recompute.
+- **Links:** the 27 malformed `../path.py:NN` links in
+  [the first review](ADVERSARIAL-REVIEW-2026-11-15.md) are now code spans. Six links
+  into ignored `data/` (roof audit, top-ten technical details, top-ten no-credit
+  review) are now code spans marked local only. New `scripts/check_links.py` checks
+  missing targets, ignored targets and anchors.
+- **PACKAGE-MANIFEST.json deleted.** No code or test reads it (only historical
+  check logs, the review and the plan mention it). It was stale: files missing,
+  hashes mismatched.
+
+**Evidence (one line per run).**
+- `python scripts/check_links.py` before: 51 files; 27 missing, 8 ignored, 0 anchor.
+  After: 0 missing, 2 ignored, 0 anchor.
+- 2026-11-16, Phase 7 worktree (docs-only changes on `ba563b4`):
+  `.venv/bin/python -m unittest discover -s tests` → Ran 783, OK (skipped=1); no
+  `data/` created. `node --check drainage_core/web/app.js` → OK. Node UI harnesses
+  not rerun (no JS changed).
+
+**Not done.**
+- The two remaining ignored links are in `TOP10-CORRECTED-RESULTS-2026-11-15.md`,
+  which Phase 4b may edit; convert them after that merge.
+- D10 formatting-only pass not attempted.
+- Dated docs still quote their own historical test counts. That is intended.
+
+**Resume check (repository files only).**
+1. Building: local existing-site GIS assessment with a separate Philadelphia credit
+   layer ([PRD](PRD.md), [STATE](STATE.md)).
+2. Done: fix-plan Phases 0–3, 4a, 5 and 6 tooling merged; Phase 7 on this branch.
+3. In progress: Phase 4b ([TASK](TASK.md)).
+4. Evidence: the full suite (783 OK, 1 skip) shows software behavior on synthetic
+   and frozen inputs. It does not show real-site accuracy, eligibility or bills.
+5. Next: merge 4b and 7, then Phase 8 reruns from saved inputs. Open: the NPDES GA
+   residual reading needs PWD confirmation.
+
 ## 2026-11-16 — Fix plan Phase 6 tooling merged
 
 Commits `a003c4d` and `7bac503`, merged on top of Phase 4a. Full suite: Ran 783, OK

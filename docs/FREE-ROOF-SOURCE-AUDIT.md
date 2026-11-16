@@ -47,8 +47,8 @@ drains, identify concealed gutters/downspouts, establish drain dimensions or sho
 destinations. No independent drain labels or detection-accuracy study were available.
 
 Local original-byte previews, intentionally kept outside Git:
-[coarse crop](../data/roof-source-audit-2026-11-15/roof-crop-coarse-27cm.png) and
-[source-sampling crop](../data/roof-source-audit-2026-11-15/roof-crop-native-7p6cm.png).
+coarse crop (`data/roof-source-audit-2026-11-15/roof-crop-coarse-27cm.png`, local only, not in Git) and
+source-sampling crop (`data/roof-source-audit-2026-11-15/roof-crop-native-7p6cm.png`, local only, not in Git).
 They are unchanged copies of the returned images, not enhanced images. Exports are
 RGBA display images; alpha is not a near-infrared band. Service vintage is 2025;
 the exact parcel flight day remains unknown.

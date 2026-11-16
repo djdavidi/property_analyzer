@@ -37,9 +37,14 @@ If extraction lost executable bits: `chmod +x gis credits run-gis.command run.co
 ## Checks
 
 ```sh
-.venv/bin/python -m unittest discover -s tests -v
+.venv/bin/python -m unittest discover -s tests
 node --check drainage_core/web/app.js
+.venv/bin/python scripts/check_links.py
 ```
+
+Add `-v` for per-test output when needed; verbose logs are not committed (write them
+under Git-ignored `data/` if you want to keep one). The link checker reports Markdown
+links to missing files or to Git-ignored `data/` paths.
 
 HTTP tests bind temporary loopback ports and may require local-server permission.
 Omitted/blocked tests must not be called passes. No test requires personal Chrome.

@@ -1,31 +1,29 @@
 # Property Analyzer
 
 Standalone local property GIS/drainage analysis with a separate jurisdiction credit layer.
-This export contains only the property analyzer. It contains no Cindris application,
-marketing site, CRM, supplier brokerage, unrelated research or Git history.
+This repository contains only the property analyzer: no Cindris application, marketing
+site, CRM, supplier brokerage or unrelated research. It is a Git repository with full
+commit history since the initial import.
 
-The [AI-to-assessment integration](docs/AI-ASSESSMENT-INTEGRATION.md) connects existing
-canopy/surface estimates and research catchments to individual records and conditional
-bill alternatives, alongside current results. The [actual Whitaker full-flow run](docs/WHITAKER-LIVE-RESULTS-2026-11-15.md)
-now records imagery/model/terrain/drainage, per-area savings and appeals, isolated-browser
-review and saved exports. Independent real-site accuracy and actual eligibility remain unverified.
+**Current status and verification:** see [STATE](docs/STATE.md), a short snapshot
+with the latest full-suite result. Older test counts quoted in dated docs are history.
 
-**Model-quality review:** the [adversarial audit](docs/ADVERSARIAL-REVIEW-2026-11-15.md)
-documents the appearance-class-to-IA error and related defects. The
-[confirmed-defect fixes](docs/ADVERSARIAL-FIXES-2026-11-15.md) correct the interpretation
-and quarantine affected saved savings. 340 unit checks passed; no properties were
-rerun. Independent accuracy and corrected property savings remain unverified.
+**Fix plan (2026-11-16):** the [second adversarial review](docs/ADVERSARIAL-REVIEW-2026-11-16.md)
+led to an accepted [fix plan](docs/FIX-PLAN-2026-11-16.md). Phases 0–3, 4a, 5 and 6
+(tooling) are merged; Phase 4b (pricing adapters, pilot/portfolio) and Phase 7 (docs) are in
+progress; Phase 8 (reruns of saved properties) is pending. Saved cases made before the
+fixes open as outdated with a "Recompute from saved inputs" action.
 
-The subsequent [corrected top-ten rerun](docs/TOP10-CORRECTED-RESULTS-2026-11-15.md)
-records twelve successful local recomputations and a full per-site/category report.
-Original cases were preserved. Conditional scenarios are separate; supported net
-savings and appeal amounts remain unknown for all ten sites.
-
-**Second review (2026-11-16):** the [follow-up adversarial review](docs/ADVERSARIAL-REVIEW-2026-11-16.md)
-found the documented full suite failing, several reproduced billing and
-routing defects, and gates that block all automatic catchment finance. It was
-re-verified on this main commit: 567 tests ran, with the same single failure. Treat
-the Whitaker full-flow dollar figures as superseded.
+**Superseded results:** the [Whitaker full-flow run](docs/WHITAKER-LIVE-RESULTS-2026-11-15.md)
+of 2026-11-15 recorded the workflow end to end, but its savings and appeal dollars are
+superseded (review finding A6) pending a recompute. The earlier
+[adversarial audit](docs/ADVERSARIAL-REVIEW-2026-11-15.md),
+[its fixes](docs/ADVERSARIAL-FIXES-2026-11-15.md) and the
+[corrected top-ten rerun](docs/TOP10-CORRECTED-RESULTS-2026-11-15.md) predate the
+fix plan; supported net savings and appeal amounts remain unknown for all ten sites.
+The [AI-to-assessment integration](docs/AI-ASSESSMENT-INTEGRATION.md) describes how
+canopy/surface estimates and research catchments feed conditional bill alternatives.
+Independent real-site accuracy and actual eligibility remain unverified.
 
 ## Coding sessions: start here
 
@@ -36,7 +34,7 @@ verify and checkpoint. For agents that do not load AGENTS.md automatically, say
 **“Read AGENTS.md and follow docs/SESSION.md.”**
 
 - [PRD](docs/PRD.md): product purpose, accepted decisions and constraints.
-- [STATE](docs/STATE.md): what exists, evidence and unresolved limits now.
+- [STATE](docs/STATE.md): short current snapshot: what runs, latest verification, open limits.
 - [TASK](docs/TASK.md): current bounded task, status, checks and next action.
 - [Session guide](docs/SESSION.md): the six-step workflow and checkpoint instructions.
 - [Checkpoints](docs/CHECKPOINTS.md): dated changes, decisions and verification history.
@@ -51,7 +49,8 @@ choice; no automatic commits or pushes are made.
 **Saved-data estimation pilot:** [Whitaker and 3060 S 61st results](docs/MANAGEMENT-PILOT-RESULTS-2026-11-16.md)
 show canopy, individual rain-garden/basin credits and current IA-reduction estimates,
 with explicit scenario ranges. [01073 capacity calculation](docs/01073-CAPACITY-RESULTS-2026-11-16.md)
-now estimates storage-supported runoff before pricing its credit. Invented confidence
+estimates storage-supported runoff before pricing its credit. Both pages' figures are
+superseded pending a recompute after the Phase 4 method changes. Invented confidence
 percentages have been removed. This is a separate local command; the app/report
 layout is unchanged. Empirical accuracy, treatment and calibration remain unverified. The earlier
 [certainty plan](docs/STORMWATER-ESTIMATION-PLAN-2026-11-16.md) remains planning history.
@@ -214,7 +213,7 @@ implementation or confirmed nonrecipient list.
 Key references: [GIS quickstart](docs/GIS-QUICKSTART.md),
 [architecture](docs/GIS-ARCHITECTURE.md), [jurisdictions](docs/JURISDICTIONS.md),
 [rule limitations](docs/RULES.md), [DEM reconciliation](docs/DEM-RECONCILIATION.md),
-[validation](docs/VALIDATION.md), [tests](docs/test-results.txt).
+[validation](docs/VALIDATION.md). Verification commands are in [SETUP](SETUP.md#checks).
 
 ## Examples and limits
 
@@ -230,11 +229,10 @@ verified metre elevations/NAVD88. It remains a partial research case: ground cov
 private connections, inlets, current grading, bills and independent reference evidence
 are incomplete. No approved managed area, verified refund or realized savings is established.
 
-The original baseline had 154 checks; the 2026-11-15 project-brain checkpoint ran
-282 passing checks with no skips. See the
-[current-checkout verification log](docs/project-brain-2026-11-15-tests.txt) and the
-[earlier imagery verification log](docs/freshness-test-results.txt). Synthetic checks are
-not empirical validation. An isolated-browser smoke check covered candidate review,
+The current full-suite result is recorded in [STATE](docs/STATE.md); the `*.txt`
+logs in `docs/` are historical runs from earlier checkouts. Synthetic checks are
+not empirical validation. An isolated-browser smoke check (2026-11-15, before the
+fix plan) covered candidate review,
 unknown history dates, saving, explicit assessment and reopening. Full map pointer,
 responsive and accessibility validation remains incomplete.
 
@@ -243,17 +241,11 @@ unresolved; the selected USGS replacement is separately documented. Raw audit an
 unit-sensitivity summaries are included. Large City diagnostic case exports are omitted;
 `python -m stormwater.whitaker_dem` can regenerate them from the bundled public inputs.
 
-## Start your repository
+## Repository and local data
 
-Extract this folder to its own location, open it as a new project, then optionally run:
-
-```sh
-git init
-git add .
-git commit -m "Initialize standalone property analyzer"
-```
-
-The original export contained no Git history. The initial source was subsequently pushed
-to djdavidi/property_analyzer. Source, tests and documentation are shared through Git;
-runtime cases, model weights, source caches and generated results remain local by default.
-Review the ignore rules before adding private evidence or large datasets.
+The original export contained no Git history; the source was then imported into Git and
+pushed to djdavidi/property_analyzer, which now carries the full commit history.
+Source, tests and documentation are shared through Git; runtime cases, model weights,
+source caches and generated results stay in Git-ignored `data/` by default, so docs that
+cite `data/...` paths refer to local-only artifacts. Review the ignore rules before
+adding private evidence or large datasets.

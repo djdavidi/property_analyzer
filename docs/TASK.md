@@ -38,3 +38,13 @@ plus the policy extent gates):
 
 Success: the repros in `new-physical/`, `new-policy/` and `second/` behave
 correctly, and the full suite stays green and hermetic after each merge.
+
+**Phase 7, docs and process (D9, part of A6; parallel worktree):** status **complete**
+on its branch, 2026-11-16, pending merge.
+- STATE rewritten as a ≤80-line snapshot; AGENTS/SESSION/SETUP updated for D9
+  (one summary line per run, no committed verbose logs, "verified" = full suite).
+- Whitaker results page marked superseded; README claims and status corrected.
+- Broken and local-only links fixed; `scripts/check_links.py` added.
+- PACKAGE-MANIFEST.json deleted (nothing reads it).
+- Not done: D10 formatting-only pass; two `data/` links in
+  `TOP10-CORRECTED-RESULTS-2026-11-15.md`, which Phase 4b owns during this phase.

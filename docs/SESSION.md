@@ -11,20 +11,27 @@ No installation or special command is needed for this workflow.
 | README.md | Navigation and how to start |
 | AGENTS.md | Instructions that apply to coding sessions |
 | docs/PRD.md | Product purpose, accepted decisions, constraints and exclusions |
-| docs/STATE.md | Current implementation, evidence summary and open issues |
+| docs/STATE.md | Short current snapshot (≤80 lines): what runs, latest verification, open issues |
 | docs/TASK.md | One current bounded task, status, checks and next action |
 | docs/CHECKPOINTS.md | Dated changes, rationale, evidence and past task briefs |
-| Existing architecture/method docs and test logs | Technical details and supporting evidence, linked from state/checkpoints |
+| Existing architecture/method docs | Technical details and supporting evidence, linked from state/checkpoints |
 
 Update each fact's owner; link to details instead of creating competing summaries.
 PRD changes require an accepted product decision with rationale/date. Operational
 workflow decisions belong in checkpoints. Old logs and briefs remain historical.
 HANDOFF_PROMPT.txt is the original release brief, not a current instruction.
 
+STATE is a snapshot (decision D9, 2026-11-16): rewrite stale lines instead of adding
+dated sections; history belongs in CHECKPOINTS and in Git. The verbose `*.txt` check
+logs already in docs/ (for example `curve-number-checks-2026-11-15.txt`) are
+historical evidence linked from older checkpoints. Keep them, but commit no new
+verbose logs.
+
 ## 1. START
 
-Read AGENTS.md, README.md, PRD, STATE, TASK, this guide and the newest checkpoint.
-Follow links relevant to the work; use SETUP.md for runnable commands. Inspect the
+Read AGENTS.md, STATE, TASK, this guide and the newest checkpoint. Read PRD before
+changing product behavior or scope; README is navigation. Follow links relevant to
+the work; use SETUP.md for runnable commands. Inspect the
 source and `git status --short` before editing. Preserve existing local changes.
 
 Summarize where we are, what matters and the next action. A completed task is not
@@ -66,19 +73,25 @@ make independent accuracy, legal eligibility or product readiness complete.
 Run checks appropriate to the change. SETUP.md lists the existing software suite:
 
 ```sh
-.venv/bin/python -m unittest discover -s tests -v
+.venv/bin/python -m unittest discover -s tests
 node --check drainage_core/web/app.js
 ```
 
-For documentation, inspect local links, consistency, preservation of prior records
-and the five-question resume exercise below. Do not add application tests for prose.
+A change is **verified** only when that full suite passes from the repository root
+with no network; a subset of modules is not verification.
+
+For documentation, run `python scripts/check_links.py` (missing targets, links into
+Git-ignored `data/`, bad anchors), then check consistency, preservation of prior
+records and the five-question resume exercise below. Do not add application tests for prose.
 For behavior changes, include meaningful domain and workflow checks. Use existing
 tests where possible; record narrower coverage when a full run is unnecessary.
 
-Save durable evidence: date, command, environment, checkout/dirty-tree context,
-exit/result, failures/skips and limits, with a relative link to the raw output or
-reproducible artifact. Use a new dated log for a new run; do not overwrite old evidence
-or include private data. A prior session's log is historical, not a check run today.
+Record one summary line per run in the checkpoint: date, exact command, commit and
+dirty-tree context, result line (for example `Ran 783, OK (skipped=1)`), failures,
+skips and limits. Do not commit verbose (`-v`) logs. If the full output is worth
+keeping, write it under Git-ignored `data/` (for example `data/logs/`) and cite the
+path as local only. Do not overwrite old evidence or include private data. A prior
+session's result is historical, not a check run today.
 Do not install dependencies or fetch data just to make a prose-only change green.
 
 Local HTTP checks may need loopback permission. Record blocked checks honestly;
@@ -94,8 +107,9 @@ before writing; preserve their additions and reconcile stale next actions.
 Before finishing meaningful work (also when stopping partway through), the agent:
 
 1. Updates TASK status and success criteria; leaves unfinished steps explicit.
-2. Updates STATE with current reality, evidence links and unresolved issues. Updates
-   PRD/architecture only for actual accepted decisions affecting those owners.
+2. Rewrites the affected lines of the STATE snapshot (current reality, latest
+   verification, unresolved issues; stay within 80 lines). Updates PRD/architecture
+   only for actual accepted decisions affecting those owners.
 3. Adds a newest-first CHECKPOINTS entry: date/task, changed files/behavior, decisions
    and why, commands/results/evidence links, failed/blocked/omitted checks, remaining
    issues and the concrete next action. Preserve the task brief when replacing TASK.
@@ -126,5 +140,6 @@ repository-only simulation, not proof that every future agent will follow instru
 The agent selects checks and edits these Markdown files; no scheduler or framework
 enforces them. The user retains product judgment, scope/access decisions, independent
 real-world evidence and consequential approvals, plus commit/push/backup choices.
-Add a link checker, task archive index or reusable evidence-capture script only if
-actual sessions show repeated broken links, slow history lookup or lost check output.
+`scripts/check_links.py` was added on 2026-11-16 after 35 broken or local-only
+links were found. Add a task archive index or evidence-capture script only if
+actual sessions show slow history lookup or lost check output.
