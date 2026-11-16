@@ -8,15 +8,13 @@ from copy import deepcopy
 from decimal import Decimal, ROUND_CEILING, ROUND_HALF_UP
 import unittest
 
-from shapely.geometry import box, mapping, shape
-
 from drainage_core.engine import analyze as analyze_gis
 from drainage_core.geometry import SQFT_PER_M2
 from stormwater.assessment_policy import evaluate_assessment
 from stormwater.curve_number import (TABLE, SCENARIO_ID, components_digest, review_soil_group, ub_eligibility,
                                      worksheet, review_inputs)
 from stormwater.rules import load_rule_config
-from test_curve_number import attach, feature, fixture, soil
+from test_curve_number import fixture
 
 URBAN = [{'cokey': 'u1', 'compname': 'Urban land', 'comppct_r': 90, 'hydgrp': None},
          {'cokey': 'u2', 'compname': 'Udorthents', 'comppct_r': 10, 'hydgrp': None}]

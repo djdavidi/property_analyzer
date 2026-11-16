@@ -45,6 +45,7 @@ missing source bytes are listed rather than manufactured.
   percentages, choose a dominant component, infer Ub from an urban label, or select
   a drained/undrained half of A/D, B/D or C/D. Missing, mixed, dual or incomplete
   groups remain unresolved, with possible groups/ranges shown where support exists.
+  Ub enters only through the reviewer choice described below.
 - Compute `sum(area × CN) / total mapped open-space area` only when every mapped
   portion has supported inputs. A partial known-area average is separately labeled
   and never extrapolated. A property-wide open-space average also requires that no
@@ -65,6 +66,80 @@ missing source bytes are listed rather than manufactured.
   are generated or merged into a bill; account, existing allocations, approval and
   other policy prerequisites remain separate. Existing NPDES/direct-discharge paths
   are unchanged, and their special factors are not this worksheet's standard factor.
+
+## Reviewer UB choice and the finance scenario (2026-11-16, review A5/B8)
+
+SSURGO never returns `UB`. In Philadelphia, Urban land and Udorthents components
+usually have a null hydrologic group, so the mapped CN is almost always unknown.
+
+**Eligibility.** A reviewer may choose the Table A-1 **UB (urban soil)** column for a
+map unit only when all of the following hold:
+
+- at least one Urban land or Udorthents component lacks a group;
+- every other component without a group is also urban soil;
+- the component percentages total 100%.
+
+When the map unit also lists natural components with their own group, this is noted:
+the choice then covers the whole mapped polygon. Mapped A–D groups are never replaced.
+
+**Recording the choice.**
+
+- The choice is made in **Reviewer soil choice: urban soil (UB)**
+  (`/api/curve-number/soil-review`, `curve_number.review_soil_group`).
+- It needs an evidence basis and a reason. The bases are site soil test,
+  geotechnical report, field observation, record drawing, PWD correspondence or
+  other documented evidence.
+- It is stored per map unit in `assessment.soil_group_reviews` with append-only
+  history in `soil_group_review_history`.
+- It is scoped to a hash of that map unit's SSURGO components, so a changed soil
+  record makes it stale.
+- It can be withdrawn. It is never applied automatically.
+
+**UB candidate.** Until a reviewer records a choice, the worksheet shows UB values as
+**candidates only**:
+
+- per row: `ub_candidate_cn`, or a range when cover or condition is unknown;
+- per property: `ub_candidate`, giving the CN and factor that would follow if UB were
+  chosen.
+
+`average_cn` and `credit_factor` stay unknown. For lawn and woods the UB column equals
+the B column. For gravel and dirt it is higher (89 versus 85, and 87 versus 82).
+
+**Finance scenario** (`open_space_curve_number.finance_scenario`). This connects the
+worksheet CN to open-space finance as a labelled **conditional scenario**. It is
+priced only when all of the following hold:
+
+- the property-wide CN and Table A-2 factor exist;
+- every mapped open-space row has reviewed cover and condition, from a manual review
+  or a feature marked `reviewed`;
+- soil comes from an exact mapped group or a reviewer UB choice.
+
+The open-space prerequisites (cover, soil, runoff characteristics, non-impervious
+status, physical area, allocation, account) are **assumed and listed**. The
+counterfactual runs through the single assessment ledger (`_economics`) with
+`rules.open_space_factor` (Decimal).
+
+The result is never a screen pass, documented credit or award. It is not added to
+the documented or modeled totals. Its status is one of:
+
+- `conditional`: priced;
+- `requires_review`: some rows lack reviewed cover or condition;
+- `unavailable`: the CN or factor is unknown, or the date is outside the verified
+  period;
+- `blocked`: the ledger's own reasons, for example unreconciled existing credits;
+- `no_credit_at_this_cn`: the CN is 75 or more;
+- `manual_fact_authoritative`: an entered open-space CN fact or an existing open-space
+  allocation exists. The scenario then defers to it and prices nothing.
+
+The scenario's `increment` isolates its effect from any other modeled credit in the
+ledger when possible. Outdated saved results withhold its money like other derived
+dollars.
+
+Unit, HTTP and Node checks cover:
+
+- candidate values, evidence and eligibility rules, stale reviews and withdrawal;
+- a hand-derived $137.41/month scenario: (240 − 103) GA units × $1.003;
+- the manual-fact, blocked, zero-factor and outdated-result paths.
 
 The known developed-space/road-to-IA interpretation problem remains unresolved in the
 existing AI branch; see [adversarial audit](ADVERSARIAL-REVIEW-2026-11-15.md). This
