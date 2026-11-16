@@ -1,16 +1,115 @@
 # Property analyzer: existing-site assessment release
 
-Status: **implemented with explicit rule/evidence/validation limits**, 2026-11-15.
-This remains the accepted scope; see STATE for actual results and remaining gaps.
+This is the accepted product scope and decision record. See [STATE](STATE.md) for
+current implementation, actual results and remaining gaps.
 The independent GIS engine and Philadelphia policy boundary remain intact.
 
 ## Purpose and architecture
+
+The Villanova/Temple urban GSI drainage research is required alongside the current
+drainage engine. Generic D8 alone does not satisfy it. Implement DEM conditioning,
+direction/accumulation, basin delineation and upstream GSI tracing, with explicit
+assumptions, source-parameter provenance and resolution sensitivity. Preserve the
+conservative engine and frozen results for comparison/replay. Document differences
+from ArcGIS/ArcHydro; do not claim equivalence or real-site validation without evidence.
+See the [method audit](RESEARCH-METHOD.md) for sources, gaps and acceptance gates.
 
 Assess existing site conditions and existing account/permit/credit records to identify
 potential additional gross bill reductions and evidence gaps. GIS and physical evidence
 remain location-neutral; eligibility, billing and renewal rules remain in jurisdiction
 adapters. Philadelphia PWD is the first policy implementation. No other city program is
 silently assumed to use the same rules.
+
+## Research integration interview (accepted 2026-11-15)
+
+Keep the current approach and use the research method as additional informing
+analysis. Show both physical drainage findings and conditional bill-reduction
+alternatives using existing jurisdiction rules. Use the paper's assumptions where
+feature locations exist but elevations are unknown, with explicit sensitivity
+experiments. Start with the existing Whitaker case. Do not invent missing drains,
+blend method outputs or convert assumptions into verified treatment/credit facts.
+AI object/class identification is a separate component; RGB heuristics are not AI.
+
+## Stormwater roof research focus (accepted 2026-11-15)
+
+The user narrowed the roof-related focus to **drainage features, roof geometry and
+existing vegetation** because the product assesses stormwater, not general building
+assets. Research should inform roof runoff paths/contributing areas, roof boundaries
+and elevation geometry, and existing roof vegetation/canopy with explicit unknowns.
+HVAC, cooling towers, solar, machinery and other general roof asset inventories are
+out of scope. Represent an obstruction only where its physical geometry matters to
+drainage; identifying its equipment type or operating properties is not a goal.
+Earlier equipment proposals and broad literature remain historical background.
+This decision does not authorize implementation or change the existing-site,
+imagery-age, evidence or jurisdiction-separation requirements.
+
+**Priority clarification accepted 2026-11-15:** the user does not want to pursue
+such detailed roof-drain mapping. Individual roof-inlet detection and detailed roof
+reconstruction for that purpose are low priority, not prerequisites for the assessment.
+Do not make repairing/acquiring roof lidar for fine drain mapping the default next
+task. Focus on usable roof outlines/area, existing vegetation and available documented
+runoff destinations where they affect the assessment. Keep unverified routes unknown;
+deprioritizing this detail does not verify a connection, management or eligibility.
+Preserve existing drainage work and source research; no implementation is authorized
+by this priority decision.
+
+## AI-to-assessment integration (accepted 2026-11-15)
+
+Use the existing AI classes only for this round. Connect their modeled surfaces,
+roof supplementation and canopy estimates with additional research catchments and
+individual assessments/savings alternatives. Preserve the original measurements,
+conservative routing and evidence-based conclusions. Surface predictions do not
+establish permeability, an installed green roof, concealed connections or compliance.
+Keep source lineage, ambiguous matches, hidden ground and uncertainty explicit.
+Verification for this implementation is **unit tests only**; no broader checks,
+model inference, live replay or browser testing without a new instruction.
+
+## Automatic property workflow clarification (accepted 2026-11-15)
+
+The primary workflow is entering a property, acquiring available public imagery and
+GIS datasets, automatically identifying/measuring canopy and surface features, and
+showing source-derived estimates with uncertainties. Manual drawing, layer uploads and
+fact entry supplement missing/ambiguous evidence; they are not prerequisites for the
+basic physical assessment. An uncertain eligibility conclusion must not prevent
+available physical measurements or clearly labeled conditional estimates.
+
+Acquire published imagery-derived classifications rather than pretending RGB greenness
+proves tree identity, a green roof or permeability. Retain source vintage, exact rendering
+bounds, CRS, legend/pixel processing settings and hashes. Missing canopy data is unknown,
+not zero. Canopy obscures underlying ground. Automatically measure public system polygon
+footprints without calling them managed catchments or requiring manual adoption first.
+Preserve original observations, prior snapshots and manual corrections through reruns.
+Address ambiguity must be resolved by selection, not a silent first-match choice.
+
+## Saved verified terrain reuse (accepted 2026-11-15)
+
+Normal Whitaker address entry must automatically use its saved, verified native 1 m
+USGS terrain when the standard case has no explicitly selected terrain. The user
+must not select or maintain a separate research case. Preserve the original terrain
+case and source snapshots; carry unit/datum evidence and hashes into the active case.
+Verify parcel identity/boundary, provenance and coverage, align vectors/display to the
+native grid, and never resample elevations or import another case's policy/manual facts.
+Verification for this change is unit tests only; live assessment remains unrun.
+
+## Imagery age rule (accepted and clarified 2026-11-15)
+
+Satellite/aerial imagery must be no more than three calendar years old at the explicit
+assessment date. **This rule applies only to imagery, including cached fallback images.**
+Other datasets (building footprints, terrain, parcel boundaries, published classifications,
+manual observations, permits, rules and history) retain their own validity/evidence checks;
+they must not be rejected solely because of this imagery rule.
+
+Retrieval/review dates do not refresh image capture dates. Reject unknown imagery dates;
+when only an image source year is known, use January 1 conservatively. The exact three-year
+anniversary passes. Save the assessment date/cutoff so historical results stay reproducible.
+Preserve earlier image bytes and snapshots as history. Do not fall back to undated basemaps.
+
+Use 2025 imagery to produce new modeled canopy and surface areas instead of relying on
+the 2018 classification as the current automatic measurement source. Preserve that
+classification as historical reference; this workflow replacement is separate from the
+imagery-only age rule. Keep model predictions, reviewed facts, documented measurements
+and policy eligibility distinct. Local model scores/pixel-edge sensitivity are not
+accuracy confidence intervals. Independent local canopy/surface validation remains needed.
 
 ## Five additions
 
@@ -73,7 +172,33 @@ silently assumed to use the same rules.
 - Reports show physical features, evidence/assumptions, rule findings, existing benefits,
   incremental gross scenarios, history/dates, warnings and specific missing evidence.
 - Overview covers all saved properties' upcoming/overdue renewals and links into each case.
-  A broader opportunity-ranking CRM is not authorized by this overview requirement.
+  A broader CRM is not authorized; the separate bounded prospect screen is specified below.
+
+## Quick prospect scan (accepted 2026-11-15)
+
+Add a separate records-only Philadelphia prospect screen alongside the current flow.
+Start with mapped existing systems, match parcel ownership/billing/credits, exclude
+government properties, group/rank a top 50, and defer imagery/full assessment until
+explicit selection. The user approved capped missing-record acquisition after a local
+cache audit: current implementation caps new requests at 80, two concurrent, 300 seconds,
+with a five-project match check before expansion. Cache-only reranking is supported.
+A bounded sample is not a citywide top 50; ranking rules are unvalidated heuristics.
+Charges measure lead scale, not qualifying savings. Missing ownership or credits remain
+unknown. No CRM, outreach or assessment execution is authorized by this screen.
+
+## Compact results and prospect improvements (accepted 2026-11-15)
+
+Keep generated JSON compact with unchanged parsed values and canonical hashes; preserve
+raw source bytes and immutable input/snapshot history. Open saved results without
+automatic recalculation or public reads; show historical/mismatched results explicitly.
+Rank economic scale across credit groups, distinguish owner/site prospects from billing
+parcels, retain individual bills and grouping uncertainty, and keep savings unknown.
+Use existing cache/plain records/functions. Reranking is local; stale/missing-record
+updates are separate explicit actions. Freshness defaults are operational choices, not
+legal validity periods. Cap workers at two and new requests at 80, with a 300-second
+window for starting requests and cooperative cancellation. In-flight requests may
+finish at their existing timeout; do not call this a hard wall-clock termination.
+Validation for this round uses cached evidence, not new acquisition or full assessments.
 
 ## Exclusions and constraints
 

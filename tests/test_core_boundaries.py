@@ -109,7 +109,8 @@ print('isolated core modules:',','.join(sorted(loaded)))
                 self.assertAlmostEqual(measured['ia_m2'],3,places=7)
                 for name,value in measured.items():
                     if name.endswith('_sqft'):
-                        self.assertAlmostEqual(measured[name[:-5]+'_m2']*SQFT_PER_M2,value,places=7)
+                        if value is None:self.assertIsNone(measured[name[:-5]+'_m2'])
+                        else:self.assertAlmostEqual(measured[name[:-5]+'_m2']*SQFT_PER_M2,value,places=7)
                 self.assertTrue(measured['complete'])
                 result=route_grid({'crs':crs,'origin':origin,'cell_size':size,'horizontal_unit':unit,
                     'vertical_unit':'m','elevations':[[3,2,1]],'inlets':[{'id':'collector','cell':[0,2]}],

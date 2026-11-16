@@ -1,0 +1,476 @@
+Free roof source audit verification, 2026-11-15
+Workspace: /Users/david/projects/property_analyzer
+Scope: user-authorized free public source/data inspection and documentation only. Separate concurrent implementation preserved.
+
+Network attempts:
+Exact initial command: curl --head --location --max-time 15 --silent --show-error 'https://www.pasda.psu.edu/download/phillyLiDAR/2025/LAS/27086E264792N.las'
+Exit 6: Could not resolve host: www.pasda.psu.edu.
+Permitted command: curl --head --location --max-time 25 --silent --show-error 'https://www.pasda.psu.edu/download/phillyLiDAR/2025/LAS/27086E264792N.las'
+Exit 0: HTTP 200; Content-Length 200000000; byte ranges supported.
+Initial bounded JSON/header reads used certifi TLS validation. Their exact URLs/ranges/status/headers/body hashes are preserved in the compact evidence JSON and ignored source provenance files.
+
+Exact executed network scripts (each exit 0; individual source failures remain in their results):
+.venv/bin/python -u /tmp/property-free-roof-fetch.py > data/roof-source-audit-2026-11-15/fetch-output.txt 2>&1
+{"label": "imagery-item655", "url": "https://imagery.pasda.psu.edu/arcgis/rest/services/pasda/PhiladelphiaImagery2025/MapServer/2/query?f=json&where=OBJECTID%3D655&outFields=%2A&returnGeometry=true&outSR=2272", "range": null, "status": 200, "headers": {"Cache-Control": "must-revalidate,max-age=0,public", "Content-Length": "5769", "Content-Type": "application/json; charset=UTF-8", "ETag": "\"1767373963\"", "Vary": "Origin", "Server": "Microsoft-IIS/10.0", "X-Content-Type-Options": "nosniff", "Date": "Sun, 15 Nov 2026 19:04:27 GMT", "Connection": "close"}, "bytes": 5769, "sha256": "ef71405b53e332a0c8e305de8d7747009417fadedc015a0f495dde6cfafc1f6a"}
+{"label": "roof-crop-180-export", "url": "https://imagery.pasda.psu.edu/arcgis/rest/services/pasda/PhiladelphiaImagery2025/MapServer/export?f=json&bbox=2709630%2C265800%2C2709790%2C265960&bboxSR=2272&imageSR=2272&size=180%2C180&format=png32&transparent=false", "range": null, "status": 200, "headers": {"Cache-Control": "must-revalidate,max-age=0,public", "Content-Length": "322", "Content-Type": "application/json; charset=UTF-8", "ETag": "\"5287cd9e\"", "Vary": "Origin", "Server": "Microsoft-IIS/10.0", "X-Content-Type-Options": "nosniff", "Date": "Sun, 15 Nov 2026 19:04:27 GMT", "Connection": "close"}, "bytes": 322, "sha256": "75eabd591b9d634f13ea585c55a3dbe289dbca5adb06c11a17ba60cebcd6772e"}
+{"label": "roof-crop-320-export", "url": "https://imagery.pasda.psu.edu/arcgis/rest/services/pasda/PhiladelphiaImagery2025/MapServer/export?f=json&bbox=2709630%2C265800%2C2709790%2C265960&bboxSR=2272&imageSR=2272&size=320%2C320&format=png32&transparent=false", "range": null, "status": 200, "headers": {"Cache-Control": "must-revalidate,max-age=0,public", "Content-Length": "321", "Content-Type": "application/json; charset=UTF-8", "ETag": "\"90923a32\"", "Vary": "Origin", "Server": "Microsoft-IIS/10.0", "X-Content-Type-Options": "nosniff", "Date": "Sun, 15 Nov 2026 19:04:28 GMT", "Connection": "close"}, "bytes": 321, "sha256": "b0d2e0fb5b90ce2af26b7e7616a1f0ea8c380f9714aee47138d5ab5e9f2a0745"}
+{"label": "roof-crop-640-export", "url": "https://imagery.pasda.psu.edu/arcgis/rest/services/pasda/PhiladelphiaImagery2025/MapServer/export?f=json&bbox=2709630%2C265800%2C2709790%2C265960&bboxSR=2272&imageSR=2272&size=640%2C640&format=png32&transparent=false", "range": null, "status": 200, "headers": {"Cache-Control": "must-revalidate,max-age=0,public", "Content-Length": "321", "Content-Type": "application/json; charset=UTF-8", "ETag": "\"ea00b9f4\"", "Vary": "Origin", "Server": "Microsoft-IIS/10.0", "X-Content-Type-Options": "nosniff", "Date": "Sun, 15 Nov 2026 19:04:29 GMT", "Connection": "close"}, "bytes": 321, "sha256": "52568406a8daf6ef38a50bf6c29609d168cab56bf98d397462ec7f910f47391e"}
+{"label": "roof-crop-1280-export", "url": "https://imagery.pasda.psu.edu/arcgis/rest/services/pasda/PhiladelphiaImagery2025/MapServer/export?f=json&bbox=2709630%2C265800%2C2709790%2C265960&bboxSR=2272&imageSR=2272&size=1280%2C1280&format=png32&transparent=false", "range": null, "status": 200, "headers": {"Cache-Control": "must-revalidate,max-age=0,public", "Content-Length": "323", "Content-Type": "application/json; charset=UTF-8", "ETag": "\"c1bda7d5\"", "Vary": "Origin", "Server": "Microsoft-IIS/10.0", "X-Content-Type-Options": "nosniff", "Date": "Sun, 15 Nov 2026 19:04:31 GMT", "Connection": "close"}, "bytes": 323, "sha256": "26cb137949ef39f9420f54f7d0125bea3e8bcf63178d3cc31bac4fa9be3b8583"}
+{"label": "imagery-zip-tail", "url": "https://www.pasda.psu.edu/download/philacity/data/Imagery2025/tiles/27087E265654N.zip", "range": "bytes=-131072", "status": 206, "headers": {"Content-Type": "application/x-zip-compressed", "Last-Modified": "Wed, 31 Dec 2025 19:09:09 GMT", "Accept-Ranges": "bytes", "ETag": "\"c299f4f0887adc1:0\"", "Server": "Microsoft-IIS/10.0", "X-Powered-By": "ASP.NET", "Date": "Sun, 15 Nov 2026 19:05:02 GMT", "Connection": "close", "Content-Length": "131072", "Content-Range": "bytes 276473841-276604912/276604913"}, "bytes": 131072, "sha256": "72466e712dab228309d7d5c7f2b0409f7c46341bd8691a85576d89b7fe673e2e"}
+{"label": "imagery-zip-first", "url": "https://www.pasda.psu.edu/download/philacity/data/Imagery2025/tiles/27087E265654N.zip", "range": "bytes=0-262143", "status": 206, "headers": {"Content-Type": "application/x-zip-compressed", "Last-Modified": "Wed, 31 Dec 2025 19:09:09 GMT", "Accept-Ranges": "bytes", "ETag": "\"c299f4f0887adc1:0\"", "Server": "Microsoft-IIS/10.0", "X-Powered-By": "ASP.NET", "Date": "Sun, 15 Nov 2026 19:05:02 GMT", "Connection": "close", "Content-Length": "262144", "Content-Range": "bytes 0-262143/276604913"}, "bytes": 262144, "sha256": "5a465bb45516bd5fbdad26918d6cb5e8ab801d506c7e1f1915f86596b33777cc"}
+{"label": "las-records-0", "url": "https://www.pasda.psu.edu/download/phillyLiDAR/2025/LAS/27086E264792N.las", "range": "bytes=1709-1201708", "status": 206, "headers": {"Content-Type": "application/octet-stream", "Last-Modified": "Mon, 12 Jan 2026 18:09:18 GMT", "Accept-Ranges": "bytes", "ETag": "\"f6b6e891ee83dc1:0\"", "Server": "Microsoft-IIS/10.0", "X-Powered-By": "ASP.NET", "Date": "Sun, 15 Nov 2026 19:05:05 GMT", "Connection": "close", "Content-Length": "1200000", "Content-Range": "bytes 1709-1201708/200000000"}, "bytes": 1200000, "sha256": "0253ae1a764d52aa04d0cc8c5bf5dbd0991ae45000ece55e93b7e565efb45c58"}
+{"label": "las-records-1600000", "url": "https://www.pasda.psu.edu/download/phillyLiDAR/2025/LAS/27086E264792N.las", "range": "bytes=48001709-49201708", "status": 206, "headers": {"Content-Type": "application/octet-stream", "Last-Modified": "Mon, 12 Jan 2026 18:09:18 GMT", "Accept-Ranges": "bytes", "ETag": "\"f6b6e891ee83dc1:0\"", "Server": "Microsoft-IIS/10.0", "X-Powered-By": "ASP.NET", "Date": "Sun, 15 Nov 2026 19:05:06 GMT", "Connection": "close", "Content-Length": "1200000", "Content-Range": "bytes 48001709-49201708/200000000"}, "bytes": 1200000, "sha256": "df5403812720a0852b968f33644cb54a0718d14a80eb639541c578c613b7e707"}
+{"label": "las-records-4800000", "url": "https://www.pasda.psu.edu/download/phillyLiDAR/2025/LAS/27086E264792N.las", "range": "bytes=144001709-145201708", "status": 206, "headers": {"Content-Type": "application/octet-stream", "Last-Modified": "Mon, 12 Jan 2026 18:09:18 GMT", "Accept-Ranges": "bytes", "ETag": "\"f6b6e891ee83dc1:0\"", "Server": "Microsoft-IIS/10.0", "X-Powered-By": "ASP.NET", "Date": "Sun, 15 Nov 2026 19:05:38 GMT", "Connection": "close", "Content-Length": "1200000", "Content-Range": "bytes 144001709-145201708/200000000"}, "bytes": 1200000, "sha256": "4b532270efea8c3b1f4d07e941e5739c11c2af010f4479d44cbb048faf537b66"}
+{"label": "las-records-3200000", "url": "https://www.pasda.psu.edu/download/phillyLiDAR/2025/LAS/27086E264792N.las", "range": "bytes=96001709-97201708", "status": 206, "headers": {"Content-Type": "application/octet-stream", "Last-Modified": "Mon, 12 Jan 2026 18:09:18 GMT", "Accept-Ranges": "bytes", "ETag": "\"f6b6e891ee83dc1:0\"", "Server": "Microsoft-IIS/10.0", "X-Powered-By": "ASP.NET", "Date": "Sun, 15 Nov 2026 19:05:38 GMT", "Connection": "close", "Content-Length": "1200000", "Content-Range": "bytes 96001709-97201708/200000000"}, "bytes": 1200000, "sha256": "82c6dd01625a86c8677f2d02d5d7e06e7b8edd2ce8553c3abee6b3a64ba61a59"}
+{"label": "las-records-6400000", "url": "https://www.pasda.psu.edu/download/phillyLiDAR/2025/LAS/27086E264792N.las", "range": "bytes=192001709-193201708", "status": 206, "headers": {"Content-Type": "application/octet-stream", "Last-Modified": "Mon, 12 Jan 2026 18:09:18 GMT", "Accept-Ranges": "bytes", "ETag": "\"f6b6e891ee83dc1:0\"", "Server": "Microsoft-IIS/10.0", "X-Powered-By": "ASP.NET", "Date": "Sun, 15 Nov 2026 19:05:40 GMT", "Connection": "close", "Content-Length": "1200000", "Content-Range": "bytes 192001709-193201708/200000000"}, "bytes": 1200000, "sha256": "9311daa49fd0db6e2d454aab9ec226373a37849c192a41f5db30517fc8531364"}
+{"label": "las-declared-tail", "url": "https://www.pasda.psu.edu/download/phillyLiDAR/2025/LAS/27086E264792N.las", "range": "bytes=435735763-435801298", "status": 416, "headers": {"Content-Type": "application/octet-stream", "Last-Modified": "Mon, 12 Jan 2026 18:09:18 GMT", "Accept-Ranges": "bytes", "ETag": "\"f6b6e891ee83dc1:0\"", "Server": "Microsoft-IIS/10.0", "X-Powered-By": "ASP.NET", "Date": "Sun, 15 Nov 2026 19:05:41 GMT", "Connection": "close", "Content-Length": "362", "Content-Range": "bytes */200000000"}, "error": "HTTP Error 416: Requested Range Not Satisfiable"}
+{"label": "roof-crop-180", "url": "https://imagery.pasda.psu.edu/arcgis/rest/directories/arcgisoutput/pasda/PhiladelphiaImagery2025_MapServer/_ags_mapf72872a9cf4c4714b825522fe82b8658.png", "range": null, "status": 200, "headers": {"Cache-Control": "max-age=86400,public", "Content-Length": "76404", "Content-Type": "image/png", "Accept-Ranges": "bytes", "ETag": "\"1a1e098bd12\"", "Vary": "Origin", "Server": "Microsoft-IIS/10.0", "X-Content-Type-Options": "nosniff", "Date": "Sun, 15 Nov 2026 19:05:41 GMT", "Connection": "close"}, "bytes": 76404, "sha256": "c82e2d8444a0e9e6a1650a236da61bc1cbeac3323209fcfd85a69305f2f9a021"}
+{"label": "roof-crop-320", "url": "https://imagery.pasda.psu.edu/arcgis/rest/directories/arcgisoutput/pasda/PhiladelphiaImagery2025_MapServer/_ags_map87591b1483a54d06901be849e048a748.png", "range": null, "status": 200, "headers": {"Cache-Control": "max-age=86400,public", "Content-Length": "230263", "Content-Type": "image/png", "Accept-Ranges": "bytes", "ETag": "\"1a1e098c14f\"", "Vary": "Origin", "Server": "Microsoft-IIS/10.0", "X-Content-Type-Options": "nosniff", "Date": "Sun, 15 Nov 2026 19:05:41 GMT", "Connection": "close"}, "bytes": 230263, "sha256": "c33680ca00479ab3633517d141faba27270c10a6f046762cda6c12d1c1d4350d"}
+{"label": "roof-crop-640", "url": "https://imagery.pasda.psu.edu/arcgis/rest/directories/arcgisoutput/pasda/PhiladelphiaImagery2025_MapServer/_ags_map35940888e9ed499983087143b7f514af.png", "range": null, "status": 200, "headers": {"Cache-Control": "max-age=86400,public", "Content-Length": "783200", "Content-Type": "image/png", "Accept-Ranges": "bytes", "ETag": "\"1a1e098c427\"", "Vary": "Origin", "Server": "Microsoft-IIS/10.0", "X-Content-Type-Options": "nosniff", "Date": "Sun, 15 Nov 2026 19:05:41 GMT", "Connection": "close"}, "bytes": 783200, "sha256": "99d087d0d4e6b4088d379ac96b32e9d0ecf9b7504903e7c7545927c02f78ab3e"}
+{"label": "roof-crop-1280", "url": "https://imagery.pasda.psu.edu/arcgis/rest/directories/arcgisoutput/pasda/PhiladelphiaImagery2025_MapServer/_ags_map09753964a5ae4d318497909943378716.png", "range": null, "status": 200, "headers": {"Cache-Control": "max-age=86400,public", "Content-Length": "2151061", "Content-Type": "image/png", "Accept-Ranges": "bytes", "ETag": "\"1a1e098c728\"", "Vary": "Origin", "Server": "Microsoft-IIS/10.0", "X-Content-Type-Options": "nosniff", "Date": "Sun, 15 Nov 2026 19:05:41 GMT", "Connection": "close"}, "bytes": 2151061, "sha256": "13d6fab5c1f5cd3c9e024444b2ee88b53d397ec08f4407a7445cb1982fd61c82"}
+
+.venv/bin/python -u /tmp/property-free-roof-lidar-targets.py > data/roof-source-audit-2026-11-15/lidar-target-output.txt 2>&1
+('las-records-3600000', {'url': 'https://www.pasda.psu.edu/download/phillyLiDAR/2025/LAS/27086E264792N.las', 'range': 'bytes=108001709-108901708', 'status': 206, 'headers': {'Content-Type': 'application/octet-stream', 'Last-Modified': 'Mon, 12 Jan 2026 18:09:18 GMT', 'Accept-Ranges': 'bytes', 'ETag': '"f6b6e891ee83dc1:0"', 'Server': 'Microsoft-IIS/10.0', 'X-Powered-By': 'ASP.NET', 'Date': 'Sun, 15 Nov 2026 19:07:22 GMT', 'Connection': 'close', 'Content-Length': '900000', 'Content-Range': 'bytes 108001709-108901708/200000000'}, 'bytes': 900000, 'sha256': 'd4aaa1cfc5ab8e6ab85d41fe55e17f5e5965db1bf8e38ddc709bf2e2cf897c3f'})
+('las-records-5200000', {'url': 'https://www.pasda.psu.edu/download/phillyLiDAR/2025/LAS/27086E264792N.las', 'range': 'bytes=156001709-156901708', 'status': 206, 'headers': {'Content-Type': 'application/octet-stream', 'Last-Modified': 'Mon, 12 Jan 2026 18:09:18 GMT', 'Accept-Ranges': 'bytes', 'ETag': '"f6b6e891ee83dc1:0"', 'Server': 'Microsoft-IIS/10.0', 'X-Powered-By': 'ASP.NET', 'Date': 'Sun, 15 Nov 2026 19:07:22 GMT', 'Connection': 'close', 'Content-Length': '900000', 'Content-Range': 'bytes 156001709-156901708/200000000'}, 'bytes': 900000, 'sha256': '9d72df125c264368cb535a34f053e203512ad218678f8201c5a956c4ef7fc218'})
+('las-records-4000000', {'url': 'https://www.pasda.psu.edu/download/phillyLiDAR/2025/LAS/27086E264792N.las', 'range': 'bytes=120001709-120901708', 'status': 206, 'headers': {'Content-Type': 'application/octet-stream', 'Last-Modified': 'Mon, 12 Jan 2026 18:09:18 GMT', 'Accept-Ranges': 'bytes', 'ETag': '"f6b6e891ee83dc1:0"', 'Server': 'Microsoft-IIS/10.0', 'X-Powered-By': 'ASP.NET', 'Date': 'Sun, 15 Nov 2026 19:07:22 GMT', 'Connection': 'close', 'Content-Length': '900000', 'Content-Range': 'bytes 120001709-120901708/200000000'}, 'bytes': 900000, 'sha256': 'c25e7cac72ddfcd73c8dce2975aba03b6d606af38e705bd140a568afa936fef5'})
+('las-records-4400000', {'url': 'https://www.pasda.psu.edu/download/phillyLiDAR/2025/LAS/27086E264792N.las', 'range': 'bytes=132001709-132901708', 'status': 206, 'headers': {'Content-Type': 'application/octet-stream', 'Last-Modified': 'Mon, 12 Jan 2026 18:09:18 GMT', 'Accept-Ranges': 'bytes', 'ETag': '"f6b6e891ee83dc1:0"', 'Server': 'Microsoft-IIS/10.0', 'X-Powered-By': 'ASP.NET', 'Date': 'Sun, 15 Nov 2026 19:07:22 GMT', 'Connection': 'close', 'Content-Length': '900000', 'Content-Range': 'bytes 132001709-132901708/200000000'}, 'bytes': 900000, 'sha256': '5c123571d58ee266f74bd8ad7193c203dc104ae2263c8b1ce4152adc5b708e42'})
+('las-records-6000000', {'url': 'https://www.pasda.psu.edu/download/phillyLiDAR/2025/LAS/27086E264792N.las', 'range': 'bytes=180001709-180901708', 'status': 206, 'headers': {'Content-Type': 'application/octet-stream', 'Last-Modified': 'Mon, 12 Jan 2026 18:09:18 GMT', 'Accept-Ranges': 'bytes', 'ETag': '"f6b6e891ee83dc1:0"', 'Server': 'Microsoft-IIS/10.0', 'X-Powered-By': 'ASP.NET', 'Date': 'Sun, 15 Nov 2026 19:08:03 GMT', 'Connection': 'close', 'Content-Length': '900000', 'Content-Range': 'bytes 180001709-180901708/200000000'}, 'bytes': 900000, 'sha256': 'c874c19affd7aa5fb1f5fdaf24fb4d5d4b641714268275dddd43ab90bac21748'})
+('las-records-5600000', {'url': 'https://www.pasda.psu.edu/download/phillyLiDAR/2025/LAS/27086E264792N.las', 'range': 'bytes=168001709-168901708', 'status': 206, 'headers': {'Content-Type': 'application/octet-stream', 'Last-Modified': 'Mon, 12 Jan 2026 18:09:18 GMT', 'Accept-Ranges': 'bytes', 'ETag': '"f6b6e891ee83dc1:0"', 'Server': 'Microsoft-IIS/10.0', 'X-Powered-By': 'ASP.NET', 'Date': 'Sun, 15 Nov 2026 19:08:03 GMT', 'Connection': 'close', 'Content-Length': '900000', 'Content-Range': 'bytes 168001709-168901708/200000000'}, 'bytes': 900000, 'sha256': '06b322265dd44a5b92314a63ca5d0bed7eb57f4c4cc2bb4456d45f4544ab9424'})
+
+.venv/bin/python -u /tmp/property-free-roof-endpoints.py > data/roof-source-audit-2026-11-15/endpoint-output.txt 2>&1
+('las-tail-barehost', {'url': 'https://pasda.psu.edu/download/phillyLiDAR/2025/LAS/27086E264792N.las', 'range': 'bytes=435735763-435801298', 'status': 416, 'headers': {'Content-Type': 'application/octet-stream', 'Last-Modified': 'Mon, 12 Jan 2026 18:09:18 GMT', 'Accept-Ranges': 'bytes', 'ETag': '"f6b6e891ee83dc1:0"', 'Server': 'Microsoft-IIS/10.0', 'X-Powered-By': 'ASP.NET', 'Date': 'Sun, 15 Nov 2026 19:09:05 GMT', 'Connection': 'close', 'Content-Length': '362', 'Content-Range': 'bytes */200000000'}, 'error': 'HTTP Error 416: Requested Range Not Satisfiable'})
+('las-tail-query', {'url': 'https://www.pasda.psu.edu/download/phillyLiDAR/2025/LAS/27086E264792N.las?roof_source_audit=20261115', 'range': 'bytes=435735763-435801298', 'status': 416, 'headers': {'Content-Type': 'application/octet-stream', 'Last-Modified': 'Mon, 12 Jan 2026 18:09:18 GMT', 'Accept-Ranges': 'bytes', 'ETag': '"f6b6e891ee83dc1:0"', 'Server': 'Microsoft-IIS/10.0', 'X-Powered-By': 'ASP.NET', 'Date': 'Sun, 15 Nov 2026 19:09:35 GMT', 'Connection': 'close', 'Content-Length': '362', 'Content-Range': 'bytes */200000000'}, 'error': 'HTTP Error 416: Requested Range Not Satisfiable'})
+('las-directory-live', {'url': 'https://www.pasda.psu.edu/download/phillyLiDAR/2025/LAS/', 'range': None, 'status': 200, 'headers': {'Content-Type': 'text/html; charset=UTF-8', 'Server': 'Microsoft-IIS/10.0', 'X-Powered-By': 'ASP.NET', 'Date': 'Sun, 15 Nov 2026 19:09:35 GMT', 'Connection': 'close', 'Content-Length': '112930'}, 'bytes': 112930, 'sha256': 'af82424e625f48ef99a4fced0bb5bbbf3a8df181597afa374702b930b95c9b4b', 'matching_listing': ':09 PM    200000000 <A HREF="/download/phillyLiDAR/2025/LAS/27086E264792N.las">27086E264792N.las</A><br> 1/12/2026  1:09 P'})
+
+Completeness result: FAIL. Declared final-record range returned 416 in three endpoint variants; length/point-count mismatch remains. No complete file or verified vertical metadata was established.
+
+Exact local source audit command:
+.venv/bin/python /tmp/property-free-roof-audit.py > data/roof-source-audit-2026-11-15/audit-output.txt
+Exit 0; metadata/byte parsing consistency checks succeeded, without treating unresolved completeness or units as passed:
+{
+  "date": "2026-11-15",
+  "site": "Public Whitaker example",
+  "no_application_implementation": true,
+  "relevance": {
+    "mapped_parcel_sqft": 255924.41575850366,
+    "mapped_roof_union_sqft": 95854.31764955388,
+    "mapped_roof_fraction": 0.3745415120533255,
+    "interpretation": "Source geometry screening only; no verified managed area, outlet destination or award"
+  },
+  "existing_input_sha256": {
+    "data/imagery-qa/cases/qa-whitaker-imagery/case.json": "ab2274727197940cd650d9709fda36f1c9a73504e570958e7bc0247b9e80affc",
+    "data/public/whitaker-las-header.bin": "909aa456fd47d1a3df6831bf3148f0898f50173eaefc458a1d8d25037c48c861"
+  },
+  "limits": [
+    "No roof slope calculation with unverified vertical units",
+    "No roof reconstruction or detector implemented",
+    "No independent drain/roof reference labels",
+    "No inference, training, credit calculation or eligibility determination"
+  ]
+}
+IMAGERY_NATIVE_METRES 0.0762001524003048
+LIDAR {
+  "point_format": 6,
+  "record_length": 30,
+  "point_data_offset": 1709,
+  "header_point_count": 14526653,
+  "header_expected_minimum_bytes": 435801299,
+  "http_total_bytes": 200000000,
+  "available_whole_records_max": 6666609,
+  "trailing_partial_record_bytes": 21,
+  "declared_tail_request_status": 416,
+  "complete_file_verified": false,
+  "sampled_points": 380000,
+  "sample_classes": {
+    "1": 62080,
+    "2": 149415,
+    "3": 6787,
+    "4": 8951,
+    "5": 40114,
+    "6": 108373,
+    "7": 4280
+  },
+  "main_roof_objectid": 53642,
+  "nominal_main_roof_points": 4356,
+  "nominal_main_roof_building_class_points": 3855,
+  "five_ft_inset_roof_points": 3116,
+  "five_ft_inset_building_class_points": 3079,
+  "building_roof_raw_z_quantiles": [
+    137.48,
+    138.15,
+    143.46
+  ],
+  "horizontal_crs": "EPSG:6565 (LAS), EPSG:2272 (saved footprint); nominal-coordinate overlap only, datum alignment unverified",
+  "vertical_units": null,
+  "vertical_datum": null,
+  "whole_roof_coverage_verified": false
+}
+
+
+Visual check: view_image on roof-crop-180.bin and roof-crop-640.bin. Original returned source pixels inspected; no image enhancement or semantic drain labeling performed. PNG previews are original-byte copies.
+PWD primary review: September 2026 Credits and Appeals Manual sections 1.4, 4.3.2.1, 4.3.2.2 and 4.5.1, plus current credits overview. Relevance only; no eligibility/financial calculation or application behavior change.
+
+Exact final documentation command: python3 /tmp/property-free-roof-doc-check.py
+Exit 0 for bounded documentation/provenance checks; global unchanged-file check explicitly FAILS due concurrent drift:
+Local links: 130 across six Markdown files; 0 missing.
+Previous completed task archived verbatim: PASS; SHA256 7c6a18146b13ee3de0fa433c7a9a66e5b7711a9dc3592e0a65a07553501a88e5
+Separate concurrent application handoff sections retained: PASS.
+Existing source inputs checked unchanged: 2.
+Audit evidence file hashes checked: 70.
+Source checks: 3-inch sampling and 380,000 decoded points verified; lidar completeness FAILS (HTTP 416/length mismatch), vertical metadata unresolved.
+Global unchanged-file check: FAIL due concurrent drift
+Concurrent changed baseline files: ["drainage_core/model_integration.py", "tests/test_modeled_assessment_unit.py", "docs/RESEARCH-METHOD.md", "drainage_core/web/app.js", "stormwater/assessment_report.py", "stormwater/model_assessment.py", "stormwater/assessment_policy.py"]
+Concurrent additional files: ["docs/AI-ASSESSMENT-INTEGRATION.md", "docs/ai-assessment-unit-results-2026-11-15.txt"]
+git diff --check: exit 0.
+Raw evidence Git-ignore check: exit 0.
+Application tests, inference, roof reconstruction and independent accuracy validation: UNRUN (source audit only).
+
+Exact independently executed check: git diff --check; exit 0.
+Application tests, model inference, roof reconstruction, browser workflow and independent accuracy validation: UNRUN by this task.
+
+Executed inspection/check script sources:
+property-free-roof-fetch.py
+from concurrent.futures import ThreadPoolExecutor,as_completed
+from pathlib import Path
+import ssl,urllib.request,urllib.parse,urllib.error,json,hashlib,struct
+import certifi
+ROOT=Path('/Users/david/projects/property_analyzer/data/roof-source-audit-2026-11-15');CTX=ssl.create_default_context(cafile=certifi.where())
+BASE='https://imagery.pasda.psu.edu/arcgis/rest/services/pasda/PhiladelphiaImagery2025/MapServer'
+def read(label,url,range_value=None,limit=4_000_000):
+ req=urllib.request.Request(url,headers={'Range':range_value} if range_value else {})
+ try:
+  with urllib.request.urlopen(req,context=CTX,timeout=35) as r:
+   body=r.read(limit+1);meta={'label':label,'url':url,'range':range_value,'status':r.status,'headers':dict(r.headers),'bytes':len(body),'sha256':hashlib.sha256(body).hexdigest()}
+  if len(body)>limit:raise ValueError('Bounded response exceeded '+str(limit)+' bytes')
+  (ROOT/(label+'.bin')).write_bytes(body);(ROOT/(label+'-provenance.json')).write_text(json.dumps(meta,indent=2)+'\n')
+  return meta
+ except urllib.error.HTTPError as e:
+  meta={'label':label,'url':url,'range':range_value,'status':e.code,'headers':dict(e.headers),'error':str(e)}
+ except Exception as e:meta={'label':label,'url':url,'range':range_value,'error':type(e).__name__+': '+str(e)}
+ (ROOT/(label+'-provenance.json')).write_text(json.dumps(meta,indent=2)+'\n');return meta
+zipurl='https://www.pasda.psu.edu/download/philacity/data/Imagery2025/tiles/27087E265654N.zip'
+lasurl='https://www.pasda.psu.edu/download/phillyLiDAR/2025/LAS/27086E264792N.las'
+params={'f':'json','where':'OBJECTID=655','outFields':'*','returnGeometry':'true','outSR':'2272'}
+work=[('imagery-item655',BASE+'/2/query?'+urllib.parse.urlencode(params),None,2_000_000),('imagery-zip-first',zipurl,'bytes=0-262143',262144),('imagery-zip-tail',zipurl,'bytes=-131072',131072)]
+for size in (180,320,640,1280):
+ p={'f':'json','bbox':'2709630,265800,2709790,265960','bboxSR':'2272','imageSR':'2272','size':f'{size},{size}','format':'png32','transparent':'false'}
+ work.append((f'roof-crop-{size}-export',BASE+'/export?'+urllib.parse.urlencode(p),None,100000))
+for start in (0,1600000,3200000,4800000,6400000):
+ off=1709+start*30;end=off+40000*30-1
+ work.append((f'las-records-{start}',lasurl,f'bytes={off}-{end}',1200000))
+expected=1709+14526653*30
+work.append(('las-declared-tail',lasurl,f'bytes={expected-65536}-{expected-1}',65536))
+results=[]
+with ThreadPoolExecutor(max_workers=4) as pool:
+ fs=[pool.submit(read,*w) for w in work]
+ for f in as_completed(fs):
+  meta=f.result();results.append(meta);print(json.dumps(meta),flush=True)
+# Export metadata must precede downloading the returned image.
+images=[]
+for size in (180,320,640,1280):
+ p=ROOT/(f'roof-crop-{size}-export.bin')
+ if not p.exists():continue
+ j=json.loads(p.read_bytes())
+ if not j.get('href'):
+  print('EXPORT_ERROR',size,j,flush=True);continue
+ url=j['href'];url='https://'+url[len('http://'):] if url.startswith('http://') else url
+ images.append((f'roof-crop-{size}',url,None,8_000_000))
+with ThreadPoolExecutor(max_workers=3) as pool:
+ for meta in pool.map(lambda w:read(*w),images):
+  results.append(meta);print(json.dumps(meta),flush=True)
+(ROOT/'fetch-summary.json').write_text(json.dumps(results,indent=2)+'\n')
+
+property-free-roof-lidar-targets.py
+from concurrent.futures import ThreadPoolExecutor,as_completed
+from pathlib import Path
+import ssl,urllib.request,urllib.error,json,hashlib
+import certifi
+r=Path('/Users/david/projects/property_analyzer/data/roof-source-audit-2026-11-15');ctx=ssl.create_default_context(cafile=certifi.where());url='https://www.pasda.psu.edu/download/phillyLiDAR/2025/LAS/27086E264792N.las'
+def read(start):
+ off=1709+start*30;length=30000*30;label=f'las-records-{start}';rng=f'bytes={off}-{off+length-1}'
+ try:
+  with urllib.request.urlopen(urllib.request.Request(url,headers={'Range':rng}),context=ctx,timeout=40) as s:
+   body=s.read(length+1);meta={'url':url,'range':rng,'status':s.status,'headers':dict(s.headers),'bytes':len(body),'sha256':hashlib.sha256(body).hexdigest()}
+  if len(body)!=length:raise ValueError('Unexpected bounded record length')
+  (r/(label+'.bin')).write_bytes(body)
+ except Exception as e:meta={'url':url,'range':rng,'error':type(e).__name__+': '+str(e)}
+ (r/(label+'-provenance.json')).write_text(json.dumps(meta,indent=2)+'\n');return label,meta
+with ThreadPoolExecutor(max_workers=4) as pool:
+ for f in as_completed([pool.submit(read,s) for s in [3600000,4000000,4400000,5200000,5600000,6000000]]): print(f.result(),flush=True)
+
+property-free-roof-endpoints.py
+from concurrent.futures import ThreadPoolExecutor,as_completed
+from pathlib import Path
+import urllib.request,urllib.error,ssl,hashlib,json,re
+import certifi
+r=Path('/Users/david/projects/property_analyzer/data/roof-source-audit-2026-11-15');ctx=ssl.create_default_context(cafile=certifi.where())
+items=[('las-tail-barehost','https://pasda.psu.edu/download/phillyLiDAR/2025/LAS/27086E264792N.las','bytes=435735763-435801298',65536),('las-tail-query','https://www.pasda.psu.edu/download/phillyLiDAR/2025/LAS/27086E264792N.las?roof_source_audit=20261115','bytes=435735763-435801298',65536),('las-directory-live','https://www.pasda.psu.edu/download/phillyLiDAR/2025/LAS/',None,1000000)]
+def fetch(it):
+ label,url,rng,limit=it
+ try:
+  with urllib.request.urlopen(urllib.request.Request(url,headers={'Range':rng} if rng else {}),context=ctx,timeout=30) as s:
+   b=s.read(limit+1);meta={'url':url,'range':rng,'status':s.status,'headers':dict(s.headers),'bytes':len(b),'sha256':hashlib.sha256(b).hexdigest()}
+  if len(b)>limit:raise ValueError('Response exceeded bound')
+  (r/(label+'.bin')).write_bytes(b)
+  if label=='las-directory-live':
+   m=re.search(r'.{0,60}27086E264792N\.las.{0,45}',b.decode(errors='replace'));meta['matching_listing']=m.group(0) if m else None
+ except urllib.error.HTTPError as e:meta={'url':url,'range':rng,'status':e.code,'headers':dict(e.headers),'error':str(e)}
+ except Exception as e:meta={'url':url,'range':rng,'error':type(e).__name__+': '+str(e)}
+ (r/(label+'-provenance.json')).write_text(json.dumps(meta,indent=2)+'\n');return label,meta
+with ThreadPoolExecutor(max_workers=3) as pool:
+ for f in as_completed([pool.submit(fetch,i) for i in items]):print(f.result(),flush=True)
+
+property-free-roof-audit.py
+from pathlib import Path
+import hashlib,json,struct,zlib,re
+import numpy as np
+from shapely.geometry import shape
+from shapely.ops import unary_union
+from shapely import contains_xy
+r=Path('/Users/david/projects/property_analyzer/data/roof-source-audit-2026-11-15');project=r.parent.parent
+qa_path=project/'data/imagery-qa/cases/qa-whitaker-imagery/case.json';qa=json.loads(qa_path.read_text());parcel=shape(qa['parcel'])
+roofs=[(f,shape(f['geometry']).intersection(parcel)) for f in qa['features']['features'] if f.get('properties',{}).get('kind')=='roof'];main,roof=max(roofs,key=lambda fg:fg[1].area)
+first=(r/'imagery-zip-first.bin').read_bytes();tail=(r/'imagery-zip-tail.bin').read_bytes();tail_meta=json.loads((r/'imagery-zip-tail-provenance.json').read_text());tail_start=int(tail_meta['headers']['Content-Range'].split()[1].split('-')[0])
+eocd=tail.rfind(b'PK\x05\x06');e=struct.unpack_from('<IHHHHIIH',tail,eocd);entries=[];pos=0
+while True:
+ pos=tail.find(b'PK\x01\x02',pos)
+ if pos<0:break
+ v=struct.unpack_from('<IHHHHHHIIIHHHHHII',tail,pos);nl,xl,cl=v[10:13];entries.append({'name':tail[pos+46:pos+46+nl].decode(),'method':v[4],'crc32':v[7],'compressed':v[8],'uncompressed':v[9],'local_offset':v[16]});pos+=46+nl+xl+cl
+small={}
+for en in entries:
+ if en['name'].endswith(('.tfw','.xml')):
+  buf=first if en['local_offset']<len(first) else tail;off=en['local_offset'] if buf is first else en['local_offset']-tail_start
+  v=struct.unpack_from('<IHHHHHIIIHH',buf,off);start=off+30+v[-2]+v[-1];raw=zlib.decompressobj(-15).decompress(buf[start:start+en['compressed']]);assert len(raw)==en['uncompressed'];assert zlib.crc32(raw)&0xffffffff==en['crc32'];small[en['name']]=raw.decode();(r/en['name']).write_bytes(raw)
+world=next(v for k,v in small.items() if k.endswith('.tfw'));world_values=list(map(float,world.splitlines()));assert world_values[:4]==[.25,0,0,-.25]
+aux=next(v for k,v in small.items() if k.endswith('.xml'));assert 'Foot_US' in aux
+ft=1200/3937;crops=[]
+for size in [180,320,640,1280]:
+ data=(r/f'roof-crop-{size}.bin').read_bytes();meta=json.loads((r/f'roof-crop-{size}-provenance.json').read_text());assert hashlib.sha256(data).hexdigest()==meta['sha256'];w,h,depth,color,_,_,_=struct.unpack('>IIBBBBB',data[16:29]);assert (w,h)==(size,size)
+ export=json.loads((r/f'roof-crop-{size}-export.bin').read_bytes());bounds=export['extent'];pix=(bounds['xmax']-bounds['xmin'])*ft/w
+ crops.append({'size':[w,h],'metres_per_export_pixel':pix,'native_sampling_ratio':pix/(.25*ft),'png_color_type':color,'bands':'RGBA display, alpha is not NIR','sha256':meta['sha256'],'extent':bounds})
+ name='roof-crop-native-7p6cm.png' if size==640 else 'roof-crop-coarse-27cm.png' if size==180 else None
+ if name:(r/name).write_bytes(data)
+b=(r/'las-header-live.bin').read_bytes();off=struct.unpack_from('<I',b,96)[0];rec_len=struct.unpack_from('<H',b,105)[0];count=struct.unpack_from('<Q',b,247)[0];scales=np.array(struct.unpack_from('<ddd',b,131));offsets=np.array(struct.unpack_from('<ddd',b,155));bounds=struct.unpack_from('<dddddd',b,179)
+assert b[104]==6 and rec_len==30
+meta=json.loads((r/'las-header-live-provenance.json').read_text());total=int(meta['headers']['Content-Range'].rsplit('/',1)[1]);dt=np.dtype({'names':['X','Y','Z','class'],'formats':['<i4','<i4','<i4','u1'],'offsets':[0,4,8,16],'itemsize':30})
+points=[];block_meta=[]
+for p in sorted(r.glob('las-records-*.bin')):
+ m=json.loads(p.with_name(p.stem+'-provenance.json').read_text());raw=p.read_bytes();assert hashlib.sha256(raw).hexdigest()==m['sha256'];assert len(raw)%rec_len==0
+ a=np.frombuffer(raw,dtype=dt);xyz=np.column_stack([a[k]*scales[i]+offsets[i] for i,k in enumerate(['X','Y','Z'])]);assert (xyz[:,0]>=bounds[1]).all() and (xyz[:,0]<=bounds[0]).all() and (xyz[:,1]>=bounds[3]).all() and (xyz[:,1]<=bounds[2]).all()
+ points.append(np.column_stack([xyz,a['class']]));block_meta.append({'file':p.name,'points':len(a),'sha256':m['sha256'],'range':m['range']})
+pts=np.concatenate(points);inside=contains_xy(roof,pts[:,0],pts[:,1]);inner=contains_xy(roof.buffer(-5),pts[:,0],pts[:,1]);cls=pts[:,3].astype(int);roof_building=inside&(cls==6);inner_building=inner&(cls==6)
+np.save(r/'sampled-lidar-xyz-class.npy',pts,allow_pickle=False)
+summary={'date':'2026-11-15','site':'Public Whitaker example','no_application_implementation':True,'imagery':{'original_tile':'27087E265654N','catalog_gsd':json.loads((r/'imagery-footprint.json').read_text())['features'][1]['attributes']['LowPS'],'worldfile':world_values,'native_pixel_metres':.25*ft,'source_crs_from_aux':'NAD83 Pennsylvania South US survey feet','small_zip_members_crc_verified':list(small),'complete_original_tiff_downloaded':False,'zip_entries':entries,'crops':crops,'visual_review':'180 and 640 pixel crops inspected; finer roof edges/seams and objects visible, no verified drain labels','original_tiff_band_ifd_reviewed':False},'lidar':{'point_format':6,'record_length':rec_len,'point_data_offset':off,'header_point_count':count,'header_expected_minimum_bytes':off+count*rec_len,'http_total_bytes':total,'available_whole_records_max':(total-off)//rec_len,'trailing_partial_record_bytes':(total-off)%rec_len,'declared_tail_request_status':json.loads((r/'las-declared-tail-provenance.json').read_text()).get('status'),'complete_file_verified':False,'sampled_points':len(pts),'sample_classes':{str(k):int(v) for k,v in zip(*np.unique(cls,return_counts=True))},'main_roof_objectid':main['properties']['objectid'],'nominal_main_roof_points':int(inside.sum()),'nominal_main_roof_building_class_points':int(roof_building.sum()),'five_ft_inset_roof_points':int(inner.sum()),'five_ft_inset_building_class_points':int(inner_building.sum()),'building_roof_raw_z_quantiles':np.quantile(pts[roof_building,2],[.05,.5,.95]).tolist(),'horizontal_crs':'EPSG:6565 (LAS), EPSG:2272 (saved footprint); nominal-coordinate overlap only, datum alignment unverified','vertical_units':None,'vertical_datum':None,'whole_roof_coverage_verified':False,'blocks':block_meta},'relevance':{'mapped_parcel_sqft':parcel.area,'mapped_roof_union_sqft':unary_union([g for f,g in roofs]).area,'mapped_roof_fraction':unary_union([g for f,g in roofs]).area/parcel.area,'interpretation':'Source geometry screening only; no verified managed area, outlet destination or award'},'existing_input_sha256':{str(qa_path.relative_to(project)):hashlib.sha256(qa_path.read_bytes()).hexdigest(),'data/public/whitaker-las-header.bin':hashlib.sha256((project/'data/public/whitaker-las-header.bin').read_bytes()).hexdigest()},'limits':['No roof slope calculation with unverified vertical units','No roof reconstruction or detector implemented','No independent drain/roof reference labels','No inference, training, credit calculation or eligibility determination']}
+(r/'audit-summary.json').write_text(json.dumps(summary,indent=2)+'\n');print(json.dumps({k:v for k,v in summary.items() if k not in ['imagery','lidar']},indent=2));print('IMAGERY_NATIVE_METRES',summary['imagery']['native_pixel_metres']);print('LIDAR',json.dumps({k:v for k,v in summary['lidar'].items() if k!='blocks'},indent=2))
+
+property-free-roof-doc-check.py
+from pathlib import Path
+import hashlib,json,re,subprocess
+r=Path('/Users/david/projects/property_analyzer');d=r/'data/roof-source-audit-2026-11-15'
+allowed={'README.md','docs/TASK.md','docs/STATE.md','docs/CHECKPOINTS.md','docs/EXISTING-DATA-FEASIBILITY.md','docs/FREE-ROOF-SOURCE-AUDIT.md','docs/free-roof-source-audit-2026-11-15-evidence.json','docs/free-roof-source-audit-2026-11-15-checks.txt'}
+base=json.loads(Path('/tmp/property-free-roof-baseline.json').read_text());e=json.loads((r/'docs/free-roof-source-audit-2026-11-15-evidence.json').read_text())
+errors=[];links=0
+for n in sorted(n for n in allowed if n.endswith('.md')):
+ for target in re.findall(r'\[[^\]]*\]\(([^)]+)\)',(r/n).read_text()):
+  if re.match(r'^[A-Za-z][A-Za-z0-9+.-]*:',target) or target.startswith('#'):continue
+  target=target.split('#',1)[0]
+  if target:
+   links+=1
+   if not (r/n).parent.joinpath(target).exists():errors.append(f'Missing local link: {n} -> {target}')
+print(f'Local links: {links} across six Markdown files; {len(errors)} missing.')
+old=Path('/tmp/property-free-roof-previous-task.md').read_text();assert old in (r/'docs/CHECKPOINTS.md').read_text();print('Previous completed task archived verbatim: PASS; SHA256 '+hashlib.sha256(old.encode()).hexdigest())
+assert '## Separate authorized AI/assessment integration' in (r/'docs/TASK.md').read_text();assert '## AI/assessment integration checkpoint' in (r/'docs/STATE.md').read_text();print('Separate concurrent application handoff sections retained: PASS.')
+for n,h in e['existing_input_sha256'].items():
+ if hashlib.sha256((r/n).read_bytes()).hexdigest()!=h:errors.append('Existing source input changed: '+n)
+print(f'Existing source inputs checked unchanged: {len(e["existing_input_sha256"])}.')
+for n,h in e['evidence_sha256'].items():
+ if not (d/n).is_file() or hashlib.sha256((d/n).read_bytes()).hexdigest()!=h:errors.append('Audit evidence hash differs: '+n)
+print(f'Audit evidence file hashes checked: {len(e["evidence_sha256"])}.')
+assert abs(e['imagery']['native_pixel_metres']-.0762001524003048)<1e-12
+assert e['lidar']['sampled_points']==380000
+assert e['lidar']['header_expected_minimum_bytes']>e['lidar']['http_total_bytes']
+assert e['lidar']['declared_tail_request_status']==416 and not e['lidar']['complete_file_verified']
+print('Source checks: 3-inch sampling and 380,000 decoded points verified; lidar completeness FAILS (HTTP 416/length mismatch), vertical metadata unresolved.')
+changed=[n for n,h in base.items() if n not in allowed and (not (r/n).is_file() or hashlib.sha256((r/n).read_bytes()).hexdigest()!=h)]
+current=set(subprocess.check_output(['rg','--files','--hidden','-g','!.git','-g','!.venv','-g','!data'],cwd=r,text=True).splitlines());added=sorted(current-set(base)-allowed)
+print('Global unchanged-file check: '+('FAIL due concurrent drift' if changed or added else 'PASS'))
+print('Concurrent changed baseline files: '+json.dumps(changed))
+print('Concurrent additional files: '+json.dumps(added))
+# Report concurrent drift separately; it is neither reverted nor counted as a preservation pass.
+q=subprocess.run(['git','diff','--check'],cwd=r,capture_output=True,text=True);print(f'git diff --check: exit {q.returncode}.')
+if q.returncode:errors.append(q.stdout+q.stderr)
+q=subprocess.run(['git','check-ignore',str((d/'roof-crop-native-7p6cm.png').relative_to(r))],cwd=r,capture_output=True,text=True);print(f'Raw evidence Git-ignore check: exit {q.returncode}.')
+if q.returncode:errors.append('Raw evidence is not ignored')
+for error in errors:print('FAIL: '+error)
+print('Application tests, inference, roof reconstruction and independent accuracy validation: UNRUN (source audit only).')
+raise SystemExit(bool(errors))
+
+Starting nonignored-file SHA256 inventory:
+{
+  "gis": "69cd9ee6e50ea2b22b4f1730b6b2e88d554ac63ba32df0c7febb942bad9b6ab2",
+  "credits": "be2b6deee458745a27d4ea9a6d71f41d354fbf3a860147174a7f6750002d10db",
+  "AGENTS.md": "162673374ea112e6d73bd17b8e3c444f02df9c033e0664c0950527a1a7f2872b",
+  "run.command": "cc0a16147a315bd768ffb9f86c2728db56dce0d1818b0b747c75bb6498ef0023",
+  "run-gis.command": "a503ad64c48eef5c81c46602dbdce28a253c9e2ad9d1b1598f191e23dbd5b73a",
+  "examples/assessment-public/sources/47053d1026fb0598fe3b6084d793b09664d7f312ac5ee7b92428b1dfc9d56a6c.json": "47053d1026fb0598fe3b6084d793b09664d7f312ac5ee7b92428b1dfc9d56a6c",
+  "examples/assessment-public/sources/manifest.json": "c851dd1c5b16cce56cdef9d84b7b5e0c70d52a9fba9750bd33817376644fca4f",
+  "examples/assessment-public/sources/74f96b2fdc889ccaf85d328608b7a04d7df60e22531f43c8ce9949b5613caad1.json": "74f96b2fdc889ccaf85d328608b7a04d7df60e22531f43c8ce9949b5613caad1",
+  "examples/assessment-public/sources/db82aa33c2d9cd2535fcfb996cefec8859f8348a0fecccd3a15974e8ae9b7361.json": "db82aa33c2d9cd2535fcfb996cefec8859f8348a0fecccd3a15974e8ae9b7361",
+  "examples/assessment-public/sources/a0b97d16986dd815c2b8e18c3f735387f7e5a56bab24acfc2a2b1193719e75b8.json": "a0b97d16986dd815c2b8e18c3f735387f7e5a56bab24acfc2a2b1193719e75b8",
+  "examples/assessment-public/sources/249d43915829071b21ab100592cc26e214820e60c458337c4c981215dbc2f5a9.json": "249d43915829071b21ab100592cc26e214820e60c458337c4c981215dbc2f5a9",
+  "examples/assessment-public/replay.py": "6a5a33c8901cabbc61e03c89c22c866e87e45dc2f658e701d5006d9afd1b82d1",
+  "examples/assessment-public/README.md": "b9e207015f22acb20b38b460ab7458527a093ddffb1a06afc59e3db03f735089",
+  "examples/assessment-public/acquire.py": "201daf9e207c11522ca51bde4a5e232b5c839aa8a3e7b5f544c6e7d839ce8341",
+  "examples/assessment-synthetic/case.json": "4d9d3298b7a5456a792c2fc3d525719c27da3e0d456f0d1ddefdbfac4ec97049",
+  "examples/assessment-synthetic/README.md": "af10de8c1c10f1d75031a7e68391bb84184bb89a19e5155fd9de830089d147b8",
+  "examples/assessment-synthetic/build.py": "79010535d1caf9a8df4fd748b6a49183f14190329f0e594ee5040122175eb686",
+  "examples/research-drainage/README.md": "f55dfe830540c7f2df3710a0f2169a6c6cff2447f3c7e0c17dacaa0c0d0b74ac",
+  "examples/research-drainage/whitaker.py": "3e767450846bbaef83b6145977c9161cf9b60e44dda066da5a06ccf4e8feacb3",
+  "examples/automatic-public/sources/e94204bbc9cf494440fe1f13e960ded3a5ff756107dc5649a455234dacd848e1.json": "e94204bbc9cf494440fe1f13e960ded3a5ff756107dc5649a455234dacd848e1",
+  "examples/automatic-public/sources/fec79593ca028f3aad1d421151711911678d75819cde3343c38dd6e594a8489e.json": "fec79593ca028f3aad1d421151711911678d75819cde3343c38dd6e594a8489e",
+  "examples/automatic-public/sources/cb8935aa77d17f902dcfaaf9296def5f51d7fb3c84502668ee208f54e9b4e745.png": "cb8935aa77d17f902dcfaaf9296def5f51d7fb3c84502668ee208f54e9b4e745",
+  "examples/automatic-public/sources/4714d81cae8e20e4089140aa22cd8682cf955d832d3e9096aa4ea7e94739a8f2.json": "4714d81cae8e20e4089140aa22cd8682cf955d832d3e9096aa4ea7e94739a8f2",
+  "examples/automatic-public/sources/cba0f2e5156f8c7a92505f90e27d3ce31248f5bd9d05d1267cf59db23decae00.png": "cba0f2e5156f8c7a92505f90e27d3ce31248f5bd9d05d1267cf59db23decae00",
+  "examples/automatic-public/sources/ae3267e345b78ad9eb0430b2d90ef6dc977f10322dbf96aa1af72143d540af99.json": "ae3267e345b78ad9eb0430b2d90ef6dc977f10322dbf96aa1af72143d540af99",
+  "examples/automatic-public/manifest.json": "2f8bc830f543a0fd4381d61afaaa21b4b19195d12729dbdbc1cdc1aee3b3fd43",
+  "examples/automatic-public/replay.py": "163e721afa5b763bde09fda2e25362820b1dada505cdabc7b3cf5da13bccede8",
+  "examples/automatic-public/assess.py": "f09e5e96a019305830bd372f707b497479ebec3854ee879c83c234351e027472",
+  "examples/automatic-public/README.md": "5d89f1479fd41062931d2c331ec2f723d8e7560e4105f78bc6aa836e8e1a2aac",
+  "examples/sydney/case.json": "425d3ac98e53b875cb7bcc35df3d8073c7f4d45300665c63f2233506c4db9843",
+  "examples/philadelphia-synthetic/case.json": "e301df673d9747cee49dcc1b4315a7fc53360252a86fd80b70faa54c61f09775",
+  ".gitignore": "6372be34b70cfad5dd10f526cf57a8924da059c493390833bf2f0cbc0a1c0aad",
+  "README.md": "d070523f2f562b71ee05c5ea3f2ad51dccc9b7157616bf36079116416416b0f7",
+  "requirements-imagery-model.txt": "862ca0aa7e4cb77219a5fadedd88427f433b394a03c30cc7eb03831074040651",
+  "requirements.txt": "465c0b93fa92521633442fdb10e9983d603430b8d0f68fe9fb18a8df5d5053bc",
+  "PACKAGE-MANIFEST.json": "ba9479d8870fef4080fde36a569f6a24ef564e0b713ec55f8ca22e88c0a05ef8",
+  "SETUP.md": "45a7045c57c1e5b5a592c7fad4e463498d2539660beffa64c25c8728d86ce753",
+  "HANDOFF_PROMPT.txt": "c7090a933edc72357d09b97ef162ddd263d2345d93deca72c5c447152f3f95dc",
+  "pyproject.toml": "6155bdf2ea13814458722ea8f0c8b2d6ba16126e006f517831962ba46c26b7bb",
+  "drainage_core/freshness.py": "faabee9ab47cd5b34844a8b795d645918221d6804aa00d6daea0c3f531819490",
+  "drainage_core/model_worker.py": "c35110132ffb8431dc74c4e4b83dd9f5a9dcdef4cffa158ffcd3cd8ec34ce05e",
+  "drainage_core/remote_sensing.py": "f522686b12b7397c22d09ce0843908577c675ff9fd212dda6e801f3d16b29738",
+  "drainage_core/server.py": "c6d3044a38b214a3667c53482720b926cb8cf3704f5787a9de6d0b1797becfcd",
+  "drainage_core/model_integration.py": "925edd70bfc89b6aff2b7c8a489d15a0a0b274d2a270780e60be8bb9faa5309c",
+  "drainage_core/research.py": "952bbce29258caf4fec50ce5c7a4ac2ccce1abe4ca0a2d9e0d373839718c96f7",
+  "drainage_core/media.py": "c547ca8102ce2a633e84761a8d119a4efc5a8a25f022206cdfa5c01331362d95",
+  "drainage_core/cli.py": "0365c5ed0ba77177e170d67913e34039ba93a142b07b7b02b20c44b8ee853711",
+  "drainage_core/setup_semantic_model.py": "0b35b2ce41cd32e02760f87441ecad46850b07a1dc2a2d64dc58f0a60f51cd4d",
+  "config/rules-pwd-2026-09.json": "f8c93c11af5df4122f1e80c49d76f61a996b4cda33845755738952da4c946f5f",
+  "drainage_core/engine.py": "e62a0d4f87298ebe0b9e80edb04db83a35197e319b30bc52e87c1262c4f1bccf",
+  "config/sources.json": "f5323607fe92f5ab1fa9a5f473e7cee91bbcf411048bee9bc25fd195d1127ded",
+  "drainage_core/sources.py": "eb42841cb8c3ebadce23abb5f326e68700ddb53b6642553142535d2f146d3625",
+  "drainage_core/validation.py": "7ce54c2f783974668775d2cc5565c73648e04f0acbc012524d1b72bd3ddc4d01",
+  "drainage_core/terrain.py": "daf7a7b9e1e80d3336e857e6b6d231192a4b635f5a3be3863a76760c53d92ff2",
+  "drainage_core/__init__.py": "97349d8d2fd794b888b82e7e627f35ce10b9df15f2eb42f6cdea356e827066cb",
+  "drainage_core/workspace.py": "7cc7b0660193b4c79f43fc39712345381cb3a7aa5758733e1de98d1315ad102d",
+  "drainage_core/report.py": "5f3e26254090968c820b9c1bb0abc317b8d88b465f09cb7db96ac6d57a0acac4",
+  "drainage_core/semantic_cover.py": "30532ec82d026b2492c20039110d402959089324b50f75ed8022f644ecbd46f6",
+  "drainage_core/geometry.py": "8156c78df9276c510c4496c9a228959f1ed58829ba657bb23c05450536dd2ab0",
+  "drainage_core/__main__.py": "935a1c1166b0c1ea35a82256345000bf2c73ded718d77773bc27a71ecce28f7d",
+  "drainage_core/raster.py": "472d4a9cc13416004d1bf41518485d22eadc1712c04fa7fc569a7c30e958900f",
+  "drainage_core/drainage.py": "081de4c6152ce3a6fccc5148db6fd6dee6f0011e8c90d1315e083cbd6c182cec",
+  "drainage_core/evidence.py": "96ae72b0c1fa5800258f4090197919512d4569b2258c33d30551f1a8b9b3c099",
+  "drainage_core/projection.py": "a9bd4fec5c57cf9dc977887388fd7a400213f9c2765626581db992891fb62716",
+  "tests/test_pipeline.py": "441cb3dec3eca092f04b87f5fa77d2599485c6d0c1e4e1a8f47898044480d4fe",
+  "tests/test_geometry.py": "0008ac5b6692ede99f77cae53896f367a373376a8c816ba44ffdf32bb8e592c6",
+  "tests/test_rules.py": "3c1788212a135d0be5f92d974255e8d2b05fa4bce022de719405199f3e4edb37",
+  "tests/test_cli.py": "4b163d8ca4e5fb5b0ced303c2cde0744648316b6a0d90a6bb13b6e4410fa662f",
+  "tests/test_drainage.py": "9fb0af5fe369936c38bd376716225ca1f184ee83b3b0ce5ed8026683f071fa98",
+  "tests/test_assessment_ui.py": "0fbd7ea4c68d486bbee5ee0b2a65882f6e4122c28346cd999c4e59bc5b87416c",
+  "tests/test_generic_server.py": "077740d70e76eec36390439c5cbedf798279cb360748359a095cf7b54666542d",
+  "tests/test_integration.py": "c098eda17f9a4f30b4212a98181cc637aa838e83cbee412e965d0a44ce3e5230",
+  "tests/test_assessment_http.py": "67df15b458e2a1b76c77a83f3433d0c8ac9dd65efc5529adf46a3065db534953",
+  "tests/test_gis_cli.py": "3fe7f53fe45384b3b43fb17bcc50e89b756fe3ecd50506fbacff98813cb0f6ec",
+  "tests/test_assessment_policy.py": "c0615a3b8df6807cef721a1b4dcdf33986007abe592a4aaaf6a1683a3c9b8db7",
+  "tests/test_renewals.py": "46200e9480b04d07f10c8f0d7ef086fc2932ae0164864dcbf8808bb21b07bbb1",
+  "tests/assessment-ui-checks.js": "e5dfe93a6cfc9cd8618056d0fd8cde41246e82d785d9d19826e3c746fd161171",
+  "tests/test_server.py": "8e867d136e0029c8bbdf7f5c301e98308e32eb07689ae20485d1620aa199b0e6",
+  "tests/test_assessment_evidence.py": "26f90de6210a2b1cdbcecb042c21789217710314ae809f74501248255683bf55",
+  "tests/test_review_regressions.py": "8781091cd0f7dd1565f38a5ac75e69e92151ff84936c4e911653ca19e775e31d",
+  "tests/test_automatic_http.py": "2bb6e88bc1c198173224d02b174b3c15f68a5384656bf17ff90f4b898dc77a7d",
+  "tests/test_assessment_portability.py": "104fcf67e314a1d6abfcd088c6a9aeb02ab1986677fc93659b9e7b473eb3f6ea",
+  "tests/test_automatic_site.py": "071c006e998ef6fcfaa6d2860cb2737179e2a3ac5daeae3911cf4627f04de951",
+  "tests/test_core_boundaries.py": "222a8be8f3e7def100f64e8ba78aefb25afa8452a0a0a3b42eeb1a1ff05337e1",
+  "tests/test_terrain.py": "9a4708d12970dc9158c6fe72d60af858b8e4aec08ce35ffa1a022b8187c3335f",
+  "tests/test_source_freshness.py": "08ffbb9475b4fbd2f4dc50cd2abb46e24d37f4cadc72b597c532ab51230f6da5",
+  "tests/test_whitaker_dem.py": "dcb82795712d7e39b7b1926c1b4ac53717bc23f66e223de345da0f298cf2b2e4",
+  "tests/test_portable_media.py": "1a72b80ffd38aa15f395d7da5d84ff5bc4ea76fe6beb068038fc48f5d474693a",
+  "tests/test_policy_cli.py": "68f4342f1e5d4a0723d20f8b84d57f67a74cc1260de9f8157b6f1f0f00646dbb",
+  "tests/test_research_drainage.py": "005f01dbbff4af63475b447cde3c63534791429ccfe8f497aaca06e77ce6ccda",
+  "tests/test_jurisdiction_adapter.py": "18d92937a3637334c8ef76ac731636266e93714313c4aaaf2d99b1db62fdd50d",
+  "tests/test_semantic_cover.py": "5bca51819737cdd4efee36b25c72fea429c92a628c5e19a2237e743b2b74f10c",
+  "tests/test_modeled_assessment_unit.py": "c38d933f00a2ce483d966482b19102b8a4057bfa294365647c47c5db97bd0f8b",
+  "tests/test_billing.py": "ada9f65146dae0389e0a7064e2d5262394bc356f3fb98d9018bd3bbbb9d0843f",
+  "docs/research-test-results.txt": "c160a6881c74f1ffa8f704a6ae5f368c5131909702fea9609e44094455bbb6b8",
+  "docs/roof-scope-2026-11-15-checks.txt": "02da5807f7f302f172ce7f2efe69f030a5812d9fb38740794b5d18545caa647d",
+  "docs/GIS-QUICKSTART.md": "d38cdb6600b1a534a490c6947626b2a5c6d7c1c0245a9ecce9de38c606789473",
+  "docs/STATE.md": "799bf0e98495fbf7449cb8fbdbc4d89f2d90e09d6978ab62bdfeea82804614d0",
+  "docs/RESEARCH-WHITAKER-VALIDATION.md": "35876e7f8a1597043aed9c197f898bd96c80218e2bb1220eb41c1b846f2fb292",
+  "docs/package-verification.txt": "e66456823d34d35ce4c8ce1a1d7ee1ac88b815eaf4c022c448d87db7222b2970",
+  "docs/ASSESSMENT-RULES.md": "bae150a8b6dd453c004ebb4e48094a675f1bf4408766babbd94030d53dd08611",
+  "docs/VALIDATION.md": "587e72c901dcc4f6ffe0c425f2efade90ae5586b9a91710b97e3ea72ff958411",
+  "docs/JURISDICTIONS.md": "deacf81a15c7f50c3cb0880c6b939a9fb3e74bb3285721e1da7787eedce5c280",
+  "docs/DEM-RECONCILIATION.md": "2c7e822f4e65c87fa31f81fe3f0b31e1e45389ce82d32c96c844dc62faafd25e",
+  "docs/SOURCES.md": "5980279b8e4e6b1bf07f3f915684aa60521e908e714f02ca46177325e7f8e6d3",
+  "docs/DRAINAGE.md": "5efe693acae9d89f3ecc8cacae34040c3c3a753fddcec6f1e7d144633a31ee44",
+  "docs/automatic-test-results.txt": "602cf9bc245fffaab6b90170422f805d83fb070f6a3b1ba6a7b5ea463224fd05",
+  "docs/RESEARCH-METHOD.md": "5905a371368a12c9ed84c9b84e7a4b7db3baa358c617533a366bc70fe55a18d3",
+  "docs/EXISTING-DATA-FEASIBILITY.md": "541992facc083f9d307b497e4660a1179e7334df8c17923aef65901253071da6",
+  "docs/ARCHITECTURE.md": "0708b37ac788e8bc4ff3f648de249d19920d4eb6513ac402e538a35cdac0cb34",
+  "docs/PRD.md": "8e69f13e3ddda647ced985ea4efeb6288f7c9fa4c006800827ef5c685ca1634e",
+  "docs/SESSION.md": "7a28ea415f0029152ec24a42a155928d8a3b75e1688c484c98b6c8ea17b233f8",
+  "docs/RULES.md": "c2bce8e1bcad4a4e9bc6b85a09ca22a79b85dfa387604fa5b751b82b80ec91ad",
+  "docs/project-brain-2026-11-15-tests.txt": "269718ddc2a5b1c2151a7f4217ebe484649ab06a06c2d28f2c663b5036e8f054",
+  "docs/package-build.txt": "9644581eb162dde557929420aaad5b099ea825e29273e6488fe9df836cecfe24",
+  "docs/TASK.md": "7c6a18146b13ee3de0fa433c7a9a66e5b7711a9dc3592e0a65a07553501a88e5",
+  "docs/existing-data-feasibility-2026-11-15-checks.txt": "566fdeb81fa31340f2358d8348d0ea4ecdf5147031e2bc89cf52ee9c7c90334c",
+  "docs/assessment-test-results.txt": "fb6864a00b6e8ebd59589e0bc2c0fd989b94a93127f55c595fe541c49ebf3ca2",
+  "docs/prior-art-2026-11-15-checks.txt": "1e7c35c10def119bc7f85ec1875cf7144202ff0c6c13b80641ed9f9b13510f13",
+  "docs/freshness-test-results.txt": "7f7c3c08c17bc1f3215ce55ecbdc50424690739b639f4db401c278426ff063ad",
+  "docs/ASSESSMENT-PUBLIC-VALIDATION.md": "ffad5e7960f9a91115d9ec53eb1f46b82617e423c56b18205b8c4d67715ed761",
+  "docs/BUILDING-IMAGERY-PRIOR-ART.md": "f5f3abf15bad548fe8040ed9596411823d8d7697547b11bbf1560f77bb706dc6",
+  "docs/ASSESSMENT-USAGE.md": "68d7d7927215c324809c234177d85a0613affd1326d61b9e55e7f30059a49168",
+  "docs/GIS-ARCHITECTURE.md": "80fb37bb5b507fb8cfd0a5e8c472a70f0bb85f1d0e3a71040ce84293d7487b58",
+  "docs/test-results.txt": "98dc566ea79f067f38e22c978764cf6e74a35d347209ac2e9adf1a8c8251b77c",
+  "docs/PROPERTY-ASSESSMENT-PROCESS.md": "a591880e3fcfbdd8df61b0b7b5e6d8155dbbdb72472879aaea86eabf2dbb8060",
+  "docs/CHECKPOINTS.md": "563b63fbdf2fd7ece9fb1212c876ec9d8c9f4e72f1920c277375a0ddc23ca7db",
+  "docs/research-baseline-restricted-results.txt": "64d013e7320073caea273ce48df58b430e5ea057ba83dc135b9144cef7d1e33e",
+  "drainage_core/web/app.js": "71c3bd237bdd05ce16ccfe45ff603385c83ba896b07e7f9f507f1cfc11aa9bab",
+  "drainage_core/web/style.css": "41216cabca457463fa1b3738a969b0097b5bd711ca57433a041a2033cd63cc55",
+  "drainage_core/web/index.html": "ea0ff9100870995606b06301b93ad02e0a9136e5a8a93fa00b653a8fa8a70231",
+  "stormwater/assessment_sources.py": "b1de8718ebd182de4fc6752a639476141829b971d3bd172be256d7ae08c7c4eb",
+  "stormwater/validation.py": "466939666142d3dc4639b0180f24f1c2df7c6728a88b35b656c10e9b0960c00a",
+  "stormwater/assessment_workflow.py": "313743a63bf3b473992f66862375abd8d988d7f024c2bf71cb832b6108f39a20",
+  "stormwater/automatic_terrain.py": "e928b5f887ede3926e92ff906ac757a72a5c8ea61098cf57c27131a30f643300",
+  "stormwater/fixtures.py": "2a798b52f18f6194087eefb71a8a0d0df8931d0fdacbf62b4ca19cb46e350dde",
+  "stormwater/policy_cli.py": "7e12015a5895923b4896e6b537af3837fb89fd9b0e7425b5e7ad66563d3592f2",
+  "stormwater/report.py": "cf353baa7f28d71231481dadc5f925df4b1bde2fad00039c4c7ab241e813ea9c",
+  "stormwater/whitaker_dem.py": "6c3e82283de6d219f88af4d3167e54e88a841c3d286084cf39b5c94194c6b41f",
+  "stormwater/renewals.py": "89d6b85be8b5e9e02937cb23abc36cb16a76042ce29cb1483fd49d213574cab2",
+  "stormwater/raster.py": "a6655d1ddaed136628061db4083cfb3b014413a724a921a523682319dada428d",
+  "stormwater/acquisition.py": "766547c872899c60fbfdf85da64cc020e0ff6c777c1c784634ac6cd4b6886d3f",
+  "stormwater/assessment_report.py": "34150ad007b0001379fd3a360e56e6546e9cb805a0f8917a0793fb2f47bd85eb",
+  "stormwater/geometry.py": "2d2216a95c84da293571890f227ded34522ceb7f8c46b19c02b9d76392e9f95d",
+  "stormwater/whitaker_usgs.py": "b3181b283091dabac704a63e41dfa969c54d353a30d45058edf12efe6a9585ea",
+  "stormwater/drainage.py": "57fcc7dc813f85521c956b077d8c939777e09970078673366fb73de4b69f5756",
+  "stormwater/cli.py": "357244571b2acce954baecee01ff05e0994b93b9bf58505e9e6074397c29002c",
+  "stormwater/cases.py": "4cf527450c966c37cdf5f8da2292a89c67cadc7f74ac28287fc59b7449403287",
+  "stormwater/rules.py": "88b7f9cdbc146504eb4d0344ac76b02722cd159ba43e715a4e24b322806d9c26",
+  "stormwater/__init__.py": "d794e0959b5d1c29c902d7a654486e04a45e4ba85ea7660c17ee66914dcea89e",
+  "stormwater/terrain.py": "2b96d4f33f4b58f22ea444a1d3a84420293fa5106e68d2cbb16941ff5eac2798",
+  "stormwater/jurisdictions/__init__.py": "0e48f57168106f98b290e5cb10eef4221ede0550be931ef1b5eee47a9ee51abb",
+  "stormwater/jurisdictions/philadelphia.py": "52201a46b0bb2cfde6dd5d5f6171d1c28d7782251038e4e18e6110a0a603eeea",
+  "stormwater/model_assessment.py": "9a99bf0ab0145b7fac753bc725b36478d41582841822a8c671aa1896c538ab18",
+  "stormwater/automatic.py": "c06b4197bafd8e46b3357e5074294008235117a086f66e77007d09c4e7bbd8d4",
+  "stormwater/assessment_policy.py": "28d71a6fc1a548c40c429dc987d49e44cdea6865023a4ea816b55db12f947fe8",
+  "stormwater/billing.py": "fb23b7abbc301360ba10ea938a757748a23bff534f711f641183f72e578090e4",
+  "stormwater/server.py": "ed3947b32755b1a825a792ffc4d11de4a055a0660dab37454d4d516d38bcf97e"
+}
+Final authored document SHA256 values:
+b73b620df65e3f74f6c62682b533a6ba731b8a8a6f1c83c9819012b5e0b773f5  README.md
+dfd61b7efbfe66e71d2c17caf158d8053ff24f07b714f3362e9204a972125a16  docs/TASK.md
+c1306aa56ce5c0add3b418846e962ded97e7d487f64831c4b82427438ee5f6e5  docs/STATE.md
+4b2ef44304b88d8b60152040834e3d86e04d3c997e88c3953e6f3f50b818f3f0  docs/CHECKPOINTS.md
+c1aec21f857a72b5a85a97c0763babfc2ff4b333371499bf7fd8fbc48c73c41c  docs/EXISTING-DATA-FEASIBILITY.md
+b0ae2135261b50ff9353b13311cad2046aab35a0f5a4142437252b09cd7c3461  docs/FREE-ROOF-SOURCE-AUDIT.md
+37e880dde9270f27eab9ee7529419618d4d0559eabe6170232255b6458e1ea00  docs/free-roof-source-audit-2026-11-15-evidence.json

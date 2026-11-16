@@ -1,0 +1,227 @@
+Whitaker live-flow verification — 2026-11-15
+Dirty shared checkout; no commit or push.
+
+Exact focused commands:
+.venv/bin/python -m unittest discover -s tests -p test_modeled_assessment_unit.py -v
+.venv/bin/python -m unittest discover -s tests -p test_assessment_policy.py -v
+node --check drainage_core/web/app.js
+node tests/assessment-ui-checks.js
+PYTHONPATH=. .venv/bin/python data/validation/whitaker-full-2026-11-15/verify_run.py
+
+First live address attempt: HTTP 400; GEOS mixed-dimension overlay error. Retained in local address-response.json and failure-trace.txt. Fixed polygon-only conflict resolution, then successful browser action and final HTTP request.
+
+test_absent_pixel_size_has_no_invented_boundary_range (test_modeled_assessment_unit.ModeledGeometryUnitTests.test_absent_pixel_size_has_no_invented_boundary_range) ... ok
+test_ai_fills_only_modeled_unknowns_and_leaves_source_intact (test_modeled_assessment_unit.ModeledGeometryUnitTests.test_ai_fills_only_modeled_unknowns_and_leaves_source_intact) ... ok
+test_ai_roof_supplements_only_additional_draining_view (test_modeled_assessment_unit.ModeledGeometryUnitTests.test_ai_roof_supplements_only_additional_draining_view) ... ok
+test_bounds_are_ordered_and_cannot_override_observed_pervious (test_modeled_assessment_unit.ModeledGeometryUnitTests.test_bounds_are_ordered_and_cannot_override_observed_pervious) ... ok
+test_canopy_does_not_fill_hidden_ground (test_modeled_assessment_unit.ModeledGeometryUnitTests.test_canopy_does_not_fill_hidden_ground) ... ok
+test_catchment_composition_uses_injected_geometry_and_ai (test_modeled_assessment_unit.ModeledGeometryUnitTests.test_catchment_composition_uses_injected_geometry_and_ai) ... ok
+test_explicit_pipe_to_external_outlet_is_not_a_gsi_or_proximity_guess (test_modeled_assessment_unit.ModeledGeometryUnitTests.test_explicit_pipe_to_external_outlet_is_not_a_gsi_or_proximity_guess) ... ok
+test_malformed_ai_geometry_is_reported_without_breaking_other_classes (test_modeled_assessment_unit.ModeledGeometryUnitTests.test_malformed_ai_geometry_is_reported_without_breaking_other_classes) ... ok
+test_observed_surfaces_win_and_disagreement_is_reported (test_modeled_assessment_unit.ModeledGeometryUnitTests.test_observed_surfaces_win_and_disagreement_is_reported) ... ok
+test_overlapping_classes_are_unknown_not_double_counted (test_modeled_assessment_unit.ModeledGeometryUnitTests.test_overlapping_classes_are_unknown_not_double_counted) ... ok
+test_polygon_parts_of_clipped_geometry_collection_are_retained (test_modeled_assessment_unit.ModeledGeometryUnitTests.test_polygon_parts_of_clipped_geometry_collection_are_retained) ... ok
+test_rgb_candidate_cannot_become_canopy_or_pavement (test_modeled_assessment_unit.ModeledGeometryUnitTests.test_rgb_candidate_cannot_become_canopy_or_pavement) ... ok
+test_shared_class_boundaries_are_not_conflicting_area (test_modeled_assessment_unit.ModeledGeometryUnitTests.test_shared_class_boundaries_are_not_conflicting_area) ... ok
+test_stale_future_unknown_date_and_missing_hash_are_excluded (test_modeled_assessment_unit.ModeledGeometryUnitTests.test_stale_future_unknown_date_and_missing_hash_are_excluded) ... ok
+test_derived_record_and_ai_catchments_are_exported_with_model_status (test_modeled_assessment_unit.ModeledPresentationUnitTests.test_derived_record_and_ai_catchments_are_exported_with_model_status) ... /Users/david/projects/property_analyzer/drainage_core/geometry.py:38: DeprecationWarning: The 'shapely.ops.transform()' function is deprecated. Use 'shapely.transform()' or 'shapely.transform_coordseq()' instead. See https://shapely.readthedocs.io/en/latest/manual.html#shapely.ops.transform for more details.
+  return transform(Transformer.from_crs(source, target, always_xy=True).transform, geometry)
+ok
+test_engine_artifact_replays_and_policy_consumes_without_routing (test_modeled_assessment_unit.ModeledPresentationUnitTests.test_engine_artifact_replays_and_policy_consumes_without_routing) ... ok
+test_report_helpers_show_record_link_and_escape_source_text (test_modeled_assessment_unit.ModeledPresentationUnitTests.test_report_helpers_show_record_link_and_escape_source_text) ... ok
+test_ai_surface_correction_is_conditional_and_separate (test_modeled_assessment_unit.ModeledSavingsUnitTests.test_ai_surface_correction_is_conditional_and_separate) ... ok
+test_canopy_known_and_hidden_ground_assumptions_are_separate (test_modeled_assessment_unit.ModeledSavingsUnitTests.test_canopy_known_and_hidden_ground_assumptions_are_separate) ... ok
+test_disjoint_records_share_one_ledger (test_modeled_assessment_unit.ModeledSavingsUnitTests.test_disjoint_records_share_one_ledger) ... ok
+test_existing_unreconciled_credits_still_block (test_modeled_assessment_unit.ModeledSavingsUnitTests.test_existing_unreconciled_credits_still_block) ... ok
+test_gsi_already_linked_to_individual_record_is_not_recounted (test_modeled_assessment_unit.ModeledSavingsUnitTests.test_gsi_already_linked_to_individual_record_is_not_recounted) ... ok
+test_inactive_or_construction_permit_what_if_is_blocked (test_modeled_assessment_unit.ModeledSavingsUnitTests.test_inactive_or_construction_permit_what_if_is_blocked) ... ok
+test_incomplete_model_still_reports_explicit_appeal_assumptions (test_modeled_assessment_unit.ModeledSavingsUnitTests.test_incomplete_model_still_reports_explicit_appeal_assumptions) ... ok
+test_known_failed_or_proposed_prerequisites_block_estimates (test_modeled_assessment_unit.ModeledSavingsUnitTests.test_known_failed_or_proposed_prerequisites_block_estimates) ... ok
+test_known_pervious_cannot_be_reassigned_by_upper_record_bound (test_modeled_assessment_unit.ModeledSavingsUnitTests.test_known_pervious_cannot_be_reassigned_by_upper_record_bound) ... ok
+test_model_savings_respect_verified_rule_and_tariff_period (test_modeled_assessment_unit.ModeledSavingsUnitTests.test_model_savings_respect_verified_rule_and_tariff_period) ... ok
+test_modeled_ia_increase_is_negative_appeal_savings (test_modeled_assessment_unit.ModeledSavingsUnitTests.test_modeled_ia_increase_is_negative_appeal_savings) ... ok
+test_overlapping_candidates_block_combined_but_keep_alternatives (test_modeled_assessment_unit.ModeledSavingsUnitTests.test_overlapping_candidates_block_combined_but_keep_alternatives) ... ok
+test_per_record_linked_area_uses_catchment_not_footprint (test_modeled_assessment_unit.ModeledSavingsUnitTests.test_per_record_linked_area_uses_catchment_not_footprint) ... ok
+test_permit_what_if_does_not_change_candidate_or_documented_economics (test_modeled_assessment_unit.ModeledSavingsUnitTests.test_permit_what_if_does_not_change_candidate_or_documented_economics) ... ok
+test_unit_source_and_existing_findings_are_unchanged (test_modeled_assessment_unit.ModeledSavingsUnitTests.test_unit_source_and_existing_findings_are_unchanged) ... ok
+test_untyped_existing_gsi_has_its_own_ai_informed_alternative (test_modeled_assessment_unit.ModeledSavingsUnitTests.test_untyped_existing_gsi_has_its_own_ai_informed_alternative) ... ok
+test_category_context_is_available_without_inventing_installed_systems (test_modeled_assessment_unit.RecordJoinUnitTests.test_category_context_is_available_without_inventing_installed_systems) ... ok
+test_conflicting_ids_or_overlaps_are_not_silently_chosen (test_modeled_assessment_unit.RecordJoinUnitTests.test_conflicting_ids_or_overlaps_are_not_silently_chosen) ... ok
+test_direct_discharge_requires_explicit_outfall_not_nearby_gsi (test_modeled_assessment_unit.RecordJoinUnitTests.test_direct_discharge_requires_explicit_outfall_not_nearby_gsi) ... ok
+test_explicit_system_id_links_to_receiver_and_preserves_review_status (test_modeled_assessment_unit.RecordJoinUnitTests.test_explicit_system_id_links_to_receiver_and_preserves_review_status) ... ok
+test_footprint_fallback_is_explicit_direct_rainfall_scenario (test_modeled_assessment_unit.RecordJoinUnitTests.test_footprint_fallback_is_explicit_direct_rainfall_scenario) ... ok
+test_missing_explicit_id_does_not_match_another_receiver (test_modeled_assessment_unit.RecordJoinUnitTests.test_missing_explicit_id_does_not_match_another_receiver) ... ok
+test_rejection_and_npdes_are_not_overridden_by_ai (test_modeled_assessment_unit.RecordJoinUnitTests.test_rejection_and_npdes_are_not_overridden_by_ai) ... ok
+test_source_crs_mismatch_does_not_supply_public_footprint (test_modeled_assessment_unit.RecordJoinUnitTests.test_source_crs_mismatch_does_not_supply_public_footprint) ... ok
+test_unique_receiver_overlap_is_candidate_link (test_modeled_assessment_unit.RecordJoinUnitTests.test_unique_receiver_overlap_is_candidate_link) ... ok
+
+----------------------------------------------------------------------
+Ran 42 tests in 0.150s
+
+OK
+test_aggregate_credit_does_not_establish_reserved_physical_capacity (test_assessment_policy.AssessmentPolicyTests.test_aggregate_credit_does_not_establish_reserved_physical_capacity) ... ok
+test_attachment_ref_must_exist (test_assessment_policy.AssessmentPolicyTests.test_attachment_ref_must_exist) ... ok
+test_candidate_rejection_and_proposed_record_cannot_become_credit (test_assessment_policy.AssessmentPolicyTests.test_candidate_rejection_and_proposed_record_cannot_become_credit) ... ok
+test_combined_preserves_totals_and_cannot_credit_corrected_away_area (test_assessment_policy.AssessmentPolicyTests.test_combined_preserves_totals_and_cannot_credit_corrected_away_area) ... ok
+test_contradictory_supplied_existing_ledger_blocks_without_npdes (test_assessment_policy.AssessmentPolicyTests.test_contradictory_supplied_existing_ledger_blocks_without_npdes) ... ok
+test_credit_minimum_does_not_block_measurement_only_appeal (test_assessment_policy.AssessmentPolicyTests.test_credit_minimum_does_not_block_measurement_only_appeal) ... ok
+test_current_period_and_minimum_allocation_remain_enforced (test_assessment_policy.AssessmentPolicyTests.test_current_period_and_minimum_allocation_remain_enforced) ... ok
+test_custom_tariff_does_not_enable_current_rules_in_other_period (test_assessment_policy.AssessmentPolicyTests.test_custom_tariff_does_not_enable_current_rules_in_other_period) ... ok
+test_direct_discharge_city_infrastructure_route_and_condition_blocks (test_assessment_policy.AssessmentPolicyTests.test_direct_discharge_city_infrastructure_route_and_condition_blocks) ... ok
+test_direct_factor_is_ninety_percent (test_assessment_policy.AssessmentPolicyTests.test_direct_factor_is_ninety_percent) ... ok
+test_each_category_missing_evidence_and_known_answer (test_assessment_policy.AssessmentPolicyTests.test_each_category_missing_evidence_and_known_answer) ... ok
+test_existing_credits_preserved_and_reconciliation_required (test_assessment_policy.AssessmentPolicyTests.test_existing_credits_preserved_and_reconciliation_required) ... ok
+test_existing_npdes_alone_does_not_generate_increment (test_assessment_policy.AssessmentPolicyTests.test_existing_npdes_alone_does_not_generate_increment) ... ok
+test_green_roof_depth_and_pavement_construction_are_required (test_assessment_policy.AssessmentPolicyTests.test_green_roof_depth_and_pavement_construction_are_required) ... ok
+test_historical_flags_no_refund_and_missing_period_unknown (test_assessment_policy.AssessmentPolicyTests.test_historical_flags_no_refund_and_missing_period_unknown) ... ok
+test_invalid_source_url_is_not_supporting_evidence (test_assessment_policy.AssessmentPolicyTests.test_invalid_source_url_is_not_supporting_evidence) ... ok
+test_itemized_existing_physical_area_cannot_be_reused_below_recorded_ia (test_assessment_policy.AssessmentPolicyTests.test_itemized_existing_physical_area_cannot_be_reused_below_recorded_ia) ... ok
+test_leap_year_compliance_boundary (test_assessment_policy.AssessmentPolicyTests.test_leap_year_compliance_boundary) ... ok
+test_legacy_benefit_and_new_system_share_one_spatial_ledger (test_assessment_policy.AssessmentPolicyTests.test_legacy_benefit_and_new_system_share_one_spatial_ledger) ... ok
+test_malformed_or_duplicate_records_are_rejected_before_source_lookup (test_assessment_policy.AssessmentPolicyTests.test_malformed_or_duplicate_records_are_rejected_before_source_lookup) ... ok
+test_managed_footprint_and_physical_ia_are_separate_and_unchanged (test_assessment_policy.AssessmentPolicyTests.test_managed_footprint_and_physical_ia_are_separate_and_unchanged) ... ok
+test_manual_and_modeled_inputs_not_documented_savings (test_assessment_policy.AssessmentPolicyTests.test_manual_and_modeled_inputs_not_documented_savings) ... ok
+test_multiple_categories_overlap_blocks_combined_not_eligibility_screen (test_assessment_policy.AssessmentPolicyTests.test_multiple_categories_overlap_blocks_combined_not_eligibility_screen) ... ok
+test_new_npdes_reconciles_itemized_existing_credit_ledger (test_assessment_policy.AssessmentPolicyTests.test_new_npdes_reconciles_itemized_existing_credit_ledger) ... ok
+test_no_billing_baseline_or_unverified_bill_remains_partial (test_assessment_policy.AssessmentPolicyTests.test_no_billing_baseline_or_unverified_bill_remains_partial) ... ok
+test_non_boolean_upstream_presence_cannot_bypass_smp_evidence (test_assessment_policy.AssessmentPolicyTests.test_non_boolean_upstream_presence_cannot_bypass_smp_evidence) ... ok
+test_npdes_alone_seven_percent_area_ledger_before_rounding (test_assessment_policy.AssessmentPolicyTests.test_npdes_alone_seven_percent_area_ledger_before_rounding) ... ok
+test_npdes_iar_ga_interpretation_remains_explicitly_unresolved (test_assessment_policy.AssessmentPolicyTests.test_npdes_iar_ga_interpretation_remains_explicitly_unresolved) ... ok
+test_npdes_identity_inactive_construction_and_compliance_period_rejected (test_assessment_policy.AssessmentPolicyTests.test_npdes_identity_inactive_construction_and_compliance_period_rejected) ... ok
+test_npdes_plus_management_uses_uplift_and_residual_once (test_assessment_policy.AssessmentPolicyTests.test_npdes_plus_management_uses_uplift_and_residual_once) ... ok
+test_npdes_plus_surface_discharge_uses_ninety_seven_percent (test_assessment_policy.AssessmentPolicyTests.test_npdes_plus_surface_discharge_uses_ninety_seven_percent) ... ok
+test_npdes_with_open_space_uses_table_factor_and_residual_impervious (test_assessment_policy.AssessmentPolicyTests.test_npdes_with_open_space_uses_table_factor_and_residual_impervious) ... ok
+test_open_space_allocations_need_recorded_capacity_before_correction (test_assessment_policy.AssessmentPolicyTests.test_open_space_allocations_need_recorded_capacity_before_correction) ... ok
+test_physical_ia_geometry_and_scalar_mismatch_are_explicit (test_assessment_policy.AssessmentPolicyTests.test_physical_ia_geometry_and_scalar_mismatch_are_explicit) ... ok
+test_reproducible_hash_and_no_mutation_or_routing (test_assessment_policy.AssessmentPolicyTests.test_reproducible_hash_and_no_mutation_or_routing) ... ok
+test_unknown_surface_not_zero_and_correction_only_when_complete (test_assessment_policy.AssessmentPolicyTests.test_unknown_surface_not_zero_and_correction_only_when_complete) ... ok
+
+----------------------------------------------------------------------
+Ran 36 tests in 0.185s
+
+OK
+
+Node syntax exit 0; UI behavior harness exit 0.
+UI behavior checks passed: local open, explicit assessment, unknowns, escaping, review lineage, history dates, GIS isolation.
+
+Final real address request:
+{
+  "http_status": 200,
+  "elapsed_seconds": 28.119,
+  "request": {
+    "query": "5300 Whitaker Ave"
+  },
+  "response_sha256": "258403a30841a917e0003c1329a77b8985005dcead8f5e7cad4e9f8e21cc7854"
+}
+
+Actual saved-run checks and hashes:
+{
+  "status": "passed",
+  "checks": [
+    "Final address HTTP 200",
+    "Correct saved property",
+    "Saved input hash matches response and input",
+    "Native verified metre grid retained",
+    "Semantic estimates from 2025 imagery",
+    "Modeled cover area conserved",
+    "Documented construction classification survives fresh address run",
+    "Construction permit has no industrial savings value",
+    "Recorded public baseline reconciles",
+    "Financial reconciliation: ('nominal', '62571', 'lower')",
+    "Financial reconciliation: ('nominal', '62571', 'nominal')",
+    "Financial reconciliation: ('nominal', '62571', 'upper')",
+    "Financial reconciliation: ('nominal', 'all_unassigned_gsi', 'lower')",
+    "Financial reconciliation: ('nominal', 'all_unassigned_gsi', 'nominal')",
+    "Financial reconciliation: ('nominal', 'all_unassigned_gsi', 'upper')",
+    "Financial reconciliation: ('low_offsets', '62571', 'lower')",
+    "Financial reconciliation: ('low_offsets', '62571', 'nominal')",
+    "Financial reconciliation: ('low_offsets', '62571', 'upper')",
+    "Financial reconciliation: ('low_offsets', 'all_unassigned_gsi', 'lower')",
+    "Financial reconciliation: ('low_offsets', 'all_unassigned_gsi', 'nominal')",
+    "Financial reconciliation: ('low_offsets', 'all_unassigned_gsi', 'upper')",
+    "Financial reconciliation: ('high_offsets', '62571', 'lower')",
+    "Financial reconciliation: ('high_offsets', '62571', 'nominal')",
+    "Financial reconciliation: ('high_offsets', '62571', 'upper')",
+    "Financial reconciliation: ('high_offsets', 'all_unassigned_gsi', 'lower')",
+    "Financial reconciliation: ('high_offsets', 'all_unassigned_gsi', 'nominal')",
+    "Financial reconciliation: ('high_offsets', 'all_unassigned_gsi', 'upper')",
+    "Financial reconciliation: ('coarser_2x', '62571', 'lower')",
+    "Financial reconciliation: ('coarser_2x', '62571', 'nominal')",
+    "Financial reconciliation: ('coarser_2x', '62571', 'upper')",
+    "Financial reconciliation: ('coarser_2x', 'all_unassigned_gsi', 'lower')",
+    "Financial reconciliation: ('coarser_2x', 'all_unassigned_gsi', 'nominal')",
+    "Financial reconciliation: ('coarser_2x', 'all_unassigned_gsi', 'upper')",
+    "Financial reconciliation: ('hidden_ground_assumed_impervious', None, None)",
+    "Appeal reconciliation: gross_area_only",
+    "Appeal reconciliation: ia_unknown_assumed_pervious",
+    "Appeal reconciliation: ia_unknown_assumed_impervious",
+    "Earlier and latest assessment snapshots verified",
+    "Previous active output preserved: case.json",
+    "Previous active output preserved: analysis.json",
+    "Previous active output preserved: report.html",
+    "Previous active output preserved: measurements.geojson",
+    "Terrain donor unchanged: case.json",
+    "Terrain donor unchanged: analysis.json",
+    "Terrain donor unchanged: gis-analysis.json",
+    "Terrain donor unchanged: report.html",
+    "Terrain donor unchanged: measurements.geojson",
+    "Export HTTP 200: report.html",
+    "Export equals saved file: report.html",
+    "Export HTTP 200: measurements.geojson",
+    "Export equals saved file: measurements.geojson",
+    "Export HTTP 200: analysis.json",
+    "Export equals saved file: analysis.json",
+    "Export HTTP 200: gis-analysis.json",
+    "Export equals saved file: gis-analysis.json",
+    "Portable export HTTP 200"
+  ],
+  "count": 56,
+  "input_sha256": "5e8d4c6743d3ef1a280d4cc9ede549464a4bcb11e2be6936cf219a8e9d850dd9",
+  "gis_artifact_sha256": "316a9e3ca306da33634b660dbe400f8845573185ffaf231e9170914f956bd29f",
+  "assessment_snapshot_sha256": "ae5a7a5700892cf1b179e1c74c9e1b0a45a739b254ff8023de450e1a46d64914",
+  "exports": {
+    "report.html": {
+      "bytes": 12009648,
+      "sha256": "02d69465a8324b4a9b19232377c0d9f6731d353af6d2903e7f86e6a65a153df1"
+    },
+    "measurements.geojson": {
+      "bytes": 8462555,
+      "sha256": "d35403f0c7f3af2ff9dcd41a1ff36f750ffecdfdbd31ba17c2698ab933c9a793"
+    },
+    "analysis.json": {
+      "bytes": 71546163,
+      "sha256": "55ede0dd6b1c17e76f510c86ba79020036f3dd4cdb09dbb2e60860c513d26bc2"
+    },
+    "gis-analysis.json": {
+      "bytes": 70346563,
+      "sha256": "e6e4c137adf5588dc64c2e4d3924401ab0ca8a01995696a645b3b18cc1071c97"
+    },
+    "evidence-bundle.json": {
+      "public_blob_count": 37,
+      "missing_public_blobs": [],
+      "assessment_count": 2,
+      "revision_count": 6
+    }
+  },
+  "source_sha256": {
+    "drainage_core/model_integration.py": "9eed7f019b37334a0eba78c45528c9047dca774d129ba684147857f6b6c64adc",
+    "stormwater/model_assessment.py": "c9c1a044db88f48f134baef85710d992760a32620fd339733d3a4066083ba68d",
+    "stormwater/assessment_report.py": "1bec32a8454636c65022cb2a592132178c2a8da354694ae73e25aed4db857073",
+    "drainage_core/web/app.js": "93e601af81f2c1d51bb7e3bce65f8b0d6322736164d379f70570eb903f0fe596",
+    "drainage_core/web/style.css": "19eaa901784362e82e946f3bf99d6c466d2972740599c39678139b49da9799cc",
+    "tests/test_modeled_assessment_unit.py": "c38fdfa1cc225c8392546084e5510adbe65f72c58026a0e84013e9f847060a65",
+    "config/terrain-reuse.json": "659e8bc26e36144d8696b295a45d013763ea32fce2675f985da639a4bd8b82ed"
+  },
+  "limits": [
+    "Software/workflow consistency, not empirical accuracy",
+    "No independent labels, drainage boundaries or observed inflows",
+    "Actual invoices, approval and realized savings unverified",
+    "No broad browser compatibility or full-suite run in this task"
+  ]
+}
+
+Isolated browser: address action visibly saved 5300 WHITAKER AVE. Saved-case review showed native-grid GSI 62571 nominal $314.00/month, canopy hypothetical $190.30/month, negative IA appeal values and PAD510200 blocked. Console warning/error list empty. Narrow table DOM layout reports overflow-x:auto; default viewport was not resized. Screenshot: data/validation/whitaker-full-2026-11-15/savings-browser.png. Browser review is one isolated default panel, not a cross-device/browser matrix.
+
+Unrun: full suite, actual portable-bundle import, independent classification/drainage accuracy, field observations, engineering review, approval and actual-invoice reconciliation. Original terrain donor files unchanged and active pre-run outputs preserved by SHA256. No private runtime cases/blobs added to Git.
+
+Final handoff checks: 143 local Markdown links in README/STATE/TASK/CHECKPOINTS/results/integration/reuse docs resolve; runtime case/response/primary notice remain Git-ignored; git diff --check exit 0. Five repository-only resume answers recorded in newest checkpoint.

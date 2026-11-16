@@ -4,15 +4,16 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "local-drainage-workbench"
-version = "0.3.0"
+version = "0.4.0"
 description = "Independent physical GIS/drainage analysis with explicit jurisdiction credit adapters"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = ["numpy==2.5.4", "shapely==2.2.0", "pyproj==3.8.0", "rasterio==1.5.2"]
+dependencies = ["certifi==2026.10.23", "numpy==2.5.4", "shapely==2.2.0", "pyproj==3.8.0", "rasterio==1.5.2"]
 
 [project.scripts]
 drainage-gis = "drainage_core.cli:main"
 drainage-credits = "stormwater.policy_cli:main"
+drainage-prospects = "stormwater.prospects:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
@@ -20,3 +21,4 @@ include = ["drainage_core*", "stormwater*"]
 
 [tool.setuptools.package-data]
 drainage_core = ["web/*.html", "web/*.js", "web/*.css"]
+stormwater = ["web/*.html", "web/*.js", "web/*.css"]

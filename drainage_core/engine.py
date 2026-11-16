@@ -10,7 +10,7 @@ from shapely.geometry import shape,box,Point,mapping
 from .geometry import measure,effective_features,area_sqft,case_area_sqft,union,projected_crs
 from .validation import validate_case
 
-ENGINE_VERSION='gis-engine-v1'
+ENGINE_VERSION='gis-engine-v4'
 
 def canonical(value):
     return json.dumps(value,sort_keys=True,separators=(',',':'),allow_nan=False)
@@ -138,6 +138,10 @@ def analyze(case, *, source_dependencies=None):
     quality=quality_checks([s for s in case.get('sources',[]) if s.get('crs') or s.get('resolution')],
                            construction_completed=case.get('construction_completed'))
     drainage,geometries=routing(case,measurement)
+    from .research import analyze_research
+    research=analyze_research(case,measurement,drainage)
+    from .model_integration import build as integrate_models
+    modeled=integrate_models(case,measurement,drainage,research)
     warnings=list(case.get('warnings',[]))+measurement['warnings']+drainage.get('warnings',[])
     if quality:warnings.append('Source metadata quality has unresolved dates, units, coverage or temporal checks; see source_quality_issues')
     validation=validate_case(case,measurement,geometries)
@@ -145,11 +149,17 @@ def analyze(case, *, source_dependencies=None):
         if v['status']=='incomplete':warnings.append(kind.upper()+' independent validation incomplete: '+'; '.join(v['blockers']))
     result={'schema_version':1,'result_type':'gis-analysis','engine_version':ENGINE_VERSION,
             'input_sha256':input_hash(case),'measurement':measurement,'drainage':drainage,
+            'research_drainage':research,
+            'modeled_integration':modeled,
             'map_features':effective_features(case),'source_quality_issues':quality,
             'validation':validation,'warnings':list(dict.fromkeys(warnings)),
             'processing_settings':{'dependent_source_families':list(view.get('dependent_source_families',[]))},
             'processing_seconds':round(time.perf_counter()-start,6),
             'manual_review_minutes':case.get('manual_review_minutes'),
             'claim':'Physical GIS screening; source suitability, site conditions and independent validation remain explicit'}
+    if case.get('imagery_age_policy'):
+        result['processing_settings']['imagery_age_policy']=deepcopy(case['imagery_age_policy'])
+    if case.get('terrain_reuse'):
+        result['processing_settings']['terrain_reuse']=deepcopy(case['terrain_reuse'])
     result['analysis_sha256']=result_hash(result)
     return result

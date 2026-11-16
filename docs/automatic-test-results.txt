@@ -1,0 +1,341 @@
+Automatic property assessment verification — 2026-11-15
+
+Final: 240 tests, OK, no skips. Original 219 test functions remain; two expectations
+were corrected so missing canopy is unknown rather than zero, including nullable SI
+unit conversion. Added remote-sensing/provider/HTTP/palette/reprojection/public-replay
+checks. Command: .venv/bin/python -m unittest discover -s tests -v
+Temporary localhost ports were authorized for the HTTP checks.
+
+Passed separately:
+- node --check drainage_core/web/app.js
+- node tests/assessment-ui-checks.js (includes automatic address action and unknown/date UI)
+- Python compilation; git diff --check
+- examples/automatic-public/replay.py: original public raster/legend hashes and source areas
+- Live lookup, classification and imagery for 5300 Whitaker Ave and 1901 Vine St
+- Complete live Whitaker source/native USGS window acquisition with explicit XML unit evidence
+- Isolated in-app browser: entered 1901 Vine St -> automatic acquisition -> source estimates
+  and uncertainties -> saved snapshot. No manual geometry/uploads or personal Chrome.
+
+Resolved findings retained honestly:
+- Nullable missing-canopy values initially broke report fallback arithmetic; fixed.
+- Indexed aerial PNGs initially lacked decoded RGB values; palette/warp regression added.
+- Public replay initially omitted designated area CRS; corrected before asserting replay.
+- Native terrain reprojection could change classification grids; fixed stable area-CRS
+  requests, including signed-zero normalization. Regression verifies equal request URLs.
+
+Limits:
+- Detailed classification is historical 2018; no independent current-site accuracy reference.
+- RGB greenness is an unvalidated vegetation/roof candidate heuristic, not tree identity,
+  green-roof confirmation, pavement permeability or an eligibility decision.
+- Pixel-edge/coverage intervals are sensitivity checks, not statistical confidence limits
+  or bounds on temporal change/classification error. Canopy obscures ground.
+- No real active eligible permit/compliance, award, renewal obligation or invoice established.
+- Modeled surface routing does not establish private connections, inlets or qualifying discharge.
+- Single covering native terrain tile and 250,000-cell limits can leave terrain unavailable.
+- Full browser gesture, responsive, accessibility and field/reference validation incomplete.
+
+Final complete output:
+
+test_original_bytes_roundtrip_and_portability (test_assessment_evidence.AttachmentTests.test_original_bytes_roundtrip_and_portability) ... ok
+test_symlink_and_reference_rejection (test_assessment_evidence.AttachmentTests.test_symlink_and_reference_rejection) ... ok
+test_traversal_executable_disguise_and_mismatch_rejected (test_assessment_evidence.AttachmentTests.test_traversal_executable_disguise_and_mismatch_rejected) ... ok
+test_invalid_or_partial_epa_rows_and_city_failures_are_explicit (test_assessment_evidence.CandidateTests.test_invalid_or_partial_epa_rows_and_city_failures_are_explicit) ... ok
+test_name_and_exact_permit_candidates_require_site_operator_and_compliance (test_assessment_evidence.CandidateTests.test_name_and_exact_permit_candidates_require_site_operator_and_compliance) ... ok
+test_outage_reuses_dated_cache_without_false_empty (test_assessment_evidence.CandidateTests.test_outage_reuses_dated_cache_without_false_empty) ... ok
+test_project_and_system_candidates_never_claim_installed_area (test_assessment_evidence.CandidateTests.test_project_and_system_candidates_never_claim_installed_area) ... ok
+test_review_preserves_old_candidate_and_manual_refs_through_rerun (test_assessment_evidence.CandidateTests.test_review_preserves_old_candidate_and_manual_refs_through_rerun) ... ok
+test_review_rejects_missing_reason_and_dangling_reference (test_assessment_evidence.CandidateTests.test_review_rejects_missing_reason_and_dangling_reference) ... ok
+test_primary_public_example_hashes_and_conservative_normalization (test_assessment_evidence.FrozenPublicExamples.test_primary_public_example_hashes_and_conservative_normalization) ... ok
+test_baseline_pending_retains_available_source_and_invalid_value_is_unknown (test_assessment_evidence.PublicCreditObservations.test_baseline_pending_retains_available_source_and_invalid_value_is_unknown) ... ok
+test_flag_zero_and_one_are_observations_without_awards_or_dates (test_assessment_evidence.PublicCreditObservations.test_flag_zero_and_one_are_observations_without_awards_or_dates) ... ok
+test_missing_flags_stay_unknown_and_zero_does_not_establish_absence (test_assessment_evidence.PublicCreditObservations.test_missing_flags_stay_unknown_and_zero_does_not_establish_absence) ... ok
+test_saved_flags_with_conflicting_sources_are_retained_and_duplicate_snapshots_collapsed (test_assessment_evidence.PublicCreditObservations.test_saved_flags_with_conflicting_sources_are_retained_and_duplicate_snapshots_collapsed) ... ok
+test_attachment_review_rerun_export_portable_import_and_renewals (test_assessment_http.AssessmentHTTPTests.test_attachment_review_rerun_export_portable_import_and_renewals) ... /Users/david/projects/property_analyzer/drainage_core/geometry.py:38: DeprecationWarning: The 'shapely.ops.transform()' function is deprecated. Use 'shapely.transform()' or 'shapely.transform_coordseq()' instead. See https://shapely.readthedocs.io/en/latest/manual.html#shapely.ops.transform for more details.
+  return transform(Transformer.from_crs(source, target, always_xy=True).transform, geometry)
+ok
+test_confirmed_candidate_corrections_survive_public_rerun_and_export (test_assessment_http.AssessmentHTTPTests.test_confirmed_candidate_corrections_survive_public_rerun_and_export) ... ok
+test_failed_sources_preserve_records_and_all_runs (test_assessment_http.AssessmentHTTPTests.test_failed_sources_preserve_records_and_all_runs) ... ok
+test_upload_and_bundle_integrity_boundaries (test_assessment_http.AssessmentHTTPTests.test_upload_and_bundle_integrity_boundaries) ... ok
+test_aggregate_credit_does_not_establish_reserved_physical_capacity (test_assessment_policy.AssessmentPolicyTests.test_aggregate_credit_does_not_establish_reserved_physical_capacity) ... ok
+test_attachment_ref_must_exist (test_assessment_policy.AssessmentPolicyTests.test_attachment_ref_must_exist) ... ok
+test_candidate_rejection_and_proposed_record_cannot_become_credit (test_assessment_policy.AssessmentPolicyTests.test_candidate_rejection_and_proposed_record_cannot_become_credit) ... ok
+test_combined_preserves_totals_and_cannot_credit_corrected_away_area (test_assessment_policy.AssessmentPolicyTests.test_combined_preserves_totals_and_cannot_credit_corrected_away_area) ... ok
+test_contradictory_supplied_existing_ledger_blocks_without_npdes (test_assessment_policy.AssessmentPolicyTests.test_contradictory_supplied_existing_ledger_blocks_without_npdes) ... ok
+test_credit_minimum_does_not_block_measurement_only_appeal (test_assessment_policy.AssessmentPolicyTests.test_credit_minimum_does_not_block_measurement_only_appeal) ... ok
+test_current_period_and_minimum_allocation_remain_enforced (test_assessment_policy.AssessmentPolicyTests.test_current_period_and_minimum_allocation_remain_enforced) ... ok
+test_custom_tariff_does_not_enable_current_rules_in_other_period (test_assessment_policy.AssessmentPolicyTests.test_custom_tariff_does_not_enable_current_rules_in_other_period) ... ok
+test_direct_discharge_city_infrastructure_route_and_condition_blocks (test_assessment_policy.AssessmentPolicyTests.test_direct_discharge_city_infrastructure_route_and_condition_blocks) ... ok
+test_direct_factor_is_ninety_percent (test_assessment_policy.AssessmentPolicyTests.test_direct_factor_is_ninety_percent) ... ok
+test_each_category_missing_evidence_and_known_answer (test_assessment_policy.AssessmentPolicyTests.test_each_category_missing_evidence_and_known_answer) ... ok
+test_existing_credits_preserved_and_reconciliation_required (test_assessment_policy.AssessmentPolicyTests.test_existing_credits_preserved_and_reconciliation_required) ... ok
+test_existing_npdes_alone_does_not_generate_increment (test_assessment_policy.AssessmentPolicyTests.test_existing_npdes_alone_does_not_generate_increment) ... ok
+test_green_roof_depth_and_pavement_construction_are_required (test_assessment_policy.AssessmentPolicyTests.test_green_roof_depth_and_pavement_construction_are_required) ... ok
+test_historical_flags_no_refund_and_missing_period_unknown (test_assessment_policy.AssessmentPolicyTests.test_historical_flags_no_refund_and_missing_period_unknown) ... ok
+test_invalid_source_url_is_not_supporting_evidence (test_assessment_policy.AssessmentPolicyTests.test_invalid_source_url_is_not_supporting_evidence) ... ok
+test_itemized_existing_physical_area_cannot_be_reused_below_recorded_ia (test_assessment_policy.AssessmentPolicyTests.test_itemized_existing_physical_area_cannot_be_reused_below_recorded_ia) ... ok
+test_leap_year_compliance_boundary (test_assessment_policy.AssessmentPolicyTests.test_leap_year_compliance_boundary) ... ok
+test_legacy_benefit_and_new_system_share_one_spatial_ledger (test_assessment_policy.AssessmentPolicyTests.test_legacy_benefit_and_new_system_share_one_spatial_ledger) ... ok
+test_malformed_or_duplicate_records_are_rejected_before_source_lookup (test_assessment_policy.AssessmentPolicyTests.test_malformed_or_duplicate_records_are_rejected_before_source_lookup) ... ok
+test_managed_footprint_and_physical_ia_are_separate_and_unchanged (test_assessment_policy.AssessmentPolicyTests.test_managed_footprint_and_physical_ia_are_separate_and_unchanged) ... ok
+test_manual_and_modeled_inputs_not_documented_savings (test_assessment_policy.AssessmentPolicyTests.test_manual_and_modeled_inputs_not_documented_savings) ... ok
+test_multiple_categories_overlap_blocks_combined_not_eligibility_screen (test_assessment_policy.AssessmentPolicyTests.test_multiple_categories_overlap_blocks_combined_not_eligibility_screen) ... ok
+test_new_npdes_reconciles_itemized_existing_credit_ledger (test_assessment_policy.AssessmentPolicyTests.test_new_npdes_reconciles_itemized_existing_credit_ledger) ... ok
+test_no_billing_baseline_or_unverified_bill_remains_partial (test_assessment_policy.AssessmentPolicyTests.test_no_billing_baseline_or_unverified_bill_remains_partial) ... ok
+test_non_boolean_upstream_presence_cannot_bypass_smp_evidence (test_assessment_policy.AssessmentPolicyTests.test_non_boolean_upstream_presence_cannot_bypass_smp_evidence) ... ok
+test_npdes_alone_seven_percent_area_ledger_before_rounding (test_assessment_policy.AssessmentPolicyTests.test_npdes_alone_seven_percent_area_ledger_before_rounding) ... ok
+test_npdes_iar_ga_interpretation_remains_explicitly_unresolved (test_assessment_policy.AssessmentPolicyTests.test_npdes_iar_ga_interpretation_remains_explicitly_unresolved) ... ok
+test_npdes_identity_inactive_construction_and_compliance_period_rejected (test_assessment_policy.AssessmentPolicyTests.test_npdes_identity_inactive_construction_and_compliance_period_rejected) ... ok
+test_npdes_plus_management_uses_uplift_and_residual_once (test_assessment_policy.AssessmentPolicyTests.test_npdes_plus_management_uses_uplift_and_residual_once) ... ok
+test_npdes_plus_surface_discharge_uses_ninety_seven_percent (test_assessment_policy.AssessmentPolicyTests.test_npdes_plus_surface_discharge_uses_ninety_seven_percent) ... ok
+test_npdes_with_open_space_uses_table_factor_and_residual_impervious (test_assessment_policy.AssessmentPolicyTests.test_npdes_with_open_space_uses_table_factor_and_residual_impervious) ... ok
+test_open_space_allocations_need_recorded_capacity_before_correction (test_assessment_policy.AssessmentPolicyTests.test_open_space_allocations_need_recorded_capacity_before_correction) ... ok
+test_physical_ia_geometry_and_scalar_mismatch_are_explicit (test_assessment_policy.AssessmentPolicyTests.test_physical_ia_geometry_and_scalar_mismatch_are_explicit) ... ok
+test_reproducible_hash_and_no_mutation_or_routing (test_assessment_policy.AssessmentPolicyTests.test_reproducible_hash_and_no_mutation_or_routing) ... ok
+test_unknown_surface_not_zero_and_correction_only_when_complete (test_assessment_policy.AssessmentPolicyTests.test_unknown_surface_not_zero_and_correction_only_when_complete) ... ok
+test_case_directory_symlink_rejected (test_assessment_portability.AssessmentPortabilityTests.test_case_directory_symlink_rejected) ... ok
+test_conflicting_snapshot_rejected_before_current_case_overwrite (test_assessment_portability.AssessmentPortabilityTests.test_conflicting_snapshot_rejected_before_current_case_overwrite) ... ok
+test_originals_from_old_revisions_export_even_if_current_inventory_empty (test_assessment_portability.AssessmentPortabilityTests.test_originals_from_old_revisions_export_even_if_current_inventory_empty) ... ok
+test_snapshot_content_hash_detects_changed_analysis (test_assessment_portability.AssessmentPortabilityTests.test_snapshot_content_hash_detects_changed_analysis) ... ok
+test_policy_and_gis_workflows (test_assessment_ui.AssessmentUITests.test_policy_and_gis_workflows) ... ok
+test_address_to_automatic_measurements_reopen_export_and_rerun (test_automatic_http.AutomaticHTTPTests.test_address_to_automatic_measurements_reopen_export_and_rerun) ... /Users/david/projects/property_analyzer/.venv/lib/python3.12/site-packages/rasterio/io.py:144: NotGeoreferencedWarning: Dataset has no geotransform, gcps, or rpcs. The identity matrix will be returned.
+  rd = writer(
+/Users/david/projects/property_analyzer/.venv/lib/python3.12/site-packages/rasterio/io.py:141: NotGeoreferencedWarning: Dataset has no geotransform, gcps, or rpcs. The identity matrix will be returned.
+  rd = DatasetReader(mempath, driver=driver, sharing=sharing, thread_safe=thread_safe, **kwargs)
+/Users/david/projects/property_analyzer/drainage_core/geometry.py:38: DeprecationWarning: The 'shapely.ops.transform()' function is deprecated. Use 'shapely.transform()' or 'shapely.transform_coordseq()' instead. See https://shapely.readthedocs.io/en/latest/manual.html#shapely.ops.transform for more details.
+  return transform(Transformer.from_crs(source, target, always_xy=True).transform, geometry)
+/Users/david/projects/property_analyzer/.venv/lib/python3.12/site-packages/rasterio/io.py:141: NotGeoreferencedWarning: Dataset has no geotransform, gcps, or rpcs. The identity matrix will be returned.
+  rd = DatasetReader(mempath, driver=driver, sharing=sharing, thread_safe=thread_safe, **kwargs)
+/Users/david/projects/property_analyzer/drainage_core/geometry.py:38: DeprecationWarning: The 'shapely.ops.transform()' function is deprecated. Use 'shapely.transform()' or 'shapely.transform_coordseq()' instead. See https://shapely.readthedocs.io/en/latest/manual.html#shapely.ops.transform for more details.
+  return transform(Transformer.from_crs(source, target, always_xy=True).transform, geometry)
+ok
+test_ambiguous_address_requires_selection_without_acquisition (test_automatic_http.AutomaticHTTPTests.test_ambiguous_address_requires_selection_without_acquisition) ... ok
+test_unknown_sources_return_unknown_canopy_and_partial_assessment (test_automatic_http.AutomaticHTTPTests.test_unknown_sources_return_unknown_canopy_and_partial_assessment) ... ok
+test_saved_native_grid_is_retained_without_silent_source_replacement (test_automatic_site.AutomaticTerrainEvidenceTests.test_saved_native_grid_is_retained_without_silent_source_replacement) ... ok
+test_unknown_vertical_units_cannot_activate_routing (test_automatic_site.AutomaticTerrainEvidenceTests.test_unknown_vertical_units_cannot_activate_routing) ... ok
+test_acquisition_populates_features_and_keeps_manual_corrections (test_automatic_site.AutomaticWorkflowTests.test_acquisition_populates_features_and_keeps_manual_corrections) ... ok
+test_address_lookup_does_not_silently_choose_ambiguous_match (test_automatic_site.AutomaticWorkflowTests.test_address_lookup_does_not_silently_choose_ambiguous_match) ... ok
+test_coordinate_change_preserves_candidate_geometry_and_manual_sources (test_automatic_site.AutomaticWorkflowTests.test_coordinate_change_preserves_candidate_geometry_and_manual_sources) ... /Users/david/projects/property_analyzer/drainage_core/geometry.py:38: DeprecationWarning: The 'shapely.ops.transform()' function is deprecated. Use 'shapely.transform()' or 'shapely.transform_coordseq()' instead. See https://shapely.readthedocs.io/en/latest/manual.html#shapely.ops.transform for more details.
+  return transform(Transformer.from_crs(source, target, always_xy=True).transform, geometry)
+ok
+test_public_footprint_automatically_measured_without_managed_area_or_confirmation (test_automatic_site.AutomaticWorkflowTests.test_public_footprint_automatically_measured_without_managed_area_or_confirmation) ... ok
+test_total_outage_retains_dated_source_or_unknown_without_zero (test_automatic_site.AutomaticWorkflowTests.test_total_outage_retains_dated_source_or_unknown_without_zero) ... ok
+test_bad_public_polygon_leaves_other_estimates_usable (test_automatic_site.BadPublicGeometryTests.test_bad_public_polygon_leaves_other_estimates_usable) ... ok
+test_current_image_candidates_are_measured_and_mapped_without_credit_confirmation (test_automatic_site.ImageCandidateIntegrationTests.test_current_image_candidates_are_measured_and_mapped_without_credit_confirmation) ... /Users/david/projects/property_analyzer/.venv/lib/python3.12/site-packages/rasterio/io.py:144: NotGeoreferencedWarning: Dataset has no geotransform, gcps, or rpcs. The identity matrix will be returned.
+  rd = writer(
+/Users/david/projects/property_analyzer/.venv/lib/python3.12/site-packages/rasterio/io.py:141: NotGeoreferencedWarning: Dataset has no geotransform, gcps, or rpcs. The identity matrix will be returned.
+  rd = DatasetReader(mempath, driver=driver, sharing=sharing, thread_safe=thread_safe, **kwargs)
+/Users/david/projects/property_analyzer/.venv/lib/python3.12/site-packages/rasterio/io.py:141: NotGeoreferencedWarning: Dataset has no geotransform, gcps, or rpcs. The identity matrix will be returned.
+  rd = DatasetReader(mempath, driver=driver, sharing=sharing, thread_safe=thread_safe, **kwargs)
+ok
+test_indexed_aerial_colors_are_decoded_before_candidate_analysis_and_warp (test_automatic_site.PaletteAndPublicReplayTests.test_indexed_aerial_colors_are_decoded_before_candidate_analysis_and_warp) ... /Users/david/projects/property_analyzer/.venv/lib/python3.12/site-packages/rasterio/io.py:144: NotGeoreferencedWarning: Dataset has no geotransform, gcps, or rpcs. The identity matrix will be returned.
+  rd = writer(
+/Users/david/projects/property_analyzer/.venv/lib/python3.12/site-packages/rasterio/io.py:141: NotGeoreferencedWarning: Dataset has no geotransform, gcps, or rpcs. The identity matrix will be returned.
+  rd = DatasetReader(mempath, driver=driver, sharing=sharing, thread_safe=thread_safe, **kwargs)
+/Users/david/projects/property_analyzer/.venv/lib/python3.12/site-packages/rasterio/io.py:141: NotGeoreferencedWarning: Dataset has no geotransform, gcps, or rpcs. The identity matrix will be returned.
+  rd = DatasetReader(mempath, driver=driver, sharing=sharing, thread_safe=thread_safe, **kwargs)
+/Users/david/projects/property_analyzer/.venv/lib/python3.12/site-packages/rasterio/io.py:144: NotGeoreferencedWarning: Dataset has no geotransform, gcps, or rpcs. The identity matrix will be returned.
+  rd = writer(
+/Users/david/projects/property_analyzer/.venv/lib/python3.12/site-packages/rasterio/io.py:141: NotGeoreferencedWarning: Dataset has no geotransform, gcps, or rpcs. The identity matrix will be returned.
+  rd = DatasetReader(mempath, driver=driver, sharing=sharing, thread_safe=thread_safe, **kwargs)
+ok
+test_original_public_renderings_replay_offline_without_accuracy_claim (test_automatic_site.PaletteAndPublicReplayTests.test_original_public_renderings_replay_offline_without_accuracy_claim) ... ok
+test_classified_canopy_is_measured_without_calling_hidden_ground_pervious (test_automatic_site.RemoteSensingTests.test_classified_canopy_is_measured_without_calling_hidden_ground_pervious) ... ok
+test_edge_ranges_clip_to_parcel_and_keep_missing_coverage_in_upper (test_automatic_site.RemoteSensingTests.test_edge_ranges_clip_to_parcel_and_keep_missing_coverage_in_upper) ... ok
+test_legend_is_checked_instead_of_assuming_display_colors (test_automatic_site.RemoteSensingTests.test_legend_is_checked_instead_of_assuming_display_colors) ... /Users/david/projects/property_analyzer/.venv/lib/python3.12/site-packages/rasterio/io.py:144: NotGeoreferencedWarning: Dataset has no geotransform, gcps, or rpcs. The identity matrix will be returned.
+  rd = writer(
+/Users/david/projects/property_analyzer/.venv/lib/python3.12/site-packages/rasterio/io.py:141: NotGeoreferencedWarning: Dataset has no geotransform, gcps, or rpcs. The identity matrix will be returned.
+  rd = DatasetReader(mempath, driver=driver, sharing=sharing, thread_safe=thread_safe, **kwargs)
+ok
+test_missing_canopy_vs_explicit_zero_are_distinct (test_automatic_site.RemoteSensingTests.test_missing_canopy_vs_explicit_zero_are_distinct) ... ok
+test_rgb_green_candidate_is_not_a_canopy_classifier (test_automatic_site.RemoteSensingTests.test_rgb_green_candidate_is_not_a_canopy_classifier) ... ok
+test_transparency_and_unknown_colors_do_not_become_classes (test_automatic_site.RemoteSensingTests.test_transparency_and_unknown_colors_do_not_become_classes) ... /Users/david/projects/property_analyzer/.venv/lib/python3.12/site-packages/rasterio/io.py:144: NotGeoreferencedWarning: Dataset has no geotransform, gcps, or rpcs. The identity matrix will be returned.
+  rd = writer(
+/Users/david/projects/property_analyzer/.venv/lib/python3.12/site-packages/rasterio/io.py:141: NotGeoreferencedWarning: Dataset has no geotransform, gcps, or rpcs. The identity matrix will be returned.
+  rd = DatasetReader(mempath, driver=driver, sharing=sharing, thread_safe=thread_safe, **kwargs)
+ok
+test_native_terrain_reprojection_does_not_change_classification_request_grid (test_automatic_site.StableClassificationGridTests.test_native_terrain_reprojection_does_not_change_classification_request_grid) ... /Users/david/projects/property_analyzer/drainage_core/geometry.py:38: DeprecationWarning: The 'shapely.ops.transform()' function is deprecated. Use 'shapely.transform()' or 'shapely.transform_coordseq()' instead. See https://shapely.readthedocs.io/en/latest/manual.html#shapely.ops.transform for more details.
+  return transform(Transformer.from_crs(source, target, always_xy=True).transform, geometry)
+/Users/david/projects/property_analyzer/drainage_core/geometry.py:38: DeprecationWarning: The 'shapely.ops.transform()' function is deprecated. Use 'shapely.transform()' or 'shapely.transform_coordseq()' instead. See https://shapely.readthedocs.io/en/latest/manual.html#shapely.ops.transform for more details.
+  return transform(Transformer.from_crs(source, target, always_xy=True).transform, geometry)
+/Users/david/projects/property_analyzer/.venv/lib/python3.12/site-packages/rasterio/io.py:141: NotGeoreferencedWarning: Dataset has no geotransform, gcps, or rpcs. The identity matrix will be returned.
+  rd = DatasetReader(mempath, driver=driver, sharing=sharing, thread_safe=thread_safe, **kwargs)
+/Users/david/projects/property_analyzer/drainage_core/geometry.py:38: DeprecationWarning: The 'shapely.ops.transform()' function is deprecated. Use 'shapely.transform()' or 'shapely.transform_coordseq()' instead. See https://shapely.readthedocs.io/en/latest/manual.html#shapely.ops.transform for more details.
+  return transform(Transformer.from_crs(source, target, always_xy=True).transform, geometry)
+ok
+test_actual_bill_difference_retained (test_billing.BillingTests.test_actual_bill_difference_retained) ... ok
+test_allocation_rounding_and_discount (test_billing.BillingTests.test_allocation_rounding_and_discount) ... ok
+test_ceiling_exact_and_above_increment (test_billing.BillingTests.test_ceiling_exact_and_above_increment) ... ok
+test_combined_is_baseline_minus_final (test_billing.BillingTests.test_combined_is_baseline_minus_final) ... ok
+test_corrected_away_area_cannot_also_earn_benefit (test_billing.BillingTests.test_corrected_away_area_cannot_also_earn_benefit) ... ok
+test_credit_minimum_parcel_area (test_billing.BillingTests.test_credit_minimum_parcel_area) ... ok
+test_documented_and_modeled_not_conflated (test_billing.BillingTests.test_documented_and_modeled_not_conflated) ... ok
+test_duplicate_benefit_area_blocks (test_billing.BillingTests.test_duplicate_benefit_area_blocks) ... ok
+test_empty_benefits_do_not_change_multiaccount_minimum (test_billing.BillingTests.test_empty_benefits_do_not_change_multiaccount_minimum) ... ok
+test_existing_benefits_preserved_and_overlap_blocks (test_billing.BillingTests.test_existing_benefits_preserved_and_overlap_blocks) ... ok
+test_existing_credit_baseline_uses_same_minimum_policy (test_billing.BillingTests.test_existing_credit_baseline_uses_same_minimum_policy) ... ok
+test_existing_npdes_preserved_new_combo_unresolved (test_billing.BillingTests.test_existing_npdes_preserved_new_combo_unresolved) ... ok
+test_independent_known_bill (test_billing.BillingTests.test_independent_known_bill) ... ok
+test_invalid_allocation_and_unknown_discount (test_billing.BillingTests.test_invalid_allocation_and_unknown_discount) ... ok
+test_invalid_area (test_billing.BillingTests.test_invalid_area) ... ok
+test_minimum_and_fee (test_billing.BillingTests.test_minimum_and_fee) ... ok
+test_missing_surfaces_do_not_claim_savings (test_billing.BillingTests.test_missing_surfaces_do_not_claim_savings) ... ok
+test_npdes_evidence_cannot_create_unverified_factor (test_billing.BillingTests.test_npdes_evidence_cannot_create_unverified_factor) ... ok
+test_statutory_small_parcel_ia (test_billing.BillingTests.test_statutory_small_parcel_ia) ... ok
+test_string_discount_cannot_bypass_verification (test_billing.BillingTests.test_string_discount_cannot_bypass_verification) ... ok
+test_tariff_period_enforced (test_billing.BillingTests.test_tariff_period_enforced) ... ok
+test_uncertified_or_missing_credit_evidence_blocks (test_billing.BillingTests.test_uncertified_or_missing_credit_evidence_blocks) ... ok
+test_whitaker_public_account_reconciles (test_billing.BillingTests.test_whitaker_public_account_reconciles) ... ok
+test_benchmark_reports_separate_missing_reference_blockers (test_cli.CliTests.test_benchmark_reports_separate_missing_reference_blockers) ... ok
+test_demo_analyze_and_reopen (test_cli.CliTests.test_demo_analyze_and_reopen) ... ok
+test_import_uses_only_frozen_acquisition (test_cli.CliTests.test_import_uses_only_frozen_acquisition) ... ok
+test_missing_case_reports_error (test_cli.CliTests.test_missing_case_reports_error) ... ok
+test_synthetic_reference_cannot_count_as_real_empirical_validation (test_cli.CliTests.test_synthetic_reference_cannot_count_as_real_empirical_validation) ... ok
+test_fixture_has_documented_pipe_unknown_roof_and_separate_screens (test_cli.SyntheticFixtureTests.test_fixture_has_documented_pipe_unknown_roof_and_separate_screens) ... ok
+test_fixture_reproducible_and_known_vector_answers (test_cli.SyntheticFixtureTests.test_fixture_reproducible_and_known_vector_answers) ... ok
+test_declared_source_dependence_is_location_neutral_and_surface_specific (test_core_boundaries.CoreBoundaryTests.test_declared_source_dependence_is_location_neutral_and_surface_specific) ... ok
+test_fresh_core_imports_cannot_load_legacy_or_jurisdiction_packages (test_core_boundaries.CoreBoundaryTests.test_fresh_core_imports_cannot_load_legacy_or_jurisdiction_packages) ... ok
+test_generic_arcgis_defaults_to_wgs84_and_records_explicit_projected_units (test_core_boundaries.CoreBoundaryTests.test_generic_arcgis_defaults_to_wgs84_and_records_explicit_projected_units) ... ok
+test_generic_cache_uses_neutral_client_and_preserves_replay (test_core_boundaries.CoreBoundaryTests.test_generic_cache_uses_neutral_client_and_preserves_replay) ... ok
+test_generic_workspace_replay_preserves_input_revisions_and_stable_physical_artifact (test_core_boundaries.CoreBoundaryTests.test_generic_workspace_replay_preserves_input_revisions_and_stable_physical_artifact) ... ok
+test_gis_artifact_remains_frozen_when_caller_edits_source_lineage (test_core_boundaries.CoreBoundaryTests.test_gis_artifact_remains_frozen_when_caller_edits_source_lineage) ... ok
+test_legacy_modules_delegate_to_same_implementations_and_keep_query_default (test_core_boundaries.CoreBoundaryTests.test_legacy_modules_delegate_to_same_implementations_and_keep_query_default) ... ok
+test_non_philadelphia_metric_and_foot_inputs_have_same_known_area_and_outlet (test_core_boundaries.CoreBoundaryTests.test_non_philadelphia_metric_and_foot_inputs_have_same_known_area_and_outlet) ... ok
+test_si_area_helpers_respect_native_units_and_designated_area_crs (test_core_boundaries.CoreBoundaryTests.test_si_area_helpers_respect_native_units_and_designated_area_crs) ... ok
+test_barrier_diverts_and_prevents_corner_cutting (test_drainage.DrainageTests.test_barrier_diverts_and_prevents_corner_cutting) ... ok
+test_closed_flat_and_depression_preserved (test_drainage.DrainageTests.test_closed_flat_and_depression_preserved) ... ok
+test_determinism_and_input_immutable (test_drainage.DrainageTests.test_determinism_and_input_immutable) ... ok
+test_documented_inlet_pipe_transfers_but_unknown_stops (test_drainage.DrainageTests.test_documented_inlet_pipe_transfers_but_unknown_stops) ... ok
+test_edge_and_extent_reported (test_drainage.DrainageTests.test_edge_and_extent_reported) ... ok
+test_flat_routes_to_lower_exit_without_cycles (test_drainage.DrainageTests.test_flat_routes_to_lower_exit_without_cycles) ... ok
+test_invalid_grid_and_features_rejected (test_drainage.DrainageTests.test_invalid_grid_and_features_rejected) ... ok
+test_known_storage_is_not_filled_or_assumed_to_outflow (test_drainage.DrainageTests.test_known_storage_is_not_filled_or_assumed_to_outflow) ... ok
+test_missing_terrain_is_unknown_not_outlet_or_zero (test_drainage.DrainageTests.test_missing_terrain_is_unknown_not_outlet_or_zero) ... ok
+test_off_parcel_contributions_remain_separate (test_drainage.DrainageTests.test_off_parcel_contributions_remain_separate) ... ok
+test_pipe_cycle_is_unresolved (test_drainage.DrainageTests.test_pipe_cycle_is_unresolved) ... ok
+test_ridge_separates_catchments (test_drainage.DrainageTests.test_ridge_separates_catchments) ... ok
+test_roof_does_not_silently_route_to_nearby_inlet (test_drainage.DrainageTests.test_roof_does_not_silently_route_to_nearby_inlet) ... ok
+test_scenario_pipe_remains_scenario_through_documented_link (test_drainage.DrainageTests.test_scenario_pipe_remains_scenario_through_documented_link) ... ok
+test_sloping_plane_reaches_known_outlet (test_drainage.DrainageTests.test_sloping_plane_reaches_known_outlet) ... ok
+test_units_and_separate_vertical_conversion (test_drainage.DrainageTests.test_units_and_separate_vertical_conversion) ... ok
+test_missing_reference_cells_reported (test_drainage.ReferenceMetricTests.test_missing_reference_cells_reported) ... ok
+test_same_total_area_can_have_critical_routing_disagreements (test_drainage.ReferenceMetricTests.test_same_total_area_can_have_critical_routing_disagreements) ... ok
+test_foreign_origin_host_and_provider_endpoint_are_rejected (test_generic_server.GenericHTTPTests.test_foreign_origin_host_and_provider_endpoint_are_rejected) ... ok
+test_generic_config_and_shared_editable_map_assets (test_generic_server.GenericHTTPTests.test_generic_config_and_shared_editable_map_assets) ... ok
+test_native_dem_alignment_keeps_physical_area_accounting (test_generic_server.GenericHTTPTests.test_native_dem_alignment_keeps_physical_area_accounting) ... ok
+test_other_location_boundary_and_conveyance_feature_import (test_generic_server.GenericHTTPTests.test_other_location_boundary_and_conveyance_feature_import) ... ok
+test_save_rerun_and_exports_contain_physical_evidence_without_policy (test_generic_server.GenericHTTPTests.test_save_rerun_and_exports_contain_physical_evidence_without_policy) ... ok
+test_canopy_keeps_physical_ia_and_only_ground_overlap (test_geometry.GeometryTests.test_canopy_keeps_physical_ia_and_only_ground_overlap) ... ok
+test_correction_is_replayable_and_observation_preserved (test_geometry.GeometryTests.test_correction_is_replayable_and_observation_preserved) ... ok
+test_invalid_geometry_rejected (test_geometry.GeometryTests.test_invalid_geometry_rejected) ... ok
+test_metre_foot_equivalence_and_geographic_rejected (test_geometry.GeometryTests.test_metre_foot_equivalence_and_geographic_rejected) ... ok
+test_union_clip_hole (test_geometry.GeometryTests.test_union_clip_hole) ... ok
+test_unknown_and_conflict_not_pervious (test_geometry.GeometryTests.test_unknown_and_conflict_not_pervious) ... ok
+test_auto_projection_polar_boundary_requires_explicit_suitable_projection (test_gis_cli.GenericCliTests.test_auto_projection_polar_boundary_requires_explicit_suitable_projection) ... ok
+test_dem_requires_vertical_units_and_cannot_be_reprojected_silently (test_gis_cli.GenericCliTests.test_dem_requires_vertical_units_and_cannot_be_reprojected_silently) ... ok
+test_explicit_and_embedded_crs_conflict_is_rejected (test_gis_cli.GenericCliTests.test_explicit_and_embedded_crs_conflict_is_rejected) ... ok
+test_fresh_cli_process_cannot_import_the_jurisdiction_package (test_gis_cli.GenericCliTests.test_fresh_cli_process_cannot_import_the_jurisdiction_package) ... ok
+test_global_boundary_without_dem_selects_southern_utm_and_reports_routing_unavailable (test_gis_cli.GenericCliTests.test_global_boundary_without_dem_selects_southern_utm_and_reports_routing_unavailable) ... /Users/david/projects/property_analyzer/drainage_core/geometry.py:38: DeprecationWarning: The 'shapely.ops.transform()' function is deprecated. Use 'shapely.transform()' or 'shapely.transform_coordseq()' instead. See https://shapely.readthedocs.io/en/latest/manual.html#shapely.ops.transform for more details.
+  return transform(Transformer.from_crs(source, target, always_xy=True).transform, geometry)
+ok
+test_native_metric_dem_with_wgs84_vectors_keeps_units_as_explicit_assumption (test_gis_cli.GenericCliTests.test_native_metric_dem_with_wgs84_vectors_keeps_units_as_explicit_assumption) ... /Users/david/projects/property_analyzer/drainage_core/geometry.py:38: DeprecationWarning: The 'shapely.ops.transform()' function is deprecated. Use 'shapely.transform()' or 'shapely.transform_coordseq()' instead. See https://shapely.readthedocs.io/en/latest/manual.html#shapely.ops.transform for more details.
+  return transform(Transformer.from_crs(source, target, always_xy=True).transform, geometry)
+/Users/david/projects/property_analyzer/drainage_core/geometry.py:38: DeprecationWarning: The 'shapely.ops.transform()' function is deprecated. Use 'shapely.transform()' or 'shapely.transform_coordseq()' instead. See https://shapely.readthedocs.io/en/latest/manual.html#shapely.ops.transform for more details.
+  return transform(Transformer.from_crs(source, target, always_xy=True).transform, geometry)
+ok
+test_non_us_demo_and_frozen_rerun_have_no_credit_or_billing_layer (test_gis_cli.GenericCliTests.test_non_us_demo_and_frozen_rerun_have_no_credit_or_billing_layer) ... ok
+test_projected_coordinates_without_crs_are_rejected_instead_of_assumed_geographic (test_gis_cli.GenericCliTests.test_projected_coordinates_without_crs_are_rejected_instead_of_assumed_geographic) ... ok
+test_verified_unit_status_requires_reviewed_evidence_not_only_a_label (test_gis_cli.GenericCliTests.test_verified_unit_status_requires_reviewed_evidence_not_only_a_label) ... ok
+test_corrected_away_surface_cannot_retain_credit_eligibility (test_integration.BenefitSpatialIntegrationTests.test_corrected_away_surface_cannot_retain_credit_eligibility) ... ok
+test_scalar_credit_cannot_bypass_spatial_accounting (test_integration.BenefitSpatialIntegrationTests.test_scalar_credit_cannot_bypass_spatial_accounting) ... ok
+test_two_spatial_benefits_cannot_double_count_the_same_region (test_integration.BenefitSpatialIntegrationTests.test_two_spatial_benefits_cannot_double_count_the_same_region) ... ok
+test_canopy_over_overlapping_roof_paving_and_lawn_is_ground_only (test_integration.GeometryRoutingIntegrationTests.test_canopy_over_overlapping_roof_paving_and_lawn_is_ground_only) ... ok
+test_correction_reclassifies_ground_and_replays_roof_routing (test_integration.GeometryRoutingIntegrationTests.test_correction_reclassifies_ground_and_replays_roof_routing) ... ok
+test_explicit_roof_pipe_connection_transfers_without_changing_physical_ia (test_integration.GeometryRoutingIntegrationTests.test_explicit_roof_pipe_connection_transfers_without_changing_physical_ia) ... ok
+test_ground_catchment_intersects_ia_separately_from_roof_unknown (test_integration.GeometryRoutingIntegrationTests.test_ground_catchment_intersects_ia_separately_from_roof_unknown) ... ok
+test_nodata_and_barrier_cells_never_become_contributing_catchments (test_integration.GeometryRoutingIntegrationTests.test_nodata_and_barrier_cells_never_become_contributing_catchments) ... ok
+test_offparcel_flow_preserved_while_ia_is_parcel_clipped (test_integration.GeometryRoutingIntegrationTests.test_offparcel_flow_preserved_while_ia_is_parcel_clipped) ... ok
+test_partial_unknown_ia_does_not_become_zero_or_complete (test_integration.GeometryRoutingIntegrationTests.test_partial_unknown_ia_does_not_become_zero_or_complete) ... ok
+test_pwd_inlet_does_not_make_independent_surface_measurement_circular (test_integration.GeometryRoutingIntegrationTests.test_pwd_inlet_does_not_make_independent_surface_measurement_circular) ... ok
+test_terrain_crs_or_units_mismatch_blocks_integration (test_integration.GeometryRoutingIntegrationTests.test_terrain_crs_or_units_mismatch_blocks_integration) ... ok
+test_ia_and_drainage_validation_require_distinct_references (test_integration.IndependentValidationIntegrationTests.test_ia_and_drainage_validation_require_distinct_references) ... ok
+test_metrics_expose_equal_area_wrong_location (test_integration.IndependentValidationIntegrationTests.test_metrics_expose_equal_area_wrong_location) ... ok
+test_nonindependent_or_unstable_reference_does_not_validate (test_integration.IndependentValidationIntegrationTests.test_nonindependent_or_unstable_reference_does_not_validate) ... ok
+test_point_or_zero_area_reference_rejected (test_integration.IndependentValidationIntegrationTests.test_point_or_zero_area_reference_rejected) ... ok
+test_input_hash_changes_with_source_snapshot_and_corrections (test_integration.PersistenceIntegrationTests.test_input_hash_changes_with_source_snapshot_and_corrections) ... ok
+test_save_reopen_preserves_manual_correction_and_report_without_acquisition (test_integration.PersistenceIntegrationTests.test_save_reopen_preserves_manual_correction_and_report_without_acquisition) ... /Users/david/projects/property_analyzer/drainage_core/geometry.py:38: DeprecationWarning: The 'shapely.ops.transform()' function is deprecated. Use 'shapely.transform()' or 'shapely.transform_coordseq()' instead. See https://shapely.readthedocs.io/en/latest/manual.html#shapely.ops.transform for more details.
+  return transform(Transformer.from_crs(source, target, always_xy=True).transform, geometry)
+ok
+test_account_policy_changes_reuse_same_physical_analysis (test_jurisdiction_adapter.JurisdictionAdapterTests.test_account_policy_changes_reuse_same_physical_analysis) ... ok
+test_benefit_outside_measured_eligible_region_fails (test_jurisdiction_adapter.JurisdictionAdapterTests.test_benefit_outside_measured_eligible_region_fails) ... ok
+test_changed_physical_case_is_rejected_as_stale (test_jurisdiction_adapter.JurisdictionAdapterTests.test_changed_physical_case_is_rejected_as_stale) ... ok
+test_explicit_profile_dispatch_and_invalid_policy_rejected (test_jurisdiction_adapter.JurisdictionAdapterTests.test_explicit_profile_dispatch_and_invalid_policy_rejected) ... ok
+test_known_bill_and_spatial_credit_without_mutating_gis_or_case (test_jurisdiction_adapter.JurisdictionAdapterTests.test_known_bill_and_spatial_credit_without_mutating_gis_or_case) ... ok
+test_missing_baseline_is_policy_blocker_not_physical_zero (test_jurisdiction_adapter.JurisdictionAdapterTests.test_missing_baseline_is_policy_blocker_not_physical_zero) ... ok
+test_modified_measurements_or_composed_policy_results_cannot_be_reused_as_gis (test_jurisdiction_adapter.JurisdictionAdapterTests.test_modified_measurements_or_composed_policy_results_cannot_be_reused_as_gis) ... ok
+test_policy_reuse_does_not_reroute_and_records_different_policy_hash (test_jurisdiction_adapter.JurisdictionAdapterTests.test_policy_reuse_does_not_reroute_and_records_different_policy_hash) ... ok
+test_source_metadata_change_requires_matching_gis_artifact (test_jurisdiction_adapter.JurisdictionAdapterTests.test_source_metadata_change_requires_matching_gis_artifact) ... ok
+test_api_error_never_becomes_empty_coverage (test_pipeline.CacheTests.test_api_error_never_becomes_empty_coverage) ... ok
+test_blob_tamper_is_detected (test_pipeline.CacheTests.test_blob_tamper_is_detected) ... ok
+test_bounded_download (test_pipeline.CacheTests.test_bounded_download) ... ok
+test_failed_refresh_does_not_replace_old_snapshot (test_pipeline.CacheTests.test_failed_refresh_does_not_replace_old_snapshot) ... ok
+test_refresh_is_explicit_and_keeps_history (test_pipeline.CacheTests.test_refresh_is_explicit_and_keeps_history) ... ok
+test_replay_preserves_bytes_timestamp_and_metadata (test_pipeline.CacheTests.test_replay_preserves_bytes_timestamp_and_metadata) ... ok
+test_saved_snapshot_retains_original_retrieval_date (test_pipeline.CacheTests.test_saved_snapshot_retains_original_retrieval_date) ... ok
+test_all_pages_and_provenance_retained (test_pipeline.PaginationTests.test_all_pages_and_provenance_retained) ... ok
+test_no_progress_detected (test_pipeline.PaginationTests.test_no_progress_detected) ... ok
+test_truncated_empty_and_max_pages_rejected (test_pipeline.PaginationTests.test_truncated_empty_and_max_pages_rejected) ... ok
+test_alignment_and_gap_between_tiles (test_pipeline.RasterTests.test_alignment_and_gap_between_tiles) ... ok
+test_degrees_rotated_and_unknown_vertical_rejected (test_pipeline.RasterTests.test_degrees_rotated_and_unknown_vertical_rejected) ... ok
+test_dem_native_units_nodata_and_georeference (test_pipeline.RasterTests.test_dem_native_units_nodata_and_georeference) ... ok
+test_normalized_raw_billing_uses_current_account_not_property_rounded_display (test_pipeline.RasterTests.test_normalized_raw_billing_uses_current_account_not_property_rounded_display) ... ok
+test_surface_map_preserves_unknown_pixels (test_pipeline.RasterTests.test_surface_map_preserves_unknown_pixels) ... ok
+test_temporal_conflict_and_missing_dates (test_pipeline.RasterTests.test_temporal_conflict_and_missing_dates) ... ok
+test_modified_physical_measurement_digest_is_rejected (test_policy_cli.PolicyCLITests.test_modified_physical_measurement_digest_is_rejected) ... ok
+test_output_cannot_overwrite_any_frozen_input (test_policy_cli.PolicyCLITests.test_output_cannot_overwrite_any_frozen_input) ... ok
+test_separate_frozen_inputs_create_policy_artifact_without_gis_run (test_policy_cli.PolicyCLITests.test_separate_frozen_inputs_create_policy_artifact_without_gis_run) ... ok
+test_stale_artifact_and_invalid_policy_fail_without_output (test_policy_cli.PolicyCLITests.test_stale_artifact_and_invalid_policy_fail_without_output) ... ok
+test_corruption_is_rejected_instead_of_silently_using_another_copy (test_portable_media.PortableMediaTests.test_corruption_is_rejected_instead_of_silently_using_another_copy) ... ok
+test_media_hash_cannot_be_a_path (test_portable_media.PortableMediaTests.test_media_hash_cannot_be_a_path) ... ok
+test_stale_absolute_path_falls_back_to_frozen_source_hash (test_portable_media.PortableMediaTests.test_stale_absolute_path_falls_back_to_frozen_source_hash) ... ok
+test_contradictory_dates_sources_and_events_are_explicit (test_renewals.RenewalTests.test_contradictory_dates_sources_and_events_are_explicit) ... ok
+test_inclusive_leap_and_lead_boundaries (test_renewals.RenewalTests.test_inclusive_leap_and_lead_boundaries) ... ok
+test_reminder_preferences_are_not_rule_deadlines (test_renewals.RenewalTests.test_reminder_preferences_are_not_rule_deadlines) ... ok
+test_renewal_supersedes_expired_award_without_erasing_it (test_renewals.RenewalTests.test_renewal_supersedes_expired_award_without_erasing_it) ... ok
+test_termination_applications_and_unknown_termination_dates (test_renewals.RenewalTests.test_termination_applications_and_unknown_termination_dates) ... ok
+test_unknown_dates_and_expired_flag_do_not_establish_award_or_term (test_renewals.RenewalTests.test_unknown_dates_and_expired_flag_do_not_establish_award_or_term) ... ok
+test_inlet_move_preserves_documented_connection_id (test_review_regressions.ReviewRegressions.test_inlet_move_preserves_documented_connection_id) ... ok
+test_legacy_credit_polygon_can_be_replaced_and_removed (test_review_regressions.ReviewRegressions.test_legacy_credit_polygon_can_be_replaced_and_removed) ... ok
+test_partial_dem_cannot_be_overridden_by_sufficiency_flag (test_review_regressions.ReviewRegressions.test_partial_dem_cannot_be_overridden_by_sufficiency_flag) ... ok
+test_synthetic_reference_never_means_empirical_validation (test_review_regressions.ReviewRegressions.test_synthetic_reference_never_means_empirical_validation) ... ok
+test_canopy_halves_ground_overlap_without_changing_physical_area (test_rules.RuleTests.test_canopy_halves_ground_overlap_without_changing_physical_area) ... ok
+test_invalid_numeric_inputs (test_rules.RuleTests.test_invalid_numeric_inputs) ... ok
+test_management_compliant_letter_does_not_imply_depth (test_rules.RuleTests.test_management_compliant_letter_does_not_imply_depth) ... ok
+test_missing_not_zero (test_rules.RuleTests.test_missing_not_zero) ... ok
+test_open_space_is_not_green_pixel_count (test_rules.RuleTests.test_open_space_is_not_green_pixel_count) ... ok
+test_pavement_sheet_and_point_constraints (test_rules.RuleTests.test_pavement_sheet_and_point_constraints) ... ok
+test_roof_boundaries (test_rules.RuleTests.test_roof_boundaries) ... ok
+test_roof_or_lawn_canopy_not_eligible (test_rules.RuleTests.test_roof_or_lawn_canopy_not_eligible) ... ok
+test_acquisition_imagery_failure_remains_explicit (test_server.HTTPWorkflowTests.test_acquisition_imagery_failure_remains_explicit) ... ok
+test_corrections_and_prior_source_revision_are_retained (test_server.HTTPWorkflowTests.test_corrections_and_prior_source_revision_are_retained) ... /Users/david/projects/property_analyzer/drainage_core/geometry.py:38: DeprecationWarning: The 'shapely.ops.transform()' function is deprecated. Use 'shapely.transform()' or 'shapely.transform_coordseq()' instead. See https://shapely.readthedocs.io/en/latest/manual.html#shapely.ops.transform for more details.
+  return transform(Transformer.from_crs(source, target, always_xy=True).transform, geometry)
+ok
+test_exports_cannot_traverse_or_select_arbitrary_files (test_server.HTTPWorkflowTests.test_exports_cannot_traverse_or_select_arbitrary_files) ... ok
+test_foreign_host_cannot_read_local_case_inventory (test_server.HTTPWorkflowTests.test_foreign_host_cannot_read_local_case_inventory) ... ok
+test_foreign_origins_and_hosts_cannot_mutate (test_server.HTTPWorkflowTests.test_foreign_origins_and_hosts_cannot_mutate) ... ok
+test_invalid_json_nan_and_case_path_rejected (test_server.HTTPWorkflowTests.test_invalid_json_nan_and_case_path_rejected) ... ok
+test_save_reopen_rerun_all_exports_without_acquisition (test_server.HTTPWorkflowTests.test_save_reopen_rerun_all_exports_without_acquisition) ... ok
+test_static_interface_served_locally (test_server.HTTPWorkflowTests.test_static_interface_served_locally) ... ok
+test_missing_coverage_and_wrong_crs_fail_without_partial_crop (test_terrain.TerrainPreparationTests.test_missing_coverage_and_wrong_crs_fail_without_partial_crop) ... ok
+test_no_implicit_resampling_to_bypass_cell_limit (test_terrain.TerrainPreparationTests.test_no_implicit_resampling_to_bypass_cell_limit) ... ok
+test_outward_crop_preserves_native_values_centers_and_nodata (test_terrain.TerrainPreparationTests.test_outward_crop_preserves_native_values_centers_and_nodata) ... ok
+test_unit_evidence_is_required_and_assumptions_remain_explicit (test_terrain.TerrainPreparationTests.test_unit_evidence_is_required_and_assumptions_remain_explicit) ... ok
+test_coordinate_change_transforms_every_vector_ledger_and_preserves_observations (test_whitaker_dem.NativeTerrainCaseTests.test_coordinate_change_transforms_every_vector_ledger_and_preserves_observations) ... /Users/david/projects/property_analyzer/drainage_core/geometry.py:38: DeprecationWarning: The 'shapely.ops.transform()' function is deprecated. Use 'shapely.transform()' or 'shapely.transform_coordseq()' instead. See https://shapely.readthedocs.io/en/latest/manual.html#shapely.ops.transform for more details.
+  return transform(Transformer.from_crs(source, target, always_xy=True).transform, geometry)
+ok
+test_incompatible_reference_crs_cannot_be_silently_relabelled (test_whitaker_dem.NativeTerrainCaseTests.test_incompatible_reference_crs_cannot_be_silently_relabelled) ... ok
+test_unresolved_roof_display_aggregation_preserves_detailed_routing_labels (test_whitaker_dem.NativeTerrainCaseTests.test_unresolved_roof_display_aggregation_preserves_detailed_routing_labels) ... ok
+
+----------------------------------------------------------------------
+Ran 240 tests in 3.729s
+
+OK

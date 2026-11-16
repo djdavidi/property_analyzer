@@ -16,6 +16,16 @@ def project_case(case,target_crs):
         if correction.get('feature'):correction['feature']['geometry']=geom(correction['feature']['geometry'])
     for benefit in out.get('benefits',[]):
         if benefit.get('geometry'):benefit['geometry']=geom(benefit['geometry'])
+    for feature in out.get('research_drainage',{}).get('features',[]):
+        feature['geometry']=geom(feature['geometry'])
+    for record in out.get('assessment',{}).get('records',[])+out.get('assessment',{}).get('existing_credit_allocations',[]):
+        for key in ('geometry','footprint_geometry'):
+            if record.get(key):record[key]=geom(record[key])
+        if record.get('public_geometry') and record.get('source',{}).get('crs')==source:
+            record['public_geometry']=geom(record['public_geometry'])
+            record['source']={**record['source'],'crs':target_crs,'original_crs':source}
+    if out.get('canopy_observation',{}).get('coverage_geometry'):
+        out['canopy_observation']['coverage_geometry']=geom(out['canopy_observation']['coverage_geometry'])
     for reference in out.get('references',[]):
         if reference.get('crs')!=source:raise ValueError('Reference uses a different CRS; transform it explicitly before rerun')
         reference['geometry']=geom(reference['geometry']);reference['crs']=target_crs
@@ -38,14 +48,16 @@ def warp_display(case,target_crs,root):
     payload=read_blob(info,roots=[root])
     if sha256(payload).hexdigest()!=info['sha256']:raise ValueError('Aerial source hash mismatch')
     with MemoryFile(payload) as memory, memory.open() as image:
+        from .remote_sensing import image_array
+        source_pixels=np.moveaxis(image_array(payload),-1,0)
         source_transform=from_bounds(*info['bounds'],image.width,image.height)
         target_transform,width,height=calculate_default_transform(case['crs'],target_crs,image.width,image.height,*info['bounds'])
-        output=np.zeros((image.count,height,width),dtype='uint8')
-        for band in range(image.count):
-            warp(image.read(band+1),output[band],src_transform=source_transform,src_crs=case['crs'],
+        output=np.zeros((source_pixels.shape[0],height,width),dtype='uint8')
+        for band in range(source_pixels.shape[0]):
+            warp(source_pixels[band],output[band],src_transform=source_transform,src_crs=case['crs'],
                  dst_transform=target_transform,dst_crs=target_crs,resampling=Resampling.bilinear)
         with MemoryFile() as result:
-            with result.open(driver='PNG',width=width,height=height,count=image.count,dtype='uint8') as out:out.write(output)
+            with result.open(driver='PNG',width=width,height=height,count=output.shape[0],dtype='uint8') as out:out.write(output)
             png=result.read()
     digest=sha256(png).hexdigest();(root/'blobs').mkdir(parents=True,exist_ok=True);(root/'blobs'/digest).write_bytes(png)
     xmin=target_transform.c;ymax=target_transform.f

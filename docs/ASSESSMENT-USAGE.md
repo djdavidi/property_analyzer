@@ -1,5 +1,41 @@
 # Existing-site assessment usage
 
+## Automatic property entry
+
+Open the local Philadelphia app, enter an address or PWD parcel ID and select
+**Assess property**. New runs prefer the 2025 imagery and enforce an inclusive
+three-calendar-year limit **on satellite/aerial imagery only**, including cached fallbacks.
+Other datasets retain their own evidence/validity checks. Unknown image dates fail;
+source-year-only imagery uses January 1 conservatively. Download/review dates never
+refresh capture dates. The cutoff is saved with each run for reproducible replay.
+
+With the optional [local classifier](../SETUP.md), **Automatic site estimates** shows
+modeled canopy, grass/shrub, bare soil, water, roofs, roads and other pavement areas.
+The free OpenEarthMap model runs on CPU locally, without uploading imagery. It uses
+approximately 0.5 m analysis pixels, overlapping tiles and low-score unknowns. Scores
+and pixel-edge ranges are not calibrated accuracy intervals. Cropland is grouped with
+grass/shrub. Tree/ground classification and physical eligibility remain separate.
+
+Modeled layers stay out of reviewed physical IA/routing/credit calculations. Public
+building polygons and manual observations retain their original treatment; this
+imagery-only age rule does not expire them. If the model is missing/unavailable,
+RGB vegetation and neutral bright-cover candidates are shown, with detailed classes
+unknown and an explicit model failure in the method details. Neither green pixels nor
+semantic classes establish permeability, infiltration, a green roof or approval.
+
+The 2018 classification is no longer fetched as the current automatic measurement
+source. Earlier source bytes, snapshots and generated features remain historical.
+Opening a saved case replays its frozen assessment without public refresh; choose
+**Run assessment** to apply the new workflow. Historical offline examples reproduce
+2018 areas solely as source-interpretation regressions. Original measurement imagery
+is retained through map reprojection. Exported bundles reference model/settings hashes;
+the large model weights/runtime are not embedded and must be installed for reproduction.
+
+Independent local canopy/surface accuracy is still unverified. Leaf-off images can miss
+crown extent; shadows and model domain errors remain. See
+[public examples](../examples/automatic-public/README.md).
+
+
 Run the local Philadelphia app (no browser is opened):
 
 ```sh
@@ -27,8 +63,8 @@ The generic GIS editor remains separate: `./gis serve --workspace data/my-projec
    designs and appearance alone do not establish current installation or eligibility.
 4. Select a physical polygon on the map to record a managed region or footprint.
    These are distinct: a system footprint does not prove its contributing catchment.
-   A public system polygon can be explicitly adopted as a reviewed footprint; a project
-   point is not a system footprint. Evidence overlays never erase recorded physical IA.
+   Public system polygons are automatically clipped/measured as candidate footprints;
+   they can be reviewed/corrected. A project point is not a system footprint. Evidence overlays never erase recorded physical IA.
 5. Attach PDF/PNG/JPEG/TXT/CSV evidence (maximum 16 MiB/file), then add facts and positive
    document page numbers or source references manually. No document extraction/OCR occurs.
    Only opaque original bytes are stored. Unsafe names, unsupported/executable content,

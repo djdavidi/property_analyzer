@@ -1,7 +1,7 @@
 """Philadelphia-specific evidence report, built on reusable GIS visuals."""
 from html import escape
 import json
-from drainage_core.report import map_svg,export_geojson as _export_geojson,COLORS
+from drainage_core.report import map_svg,export_geojson as _export_geojson,COLORS,research_sections,modeled_sections
 
 
 def export_geojson(case,result):
@@ -22,6 +22,17 @@ def export_geojson(case,result):
                 'decision':record.get('decision'),'basis':record.get('basis'),
                 'evidence_refs':record.get('evidence_refs',[]),'native_crs':case['crs'],
                 'eligibility':'Not established by geometry'}})
+    for info in result.get('assessment',{}).get('modeled_integration',{}).get('records',[]):
+        for run in info.get('runs',[]):
+            if not run.get('managed_geometry'):continue
+            geom=shape(run['managed_geometry'])
+            if geom.is_empty:continue
+            data['features'].append({'type':'Feature','id':'modeled-assessment-'+info['record_id']+'-'+run['name'],
+                'geometry':mapping(reproject(geom,case['crs'],'EPSG:4326')),
+                'properties':{'layer':'modeled_assessment','record_id':info['record_id'],
+                    'scenario':run['name'],'area_basis':run['area_basis'],'catchment_match':run['catchment_match'],
+                    'receiver_id':run.get('receiver_id'),'composition':run.get('composition'),
+                    'basis':'modeled estimate; eligibility unverified','native_crs':case['crs']}})
     return data
 
 def render_report(case,result):
@@ -68,6 +79,9 @@ def render_report(case,result):
 <h2>Billing and benefit ledger</h2><p>Observed public monthly total: ${num(baseline.get('published_monthly_total'))}. This remains source evidence when a calculation is blocked.</p><table><tr><th>Scenario</th><th>Status</th><th>Monthly total ($)</th><th>Annualized reduction ($)</th><th>Blockers</th></tr>{billing}</table><p>{e(b.get('reason',''))}</p>
 <p>Existing benefits, rounded areas, per-account values and baseline differences are retained in analysis.json. Standard public charges do not establish the actual payer, discounts or paid invoice.</p>
 {assessment_sections}
+{research_sections(result)}
+{modeled_sections(result)}
+<h3>Conditional research bill-reduction alternatives</h3><p>These alternatives use the existing ledger and assume management prerequisites. Do not add them to existing assessment savings. Actual treatment capacity and approval remain unverified.</p><pre>{e(json.dumps(result.get('assessment',{}).get('research_drainage_scenarios',{}),indent=2))}</pre>
 <h2>Missing evidence and limitations</h2><ul>{warnings}</ul>
 <h2>Drainage</h2><p>Status: {e(result['drainage'].get('status','processed'))}. Catchments: {len(result['drainage'].get('catchments',[]))}. Horizontal unit: {e(terrain.get('horizontal_unit','Unknown'))}; vertical unit: {e(terrain.get('vertical_unit','Unknown'))}; cell size: {e(terrain.get('cell_size','Unknown'))}. Off-parcel IA is unmeasured; no whole-parcel allocation is assumed. Map snapshot shows up to 250 largest non-roof catchments and sampled flow paths; full geometries are in GeoJSON. Unconnected roof cells are grouped for display, not treated as confirmed outlets.</p>
 <pre>{e(json.dumps({k:v for k,v in terrain.items() if k not in ('elevations','parcel_mask')},indent=2))}</pre>

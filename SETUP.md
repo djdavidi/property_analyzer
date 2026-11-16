@@ -51,7 +51,19 @@ Saved acquisition paths remain original provenance. Do not rewrite frozen case J
 to replace those paths: input hashes would change. Runtime media resolution falls back
 to the bundled content-addressed cache. Input data and local attachments are Git-ignored.
 
-## Existing-site assessment
+## Automatic existing-site assessment
+
+```sh
+.venv/bin/python -m stormwater.server --port 8876
+```
+
+Open `http://127.0.0.1:8876/`, enter a Philadelphia address such as `1901 Vine St`,
+and select **Assess property**. Canopy/surface layers are acquired and measured
+without uploads or drawing. Historical source year, uncertainty and coverage gaps
+are shown explicitly. Optional review forms supplement the automatic estimates.
+See [public automatic examples](examples/automatic-public/README.md).
+
+## Offline synthetic assessment
 
 The Philadelphia app now includes the five assessment additions. For a ready offline
 example and the evidence workflow, see [assessment usage](docs/ASSESSMENT-USAGE.md):
@@ -65,3 +77,27 @@ Open `http://127.0.0.1:8876/?case=existing-site-synthetic` manually. All example
 permits and history are invented; modeled values are conditional. Run assessment is
 the explicit public-record action; opening/recalculating a case remains local.
 Portable evidence bundles preserve original attachment bytes and immutable history.
+
+## Optional local imagery classifier
+
+Run once from the project folder after the base setup:
+
+```sh
+.venv/bin/python -m drainage_core.setup_semantic_model
+```
+
+This downloads the free OpenEarthMap pretrained model (about 82 MB), verifies its pinned
+SHA-256, and installs the CPU runtime in `data/model-runtime/`. The original GIS Python
+environment stays unchanged. Model weights, the full runtime dependency lock, source
+manifest and caches stay in Git-ignored `data/`. This can use several hundred MB of disk.
+The model runs locally; images are never sent to an AI service. No paid account is needed.
+
+Then select **Assess property** or **Run assessment**. Modeled canopy/surface areas and
+methods appear under **Automatic site estimates**, separately from reviewed physical
+measurements and eligibility. Without this runtime the app shows RGB cover candidates
+and an explicit model-unavailable reason. Independent local accuracy remains unverified.
+
+Model: [official OpenEarthMap code/model reference](https://open-earth-map.org/code.html).
+Pinned weights: `a10b97b4b0caeed02aa292e822e702d21f9b99aa0a3d1d759dba57e93cf5f3ea`.
+Satellite/aerial imagery used for these estimates must be within three calendar years
+of the saved assessment date. Other datasets retain their own validity rules.

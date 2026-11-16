@@ -4,14 +4,108 @@ Standalone local property GIS/drainage analysis with a separate jurisdiction cre
 This export contains only the property analyzer. It contains no Cindris application,
 marketing site, CRM, supplier brokerage, unrelated research or Git history.
 
-**Implemented:** independent GIS engine, Philadelphia policy workflow, and the five
+The [AI-to-assessment integration](docs/AI-ASSESSMENT-INTEGRATION.md) connects existing
+canopy/surface estimates and research catchments to individual records and conditional
+bill alternatives, alongside current results. The [actual Whitaker full-flow run](docs/WHITAKER-LIVE-RESULTS-2026-11-15.md)
+now records imagery/model/terrain/drainage, per-area savings and appeals, isolated-browser
+review and saved exports. Independent real-site accuracy and actual eligibility remain unverified.
+
+## Coding sessions: start here
+
+Open this repository in your coding agent and say **“Continue from the repository
+state”**, or describe the change you want in plain language. [AGENTS.md](AGENTS.md)
+directs the agent to read the durable state, prepare a bounded task, implement,
+verify and checkpoint. For agents that do not load AGENTS.md automatically, say
+**“Read AGENTS.md and follow docs/SESSION.md.”**
+
+- [PRD](docs/PRD.md): product purpose, accepted decisions and constraints.
+- [STATE](docs/STATE.md): what exists, evidence and unresolved limits now.
+- [TASK](docs/TASK.md): current bounded task, status, checks and next action.
+- [Session guide](docs/SESSION.md): the six-step workflow and checkpoint instructions.
+- [Checkpoints](docs/CHECKPOINTS.md): dated changes, decisions and verification history.
+
+At the end, say **“Checkpoint this work”** if needed; agents are instructed to do
+this before finishing meaningful work. These are ordinary repository files: no
+service, setup or old chat is required. Commit/backup remains a separate human
+choice; no automatic commits or pushes are made.
+
+## Product and implementation
+
+**Building imagery research:** [prior-art survey](docs/BUILDING-IMAGERY-PRIOR-ART.md)
+records 14 studies/projects, with current priorities limited to drainage features,
+roof geometry and existing vegetation. General roof asset inventories are excluded;
+broader references remain background. No new features were implemented from this survey.
+The [existing-data feasibility assessment](docs/EXISTING-DATA-FEASIBILITY.md) separates
+what the saved imagery, height attributes, vegetation estimates and ground terrain
+support now from the missing roof elevations and drainage connections.
+The [free roof source audit](docs/FREE-ROOF-SOURCE-AUDIT.md) confirms 3-inch source
+imagery and actual roof lidar points, with an unresolved matching-file completeness
+problem and vertical metadata limits. No new source was integrated into the app.
+Detailed roof-drain mapping is now low priority; source problems for that purpose
+do not block available roof-area, vegetation and documented-connection assessment.
+
+**Additional drainage method:** the free local Villanova/Temple adaptation now runs
+alongside conservative drainage, with DEM conditioning, accumulation, GSI basin
+tracing and sensitivity tests. Current physical results remain separate. See the
+[method specification](docs/RESEARCH-METHOD.md),
+[Whitaker replay evidence](docs/RESEARCH-WHITAKER-VALIDATION.md) and
+[replay example](examples/research-drainage/README.md). Real-site accuracy and
+ArcGIS/ArcHydro equivalence remain unverified.
+
+**Implemented:** automatic Philadelphia address-to-map estimates, independent GIS engine,
+Philadelphia policy workflow, and the five
 existing-site assessment additions in [docs/PRD.md](docs/PRD.md). Supported rules and
 explicitly blocked combinations are documented in [assessment rules](docs/ASSESSMENT-RULES.md).
 
 Start with [SETUP.md](SETUP.md), then read [STATE](docs/STATE.md) and [TASK](docs/TASK.md).
-The accepted implementation brief remains in [HANDOFF_PROMPT.txt](HANDOFF_PROMPT.txt).
+The original release brief is retained as [historical context](HANDOFF_PROMPT.txt);
+it is not the current task or a prompt you need to maintain.
 See [assessment usage](docs/ASSESSMENT-USAGE.md) for evidence entry, public matching,
 renewals, snapshots and portable exports.
+The [reusable assessment process](docs/PROPERTY-ASSESSMENT-PROCESS.md) explains what to
+determine, why it matters, datasets, measurement methods and proposed AI asset detection.
+
+## Quick prospect scan
+
+Use `.venv/bin/python -m stormwater.prospects --rerank` to rank saved matched records
+locally. `--offline` rebuilds matches using cached responses only; `--update-stale`
+explicitly checks stale/missing records under the request cap. Government
+owner names are excluded; missing ownership/credits are held. This does not run imagery
+or a full assessment. See [scope, latest results and limits](docs/PROSPECT-SCAN.md).
+The separate app page is `/prospects` on a newly started Philadelphia local server.
+Saved case opening reads compact, hash-checked results without recalculating. Machine
+JSON exports are compact; readable HTML reports and frozen source snapshots remain available.
+
+## Automatic property assessment
+
+Run `.venv/bin/python -m stormwater.server --port 8876` and open
+`http://127.0.0.1:8876/`. Enter a Philadelphia street address or PWD parcel ID, then
+select **Assess property**. No canopy/surface upload or drawing is required.
+
+For **5300 Whitaker Ave**, address entry automatically reuses the saved verified
+native 1 m USGS terrain before trying a terrain download. No separate research-case
+selection is needed. Original source snapshots remain intact; source-unit verification
+does not establish current grading or drainage accuracy. See
+[saved-terrain reuse](docs/SAVED-TERRAIN-REUSE.md).
+
+The app acquires recent aerial imagery, building/system geometry, public records and
+verified-unit terrain where available. A free local semantic model estimates tree canopy,
+grass/shrub, bare soil, water, roofs, roads and other pavement from the 2025 imagery.
+These **modeled areas** are mapped separately from reviewed physical observations and
+credit eligibility. Ambiguous addresses require property selection.
+
+**Three-year limit applies only to satellite/aerial imagery**, including cached fallbacks.
+Other datasets retain their own validity checks. Unknown image dates are excluded;
+year-only vintages use January 1 conservatively. Each run saves its assessment date and
+cutoff. Previous cases/snapshots remain historical; rerun to update a legacy assessment.
+The 2018 classification remains a historical reference rather than the current automatic
+measurement source.
+
+Install the optional classifier using [setup](SETUP.md). Without it, only RGB vegetation
+and neutral bright-cover candidates are available; detailed classes stay unknown. The
+model runs locally with pinned weights. Independent local accuracy is unverified;
+leaf-off trees, shadows and hidden ground remain limitations. See
+[usage](docs/ASSESSMENT-USAGE.md) and [public examples](examples/automatic-public/README.md).
 
 ## Run
 
@@ -83,8 +177,10 @@ verified metre elevations/NAVD88. It remains a partial research case: ground cov
 private connections, inlets, current grading, bills and independent reference evidence
 are incomplete. No approved managed area, verified refund or realized savings is established.
 
-The baseline has 154 checks; the extended suite has 219 passing checks. See the
-[assessment verification log](docs/assessment-test-results.txt). Synthetic checks are
+The original baseline had 154 checks; the 2026-11-15 project-brain checkpoint ran
+282 passing checks with no skips. See the
+[current-checkout verification log](docs/project-brain-2026-11-15-tests.txt) and the
+[earlier imagery verification log](docs/freshness-test-results.txt). Synthetic checks are
 not empirical validation. An isolated-browser smoke check covered candidate review,
 unknown history dates, saving, explicit assessment and reopening. Full map pointer,
 responsive and accessibility validation remains incomplete.
@@ -104,5 +200,7 @@ git add .
 git commit -m "Initialize standalone property analyzer"
 ```
 
-No remote is configured and no `.git` history or machine-specific Python environment
-is included. Review the ignore rules before adding private evidence or large datasets.
+The original export contained no Git history. The initial source was subsequently pushed
+to djdavidi/property_analyzer. Source, tests and documentation are shared through Git;
+runtime cases, model weights, source caches and generated results remain local by default.
+Review the ignore rules before adding private evidence or large datasets.

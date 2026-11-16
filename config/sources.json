@@ -43,10 +43,10 @@
       "id": "imagery_2025",
       "url": "https://services.pasda.psu.edu/arcgis/rest/services/pasda/PhiladelphiaImagery2025/MapServer",
       "catalog": "https://imagery.pasda.psu.edu/arcgis/rest/services/pasda/PhiladelphiaImagery2025/MapServer",
-      "role": "aerial review background",
+      "role": "Aerial display and unverified RGB vegetation/roof-vegetation candidates",
       "service_vintage": "2025",
       "acquisition_date": null,
-      "status": "service catalog verified; initial export blocked by TLS certificate chain"
+      "status": "Automatic bounded acquisition; TLS validated with certifi trusted roots; indexed PNG colors decoded for local RGB candidate analysis"
     },
     {
       "id": "elevation_2025",
@@ -61,11 +61,13 @@
     {
       "id": "landcover_2018",
       "url": "https://opendataphilly.org/datasets/philadelphia-land-cover-raster/",
-      "role": "optional classification starting layer; tree canopy hides underlying material",
+      "role": "Historical canopy, grass/shrub, bare soil, water, roofs, roads and other pavement source estimates",
       "service_vintage": "2018",
       "acquisition_date": null,
       "independent_ia_reference": false,
-      "status": "catalog verified; not used to validate the same classification source"
+      "status": "Historical reference; replaced by 2025 image estimates in the current automatic workflow",
+      "service": "https://imagery.pasda.psu.edu/arcgis/rest/services/pasda/PhillyLULC/MapServer",
+      "layer_id": 2
     },
     {
       "id": "canopy_2018",
@@ -73,7 +75,9 @@
       "role": "historical canopy review; ground IA overlap must be measured separately",
       "service_vintage": "2018",
       "acquisition_date": null,
-      "status": "catalog verified; property vectors not yet acquired"
+      "status": "Historical reference; replaced by 2025 image estimates in the current automatic workflow",
+      "source_vintage": "2018",
+      "current_site_accuracy": "unverified"
     },
     {
       "id": "soils",
@@ -109,6 +113,16 @@
       "acquisition_date": null,
       "independent_drainage_reference": false,
       "status": "bounded native window acquired; units verified; current conditions/connectivity and empirical validation incomplete"
+    },
+    {
+      "id": "automatic_usgs_1m",
+      "url": "https://tnmaccess.nationalmap.gov/api/v1/products",
+      "role": "Automatic native-window discovery, explicit tile-metadata unit verification and surface routing",
+      "status": "Exercised on public Whitaker and library properties; saved terrain retained on rerun",
+      "maximum_native_cells": 250000,
+      "buffer_metres": 45.72,
+      "vertical_unit_requirement": "Exact tile XML must explicitly specify elevation metres and NAVD88",
+      "fallback": "No verified covering native tile -> explicit unavailable terrain; no inferred units or downsampling"
     }
   ]
 }

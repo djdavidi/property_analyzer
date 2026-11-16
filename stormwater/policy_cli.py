@@ -39,7 +39,7 @@ def main(argv=None):
         with tempfile.NamedTemporaryFile(mode='w',dir=args.output.parent,
                                          prefix=args.output.name+'.',suffix='.tmp',delete=False) as stream:
             temporary=Path(stream.name)
-            stream.write(json.dumps(result,indent=2,sort_keys=True,allow_nan=False)+'\n')
+            stream.write(json.dumps(result,separators=(',',':'),sort_keys=True,allow_nan=False)+'\n')
         temporary.replace(args.output)
         print(json.dumps({'jurisdiction':result['jurisdiction'],'gis_input_sha256':result['gis_input_sha256'],
                           'policy_input_sha256':result['policy_input_sha256'],

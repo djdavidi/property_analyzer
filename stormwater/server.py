@@ -11,6 +11,7 @@ import uuid
 from shapely.geometry import shape, mapping
 from .cases import CaseStore, ROOT, analyze, new_case
 from .geometry import reproject
+from .prospect_jobs import ProspectJobs
 
 
 def acquired_case(data):
@@ -27,9 +28,10 @@ def acquired_case(data):
 
 class Handler(BaseHTTPRequestHandler):
     store=CaseStore()
+    prospect_jobs=ProspectJobs(ROOT/'data/prospects')
 
     def send(self,data,status=200,mime='application/json'):
-        body=(data if isinstance(data,bytes) else json.dumps(data,allow_nan=False).encode() if mime=='application/json' else data.encode())
+        body=(data if isinstance(data,bytes) else json.dumps(data,allow_nan=False,separators=(',',':')).encode() if mime=='application/json' else data.encode())
         self.send_response(status);self.send_header('Content-Type',mime)
         self.send_header('Content-Length',str(len(body)));self.send_header('X-Content-Type-Options','nosniff')
         if mime=='application/octet-stream':self.send_header('Content-Disposition','attachment')
@@ -40,7 +42,24 @@ class Handler(BaseHTTPRequestHandler):
         try:
             if self.headers.get('Host','').split(':')[0] not in ('localhost','127.0.0.1'):
                 return self.send({'error':'Loopback Host required'},403)
-            if path=='/api/config':return self.send({'mode':'philadelphia','title':'Philadelphia drainage workbench','jurisdictions':['philadelphia-pwd']})
+            if path=='/api/config':return self.send({'mode':'philadelphia','title':'Philadelphia drainage workbench','jurisdictions':['philadelphia-pwd'],'saved_views':True})
+            if path.startswith('/api/saved/'):
+                return self.send(self.store.saved(path.split('/')[-1]))
+            if path=='/api/prospects/latest':
+                from .prospects import load_result,public_result
+                return self.send({'result':public_result(load_result(self.prospect_jobs.root))})
+            if path=='/api/prospects/job':return self.send(self.prospect_jobs.snapshot())
+            if path.startswith('/prospect-exports/'):
+                from .prospects import load_result
+                _,_,run_id,name=path.split('/')
+                load_result(self.prospect_jobs.root,run_id)
+                allowed={'report.html':'text/html; charset=utf-8','top50.csv':'text/csv; charset=utf-8','results.json':'application/json'}
+                if name not in allowed:raise ValueError('Unknown prospect export')
+                return self.send((self.prospect_jobs.root/'runs'/run_id/name).read_bytes(),mime=allowed[name])
+            if path in ('/prospects','/prospects.js','/prospects.css'):
+                name='prospects.html' if path=='/prospects' else path[1:]
+                mime={'prospects.html':'text/html; charset=utf-8','prospects.js':'text/javascript','prospects.css':'text/css'}[name]
+                return self.send((Path(__file__).parent/'web'/name).read_bytes(),mime=mime)
             if path=='/api/cases':return self.send(self.store.list())
             if path=='/api/renewals':return self.send(self.store.renewals())
             if path.startswith('/api/cases/'):return self.send(self.store.load(path.split('/')[-1]))
@@ -83,6 +102,8 @@ class Handler(BaseHTTPRequestHandler):
             limit=128 if path=='/api/assessment/import' else 32
             if not 0<length<=limit*1024*1024:raise ValueError(f'Request must be between 1 byte and {limit} MB')
             payload=json.loads(self.rfile.read(length))
+            if path=='/api/prospects/scan':return self.send(self.prospect_jobs.start(payload.get('refresh',False),payload.get('mode','rerank')),202)
+            if path=='/api/prospects/cancel':return self.send(self.prospect_jobs.cancel(),202)
             if path=='/api/analyze':return self.send(analyze(payload['case']))
             if path=='/api/save':return self.send(self.store.save(payload['case']))
             if path=='/api/assessment/run':return self.send(self.store.run_assessment(payload['case']))
@@ -108,6 +129,18 @@ class Handler(BaseHTTPRequestHandler):
                 updated,attachment=self.store.attach(payload['case'],payload['filename'],base64.b64decode(payload['content'],validate=True))
                 return self.send({'case':updated,'attachment':attachment})
             if path=='/api/assessment/import':return self.send(self.store.import_bundle(payload['bundle']))
+            if path=='/api/property/assess':
+                from .automatic import lookup
+                from .acquisition import Cache,acquire_property
+                cache=Cache(ROOT/'data/public',timeout=15)
+                found=lookup(payload.get('query',''),cache)
+                if len(found['matches'])!=1:return self.send(found)
+                selected=found['matches'][0]
+                id='pwd-'+str(selected['parcel_id'])
+                if (self.store.directory(id)/'case.json').exists():case=self.store.load(id)
+                else:case=acquired_case(acquire_property(selected['parcel_id'],cache))
+                case.setdefault('sources',[]).extend(found['sources'])
+                return self.send(self.store.run_assessment(case,cache))
             if path=='/api/acquire':
                 from .acquisition import Cache, acquire_property, acquire_imagery
                 cache=Cache(ROOT/'data/public')

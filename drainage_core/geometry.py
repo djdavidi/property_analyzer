@@ -122,6 +122,9 @@ def measure(case):
     unknown = parcel.difference(ia.union(pervious))
     ground = geom['pavement'].difference(geom['roof']).difference(ambiguous)
     canopy_ground = ground.intersection(geom['canopy'])
+    canopy_status=case.get('canopy_observation',{}).get('status')
+    canopy_observed=bool(classes['canopy']) or canopy_status=='complete'
+    if not canopy_observed:warnings.append('Canopy coverage unavailable; no absence or zero canopy is established')
     if conflicts.area > 1e-8:
         warnings.append('Conflicting impervious/pervious observations are unknown until corrected')
     if unknown.area > 1e-8:
@@ -137,13 +140,17 @@ def measure(case):
         'ga_sqft': sf(parcel), 'ia_sqft': sf(ia), 'ia_min_sqft': sf(ia),
         'ia_max_sqft': sf(ia.union(unknown)), 'unknown_sqft': sf(unknown),
         'pervious_sqft': sf(pervious), 'roof_sqft': sf(geom['roof'].intersection(ia)),
-        'ground_ia_sqft': sf(ground), 'canopy_ground_ia_sqft': sf(canopy_ground),
+        'ground_ia_sqft': sf(ground), 'canopy_ground_ia_sqft': sf(canopy_ground) if canopy_observed else None,
+        'canopy_sqft':sf(geom['canopy']) if canopy_observed else None,
+        'canopy_status':canopy_status or ('observed_extent_only' if canopy_observed else 'unavailable'),
+        'canopy_source_vintage':case.get('canopy_observation',{}).get('source_vintage'),
+        'canopy_ground_ia_upper_sqft':sf(canopy_ground.union(geom['canopy'].intersection(unknown))) if canopy_observed else sf(ground.union(unknown)),
         'complete': sf(unknown) < .001, 'boundary_claim': 'Source-polygon consistency only; legal boundary unverified',
         'area_crs':case.get('area_crs',crs),
         'source_dependence': dependence, 'warnings': warnings,
         'geometries': {key: mapping(g) for key, g in {'physical_ia': ia, 'unknown': unknown,
-                         'pervious': pervious, 'canopy_ground_ia': canopy_ground}.items()},
+                         'pervious': pervious, 'canopy_ground_ia': canopy_ground,'canopy':geom['canopy']}.items()},
     }
-    result.update({name[:-5]+'_m2':value/SQFT_PER_M2
+    result.update({name[:-5]+'_m2':None if value is None else value/SQFT_PER_M2
                    for name,value in list(result.items()) if name.endswith('_sqft')})
     return result

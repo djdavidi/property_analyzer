@@ -1,0 +1,154 @@
+Initial baseline command: .venv/bin/python -m unittest discover -s tests
+Date: 2026-11-15; restricted local run, prior to research changes. Failed; not a pass.
+..............E...................................../Users/david/projects/property_analyzer/drainage_core/geometry.py:38: DeprecationWarning: The 'shapely.ops.transform()' function is deprecated. Use 'shapely.transform()' or 'shapely.transform_coordseq()' instead. See https://shapely.readthedocs.io/en/latest/manual.html#shapely.ops.transform for more details.
+  return transform(Transformer.from_crs(source, target, always_xy=True).transform, geometry)
+....E./Users/david/projects/property_analyzer/drainage_core/geometry.py:38: DeprecationWarning: The 'shapely.ops.transform()' function is deprecated. Use 'shapely.transform()' or 'shapely.transform_coordseq()' instead. See https://shapely.readthedocs.io/en/latest/manual.html#shapely.ops.transform for more details.
+  return transform(Transformer.from_crs(source, target, always_xy=True).transform, geometry)
+.../Users/david/projects/property_analyzer/drainage_core/geometry.py:38: DeprecationWarning: The 'shapely.ops.transform()' function is deprecated. Use 'shapely.transform()' or 'shapely.transform_coordseq()' instead. See https://shapely.readthedocs.io/en/latest/manual.html#shapely.ops.transform for more details.
+  return transform(Transformer.from_crs(source, target, always_xy=True).transform, geometry)
+..../Users/david/projects/property_analyzer/.venv/lib/python3.12/site-packages/rasterio/io.py:144: NotGeoreferencedWarning: Dataset has no geotransform, gcps, or rpcs. The identity matrix will be returned.
+  rd = writer(
+/Users/david/projects/property_analyzer/.venv/lib/python3.12/site-packages/rasterio/io.py:141: NotGeoreferencedWarning: Dataset has no geotransform, gcps, or rpcs. The identity matrix will be returned.
+  rd = DatasetReader(mempath, driver=driver, sharing=sharing, thread_safe=thread_safe, **kwargs)
+./Users/david/projects/property_analyzer/.venv/lib/python3.12/site-packages/rasterio/io.py:144: NotGeoreferencedWarning: Dataset has no geotransform, gcps, or rpcs. The identity matrix will be returned.
+  rd = writer(
+/Users/david/projects/property_analyzer/.venv/lib/python3.12/site-packages/rasterio/io.py:141: NotGeoreferencedWarning: Dataset has no geotransform, gcps, or rpcs. The identity matrix will be returned.
+  rd = DatasetReader(mempath, driver=driver, sharing=sharing, thread_safe=thread_safe, **kwargs)
+/Users/david/projects/property_analyzer/.venv/lib/python3.12/site-packages/rasterio/io.py:141: NotGeoreferencedWarning: Dataset has no geotransform, gcps, or rpcs. The identity matrix will be returned.
+  rd = DatasetReader(mempath, driver=driver, sharing=sharing, thread_safe=thread_safe, **kwargs)
+./Users/david/projects/property_analyzer/.venv/lib/python3.12/site-packages/rasterio/io.py:144: NotGeoreferencedWarning: Dataset has no geotransform, gcps, or rpcs. The identity matrix will be returned.
+  rd = writer(
+/Users/david/projects/property_analyzer/.venv/lib/python3.12/site-packages/rasterio/io.py:141: NotGeoreferencedWarning: Dataset has no geotransform, gcps, or rpcs. The identity matrix will be returned.
+  rd = DatasetReader(mempath, driver=driver, sharing=sharing, thread_safe=thread_safe, **kwargs)
+/Users/david/projects/property_analyzer/.venv/lib/python3.12/site-packages/rasterio/io.py:141: NotGeoreferencedWarning: Dataset has no geotransform, gcps, or rpcs. The identity matrix will be returned.
+  rd = DatasetReader(mempath, driver=driver, sharing=sharing, thread_safe=thread_safe, **kwargs)
+/Users/david/projects/property_analyzer/.venv/lib/python3.12/site-packages/rasterio/io.py:144: NotGeoreferencedWarning: Dataset has no geotransform, gcps, or rpcs. The identity matrix will be returned.
+  rd = writer(
+/Users/david/projects/property_analyzer/.venv/lib/python3.12/site-packages/rasterio/io.py:141: NotGeoreferencedWarning: Dataset has no geotransform, gcps, or rpcs. The identity matrix will be returned.
+  rd = DatasetReader(mempath, driver=driver, sharing=sharing, thread_safe=thread_safe, **kwargs)
+..../Users/david/projects/property_analyzer/.venv/lib/python3.12/site-packages/rasterio/io.py:144: NotGeoreferencedWarning: Dataset has no geotransform, gcps, or rpcs. The identity matrix will be returned.
+  rd = writer(
+/Users/david/projects/property_analyzer/.venv/lib/python3.12/site-packages/rasterio/io.py:141: NotGeoreferencedWarning: Dataset has no geotransform, gcps, or rpcs. The identity matrix will be returned.
+  rd = DatasetReader(mempath, driver=driver, sharing=sharing, thread_safe=thread_safe, **kwargs)
+.../Users/david/projects/property_analyzer/.venv/lib/python3.12/site-packages/rasterio/io.py:144: NotGeoreferencedWarning: Dataset has no geotransform, gcps, or rpcs. The identity matrix will be returned.
+  rd = writer(
+/Users/david/projects/property_analyzer/.venv/lib/python3.12/site-packages/rasterio/io.py:141: NotGeoreferencedWarning: Dataset has no geotransform, gcps, or rpcs. The identity matrix will be returned.
+  rd = DatasetReader(mempath, driver=driver, sharing=sharing, thread_safe=thread_safe, **kwargs)
+........................./Users/david/projects/property_analyzer/drainage_core/geometry.py:38: DeprecationWarning: The 'shapely.ops.transform()' function is deprecated. Use 'shapely.transform()' or 'shapely.transform_coordseq()' instead. See https://shapely.readthedocs.io/en/latest/manual.html#shapely.ops.transform for more details.
+  return transform(Transformer.from_crs(source, target, always_xy=True).transform, geometry)
+.................................E........../Users/david/projects/property_analyzer/drainage_core/geometry.py:38: DeprecationWarning: The 'shapely.ops.transform()' function is deprecated. Use 'shapely.transform()' or 'shapely.transform_coordseq()' instead. See https://shapely.readthedocs.io/en/latest/manual.html#shapely.ops.transform for more details.
+  return transform(Transformer.from_crs(source, target, always_xy=True).transform, geometry)
+./Users/david/projects/property_analyzer/drainage_core/geometry.py:38: DeprecationWarning: The 'shapely.ops.transform()' function is deprecated. Use 'shapely.transform()' or 'shapely.transform_coordseq()' instead. See https://shapely.readthedocs.io/en/latest/manual.html#shapely.ops.transform for more details.
+  return transform(Transformer.from_crs(source, target, always_xy=True).transform, geometry)
+/Users/david/projects/property_analyzer/drainage_core/geometry.py:38: DeprecationWarning: The 'shapely.ops.transform()' function is deprecated. Use 'shapely.transform()' or 'shapely.transform_coordseq()' instead. See https://shapely.readthedocs.io/en/latest/manual.html#shapely.ops.transform for more details.
+  return transform(Transformer.from_crs(source, target, always_xy=True).transform, geometry)
+...................../Users/david/projects/property_analyzer/drainage_core/geometry.py:38: DeprecationWarning: The 'shapely.ops.transform()' function is deprecated. Use 'shapely.transform()' or 'shapely.transform_coordseq()' instead. See https://shapely.readthedocs.io/en/latest/manual.html#shapely.ops.transform for more details.
+  return transform(Transformer.from_crs(source, target, always_xy=True).transform, geometry)
+...................................................E./Users/david/projects/property_analyzer/.venv/lib/python3.12/site-packages/rasterio/io.py:144: NotGeoreferencedWarning: Dataset has no geotransform, gcps, or rpcs. The identity matrix will be returned.
+  rd = writer(
+/Users/david/projects/property_analyzer/.venv/lib/python3.12/site-packages/rasterio/io.py:141: NotGeoreferencedWarning: Dataset has no geotransform, gcps, or rpcs. The identity matrix will be returned.
+  rd = DatasetReader(mempath, driver=driver, sharing=sharing, thread_safe=thread_safe, **kwargs)
+/Users/david/projects/property_analyzer/drainage_core/geometry.py:38: DeprecationWarning: The 'shapely.ops.transform()' function is deprecated. Use 'shapely.transform()' or 'shapely.transform_coordseq()' instead. See https://shapely.readthedocs.io/en/latest/manual.html#shapely.ops.transform for more details.
+  return transform(Transformer.from_crs(source, target, always_xy=True).transform, geometry)
+/Users/david/projects/property_analyzer/.venv/lib/python3.12/site-packages/rasterio/io.py:141: NotGeoreferencedWarning: Dataset has no geotransform, gcps, or rpcs. The identity matrix will be returned.
+  rd = DatasetReader(mempath, driver=driver, sharing=sharing, thread_safe=thread_safe, **kwargs)
+/Users/david/projects/property_analyzer/drainage_core/geometry.py:38: DeprecationWarning: The 'shapely.ops.transform()' function is deprecated. Use 'shapely.transform()' or 'shapely.transform_coordseq()' instead. See https://shapely.readthedocs.io/en/latest/manual.html#shapely.ops.transform for more details.
+  return transform(Transformer.from_crs(source, target, always_xy=True).transform, geometry)
+.../Users/david/projects/property_analyzer/.venv/lib/python3.12/site-packages/rasterio/io.py:144: NotGeoreferencedWarning: Dataset has no geotransform, gcps, or rpcs. The identity matrix will be returned.
+  rd = writer(
+/Users/david/projects/property_analyzer/.venv/lib/python3.12/site-packages/rasterio/io.py:141: NotGeoreferencedWarning: Dataset has no geotransform, gcps, or rpcs. The identity matrix will be returned.
+  rd = DatasetReader(mempath, driver=driver, sharing=sharing, thread_safe=thread_safe, **kwargs)
+.E/Users/david/projects/property_analyzer/.venv/lib/python3.12/site-packages/rasterio/io.py:144: NotGeoreferencedWarning: Dataset has no geotransform, gcps, or rpcs. The identity matrix will be returned.
+  rd = writer(
+/Users/david/projects/property_analyzer/.venv/lib/python3.12/site-packages/rasterio/io.py:141: NotGeoreferencedWarning: Dataset has no geotransform, gcps, or rpcs. The identity matrix will be returned.
+  rd = DatasetReader(mempath, driver=driver, sharing=sharing, thread_safe=thread_safe, **kwargs)
+.F...../Users/david/projects/property_analyzer/drainage_core/geometry.py:38: DeprecationWarning: The 'shapely.ops.transform()' function is deprecated. Use 'shapely.transform()' or 'shapely.transform_coordseq()' instead. See https://shapely.readthedocs.io/en/latest/manual.html#shapely.ops.transform for more details.
+  return transform(Transformer.from_crs(source, target, always_xy=True).transform, geometry)
+...
+======================================================================
+ERROR: setUpClass (test_assessment_http.AssessmentHTTPTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/david/projects/property_analyzer/tests/test_server.py", line 45, in setUpClass
+    cls.server=ThreadingHTTPServer(('127.0.0.1',0),TestHandler)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/david/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/socketserver.py", line 457, in __init__
+    self.server_bind()
+  File "/Users/david/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/http/server.py", line 140, in server_bind
+    socketserver.TCPServer.server_bind(self)
+  File "/Users/david/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/socketserver.py", line 478, in server_bind
+    self.socket.bind(self.server_address)
+PermissionError: [Errno 1] Operation not permitted
+
+======================================================================
+ERROR: setUpClass (test_automatic_http.AutomaticHTTPTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/david/projects/property_analyzer/tests/test_server.py", line 45, in setUpClass
+    cls.server=ThreadingHTTPServer(('127.0.0.1',0),TestHandler)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/david/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/socketserver.py", line 457, in __init__
+    self.server_bind()
+  File "/Users/david/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/http/server.py", line 140, in server_bind
+    socketserver.TCPServer.server_bind(self)
+  File "/Users/david/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/socketserver.py", line 478, in server_bind
+    self.socket.bind(self.server_address)
+PermissionError: [Errno 1] Operation not permitted
+
+======================================================================
+ERROR: setUpClass (test_generic_server.GenericHTTPTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/david/projects/property_analyzer/tests/test_generic_server.py", line 24, in setUpClass
+    cls.server=ThreadingHTTPServer(('127.0.0.1',0),TestHandler)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/david/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/socketserver.py", line 457, in __init__
+    self.server_bind()
+  File "/Users/david/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/http/server.py", line 140, in server_bind
+    socketserver.TCPServer.server_bind(self)
+  File "/Users/david/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/socketserver.py", line 478, in server_bind
+    self.socket.bind(self.server_address)
+PermissionError: [Errno 1] Operation not permitted
+
+======================================================================
+ERROR: setUpClass (test_server.HTTPWorkflowTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/david/projects/property_analyzer/tests/test_server.py", line 45, in setUpClass
+    cls.server=ThreadingHTTPServer(('127.0.0.1',0),TestHandler)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/david/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/socketserver.py", line 457, in __init__
+    self.server_bind()
+  File "/Users/david/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/http/server.py", line 140, in server_bind
+    socketserver.TCPServer.server_bind(self)
+  File "/Users/david/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/socketserver.py", line 478, in server_bind
+    self.socket.bind(self.server_address)
+PermissionError: [Errno 1] Operation not permitted
+
+======================================================================
+ERROR: test_outage_does_not_reactivate_old_image_or_estimates (test_source_freshness.SourceFreshnessTests.test_outage_does_not_reactivate_old_image_or_estimates)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/david/projects/property_analyzer/tests/test_source_freshness.py", line 101, in test_outage_does_not_reactivate_old_image_or_estimates
+    self.assertEqual(len(out['automatic']['excluded_measurement_features']),4)
+                         ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+KeyError: 'excluded_measurement_features'
+
+======================================================================
+FAIL: test_stale_and_undated_features_are_preserved_but_cannot_measure_or_route (test_source_freshness.SourceFreshnessTests.test_stale_and_undated_features_are_preserved_but_cannot_measure_or_route)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/david/projects/property_analyzer/tests/test_source_freshness.py", line 56, in test_stale_and_undated_features_are_preserved_but_cannot_measure_or_route
+    self.assertEqual(effective_features(c),[])
+AssertionError: Lists differ: [{'type': 'Feature', 'id': 'auto-lc-1', 'g[2254 chars]se}}] != []
+
+First list contains 4 additional elements.
+First extra element 0:
+{'type': 'Feature', 'id': 'auto-lc-1', 'geometry': {'type': 'Polygon', 'coordinates': (((0.0, 2.0), (1.0, 2.0), (1.0, 0.0), (0.0, 0.0), (0.0, 2.0)),)}, 'properties': {'layer': 'canopy', 'class': 'unknown', 'automatic': True, 'source_kind': 'source-derived estimate', 'source_family': 'Invented classified source', 'source_dependency': True, 'source_url': 'https://example.test/source', 'source_sha256': 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'acquisition_date': None, 'source_vintage': '2018', 'classification': 'canopy', 'reviewed': False}}
+
+Diff is 3814 characters long. Set self.maxDiff to None to see it.
+
+----------------------------------------------------------------------
+Ran 229 tests in 1.253s
+
+FAILED (failures=1, errors=5)

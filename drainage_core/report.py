@@ -40,6 +40,10 @@ def map_svg(case,result=None):
                 b=info['bounds'];uri=base64.b64encode(payload).decode()
                 out.append(f'<image href="data:image/png;base64,{uri}" x="{b[0]-xmin}" y="{ymax-b[3]}" width="{b[2]-b[0]}" height="{b[3]-b[1]}" preserveAspectRatio="none"/>')
     if result:
+        for c in (result.get('modeled_integration',{}).get('runs') or [{}])[0].get('catchments',[]):
+            out.append(f'<g fill="none" stroke="#bb711d" stroke-dasharray="{width/150}" stroke-width="{width/600}">{path(c["geometry"])}</g>')
+        for c in result.get('research_drainage',{}).get('primary',{}).get('catchments',[]):
+            out.append(f'<g fill="#9b51b5" fill-opacity=".08" stroke="#863b9f" stroke-width="{width/700}">{path(c["geometry"])}</g>')
         catchments=[c for c in result['drainage'].get('catchments',[]) if not c['outlet'].startswith('unresolved:roof')]
         for c in sorted(catchments,key=lambda c:c['contributing_area_sqft'],reverse=True)[:250]:
             out.append(f'<g fill="#438b9d" fill-opacity=".08" stroke="#2d7585" stroke-opacity=".4" stroke-width="{width/1200}">{path(c["geometry"])}</g>')
@@ -67,8 +71,39 @@ def export_geojson(case,result):
     for key,g in result['measurement']['geometries'].items():add(g,{'layer':'measurement','class':key},key)
     for i,c in enumerate(result['drainage'].get('catchments',[])):
         add(c['geometry'],{k:v for k,v in c.items() if k!='geometry'},'catchment-'+str(i))
+    for i,c in enumerate(result.get('research_drainage',{}).get('primary',{}).get('catchments',[])):
+        add(c['geometry'],{k:v for k,v in c.items() if k not in ('geometry','known_ia_geometry')}
+            | {'layer':'research_catchment','method':result['research_drainage']['method']},'research-catchment-'+str(i))
+    for run in result.get('modeled_integration',{}).get('runs',[]):
+        for i,c in enumerate(run['catchments']):
+            add(c['geometry'],{k:v for k,v in c.items() if k!='geometry'} | {'layer':'ai_informed_catchment',
+                'scenario':run['name'],'basis':'unverified modeled estimate'},'ai-catchment-'+run['name']+'-'+str(i))
     return {'type':'FeatureCollection','features':features,'input_sha256':result['input_sha256'],
             'area_accounting_crs':case.get('area_crs',case['crs'])}
+
+
+def research_sections(result):
+    """Small physical comparison; large diagnostic rasters remain in JSON."""
+    r=result.get('research_drainage',{}); p=r.get('primary')
+    if not p:return '<h2>Villanova/Temple additional analysis</h2><p>'+escape(str(r.get('reason',r.get('status','unavailable'))))+'</p>'
+    e=lambda x:escape(str(x))
+    rows=''
+    for name,run in [('Nominal',p)]+[(v['name'],v) for v in r.get('sensitivity',[])]:
+        rows+=f'<tr><td>{e(name)}</td><td>{run["grid"]["cell_size"]} {e(run["grid"]["horizontal_unit"])}</td><td>{run["filled_cells"]}</td><td>{len(run["catchments"])}</td><td>{sum(c["on_parcel_area_sqft"] for c in run["catchments"]):,.2f}</td><td>{run["known_ia_union_sqft"]:,.2f}</td><td>{e(run["area_conservation_pass"])}</td></tr>'
+    warnings=''.join('<li>'+e(w)+'</li>' for w in r['warnings'])
+    return f'<h2>Villanova/Temple additional analysis</h2><p>Purple outlines are modeled GSI catchments. Current conservative drainage remains separate. Roofs are excluded under an assumption, not verified sewer connections.</p><table><tr><th>Scenario</th><th>Grid</th><th>Filled cells</th><th>GSI catchments</th><th>On-parcel modeled ground (ft²)</th><th>Known on-parcel IA (ft²)</th><th>Conservation</th></tr>{rows}</table><ul>{warnings}</ul><h3>Real-site validation still required</h3><ul>'+''.join('<li>'+e(v)+'</li>' for v in r['validation']['missing'])+'</ul><p>Settings, feature audit, micro-basins, conditioned elevations, fill depths, D8 directions, inclusive accumulation and raster hashes are retained in the analysis JSON. Tested ranges are assumption sensitivity, not confidence intervals.</p>'
+
+
+def modeled_sections(result):
+    m=result.get('modeled_integration')
+    if not m:return ''
+    e=lambda v:escape(str(v))
+    summary={'status':m['status'],'ai_sources':m['ai']['sources'],'excluded':m['ai']['excluded'],
+        'modeled_ia_sqft':m['measurement']['ia_sqft'],'unresolved_ground_sqft':m['measurement']['unknown_sqft'],
+        'roof_supplement_sqft':m['roof_supplement_sqft'],'class_conflict_sqft':m['ai']['class_conflict_sqft'],
+        'observation_disagreement_sqft':m['ai']['observation_disagreement_sqft'],
+        'drainage_source':m['drainage_source'],'uncertainty':m['ai']['uncertainty']}
+    return '<h2>AI-informed surface and drainage branch</h2><p>'+e(m['claim'])+' Dashed orange lines show AI-informed catchments.</p><pre>'+e(json.dumps(summary,indent=2))+'</pre>'
 
 
 def render_report(case,result):
@@ -78,7 +113,7 @@ def render_report(case,result):
     m=result['measurement'];terrain=case.get('terrain') or {}
     keys=[('Boundary area','ga'),('Known impervious area','ia'),('Unclassified area','unknown'),
           ('Known pervious area','pervious'),('Canopy over ground impervious','canopy_ground_ia')]
-    rows=''.join(f'<tr><td>{label}</td><td>{n(m.get(key+"_m2",m[key+"_sqft"]*.09290304))}</td><td>{n(m[key+"_sqft"])}</td></tr>' for label,key in keys)
+    rows=''.join(f'<tr><td>{label}</td><td>{n(m[key+"_m2"] if key+"_m2" in m else (None if m[key+"_sqft"] is None else m[key+"_sqft"]*.09290304))}</td><td>{n(m[key+"_sqft"])}</td></tr>' for label,key in keys)
     warnings=''.join(f'<li>{e(w)}</li>' for w in result['warnings'])
     corrections=''.join(f'<li>{e(c["at"])} — {e(c["action"])}: {e(c["reason"])}</li>' for c in case.get('corrections',[])) or '<li>None recorded</li>'
     details={k:result[k] for k in ('validation','source_quality_issues','processing_settings')}
@@ -90,6 +125,8 @@ def render_report(case,result):
 <h2>Physical areas</h2><table><tr><th>Quantity</th><th>m²</th><th>ft²</th></tr>{rows}</table><p>Surface coverage: {'complete' if m['complete'] else 'partial'}. Unknown surfaces remain explicit.</p>
 <h2>Drainage</h2><p>Status: {e(result['drainage'].get('status'))}. Displayed terminal regions: {len(result['drainage'].get('catchments',[]))}. Elevation units: {e(terrain.get('vertical_unit','Unknown'))}; horizontal units: {e(terrain.get('horizontal_unit','Unknown'))}; cell size: {e(terrain.get('cell_size','Unknown'))}. A collection footprint is not a confirmed inlet. No automatic pit filling or unknown private connection is implied.</p>
 <pre>{e(json.dumps({k:v for k,v in terrain.items() if k not in ('elevations','parcel_mask')},indent=2))}</pre>
+{research_sections(result)}
+{modeled_sections(result)}
 <h2>Missing evidence and assumptions</h2><ul>{warnings}</ul><pre>{e(json.dumps(case.get('assumptions',[]),indent=2))}</pre>
 <h2>Source and construction/condition evidence</h2><p>Reported construction completion: {e(case.get('construction_completed','Unknown'))}. Source dates do not establish unchanged grading or present condition.</p><pre>{e(json.dumps({'sources':case.get('sources',[]),'quality_reviews':case.get('source_quality_reviews',[])},indent=2))}</pre>
 <h2>Manual corrections</h2><ul>{corrections}</ul><h2>Separate measurement and routing validation</h2><pre>{e(json.dumps(details,indent=2))}</pre>

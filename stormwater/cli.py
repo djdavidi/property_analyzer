@@ -10,7 +10,7 @@ from .cases import ROOT, CaseStore, analyze, input_hash
 
 def write_json(path,value):
     path=Path(path);path.parent.mkdir(parents=True,exist_ok=True)
-    path.write_text(json.dumps(value,indent=2,allow_nan=False)+'\n')
+    path.write_text(json.dumps(value,separators=(',',':'),allow_nan=False)+'\n')
 
 
 def load_case(value,store):

@@ -116,7 +116,8 @@ class GeometryRoutingIntegrationTests(unittest.TestCase):
         case['features']['features'].pop()
         after=measure(case)
         self.assertEqual(before['ia_sqft'],after['ia_sqft'])
-        self.assertEqual(after['canopy_ground_ia_sqft'],0)
+        # Removing the only canopy layer removes evidence; it does not prove absence.
+        self.assertIsNone(after['canopy_ground_ia_sqft'])
 
     def test_terrain_crs_or_units_mismatch_blocks_integration(self):
         case=make_case([feature('p',box(0,0,3,1),'surface','pavement')])

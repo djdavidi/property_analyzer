@@ -1,0 +1,5 @@
+# Optional isolated CPU classifier; the base GIS environment remains unchanged.
+torch==2.9.1
+torchvision==0.24.1
+segmentation-models-pytorch==0.3.3
+six==1.17.0

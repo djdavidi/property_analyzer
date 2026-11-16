@@ -1,0 +1,46 @@
+Whitaker saved terrain reuse — unit tests only
+Date: 2026-11-15
+Command: .venv/bin/python -m unittest discover -s tests -p test_terrain_reuse_unit.py -v
+Result: exit 0; 18 unit tests passed; no skips.
+Inputs: invented local saved-case/revision fixtures and mocked source/display/orchestration functions.
+No live Whitaker reuse/assessment, model inference, network source, HTTP/CLI/browser/JavaScript, full-suite or empirical validation was run.
+Initial unit attempt: one fixture error because the mocked save did not create its case folder; fixed the test setup. Final run passed.
+An initial preparatory script used host Python without Shapely and stopped before mutations; rerun with the project virtual environment. This was not a test pass or a live assessment.
+Source metadata for the real preference was inspected read-only; original standard/research case files were not written by this task.
+Source hashes at final evidence capture:
+659e8bc26e36144d8696b295a45d013763ea32fce2675f985da639a4bd8b82ed config/terrain-reuse.json
+32e88bb42ef4483649b8ba608a1e2e28ff08a89ccadc6dd9800fc0832dcde7f1 stormwater/terrain_reuse.py
+62da335aa34688669e04b502270453c535d6eed1b9b6f31fbc050583a1f5d1f3 stormwater/automatic_terrain.py
+6e4c75e1c95e98f0025ff953f20d8291a8e8c477fa1aa4f2e3c1bae883db97c8 stormwater/automatic.py
+bd831d6dcf53caceab517be1f4118613e474aad05f127ca825c85cbaf827e410 stormwater/cases.py
+35447b6ff3bd24e0bdd41d158b56451cc67ef85424ba675262c4bd05e86c33a7 drainage_core/engine.py
+0194bffc0b03e62ee0f505fdfc24bf5e3c7405e39d70951be522192332f449f9 tests/test_terrain_reuse_unit.py
+
+RAW UNIT OUTPUT
+test_assessment_orchestrator_supplies_its_case_store_for_address_flow (test_terrain_reuse_unit.TerrainReuseUnitTests.test_assessment_orchestrator_supplies_its_case_store_for_address_flow) ... ok
+test_changed_donor_or_revision_is_rejected_by_hash (test_terrain_reuse_unit.TerrainReuseUnitTests.test_changed_donor_or_revision_is_rejected_by_hash) ... ok
+test_current_ai_geometry_copies_follow_native_terrain_alignment (test_terrain_reuse_unit.TerrainReuseUnitTests.test_current_ai_geometry_copies_follow_native_terrain_alignment) ... /Users/david/projects/property_analyzer/drainage_core/geometry.py:38: DeprecationWarning: The 'shapely.ops.transform()' function is deprecated. Use 'shapely.transform()' or 'shapely.transform_coordseq()' instead. See https://shapely.readthedocs.io/en/latest/manual.html#shapely.ops.transform for more details.
+  return transform(Transformer.from_crs(source, target, always_xy=True).transform, geometry)
+ok
+test_existing_explicit_terrain_is_not_overwritten (test_terrain_reuse_unit.TerrainReuseUnitTests.test_existing_explicit_terrain_is_not_overwritten) ... ok
+test_frozen_gis_artifact_retains_reuse_lineage (test_terrain_reuse_unit.TerrainReuseUnitTests.test_frozen_gis_artifact_retains_reuse_lineage) ... ok
+test_insufficient_buffer_or_nodata_are_rejected (test_terrain_reuse_unit.TerrainReuseUnitTests.test_insufficient_buffer_or_nodata_are_rejected) ... /Users/david/projects/property_analyzer/drainage_core/geometry.py:38: DeprecationWarning: The 'shapely.ops.transform()' function is deprecated. Use 'shapely.transform()' or 'shapely.transform_coordseq()' instead. See https://shapely.readthedocs.io/en/latest/manual.html#shapely.ops.transform for more details.
+  return transform(Transformer.from_crs(source, target, always_xy=True).transform, geometry)
+ok
+test_keep_original_measurement_pixels_and_align_display_only (test_terrain_reuse_unit.TerrainReuseUnitTests.test_keep_original_measurement_pixels_and_align_display_only) ... ok
+test_missing_display_blob_does_not_force_dem_download (test_terrain_reuse_unit.TerrainReuseUnitTests.test_missing_display_blob_does_not_force_dem_download) ... ok
+test_missing_donor_is_rejected_without_changing_current (test_terrain_reuse_unit.TerrainReuseUnitTests.test_missing_donor_is_rejected_without_changing_current) ... ok
+test_no_matching_preference_leaves_normal_provider_fallback (test_terrain_reuse_unit.TerrainReuseUnitTests.test_no_matching_preference_leaves_normal_provider_fallback) ... ok
+test_other_property_and_conflicting_source_identity_are_not_reused (test_terrain_reuse_unit.TerrainReuseUnitTests.test_other_property_and_conflicting_source_identity_are_not_reused) ... ok
+test_preference_precedes_remote_discovery (test_terrain_reuse_unit.TerrainReuseUnitTests.test_preference_precedes_remote_discovery) ... ok
+test_project_current_vectors_and_ledgers_without_resampling_grid (test_terrain_reuse_unit.TerrainReuseUnitTests.test_project_current_vectors_and_ledgers_without_resampling_grid) ... ok
+test_rejected_saved_preference_is_reported_if_remote_provider_is_offline (test_terrain_reuse_unit.TerrainReuseUnitTests.test_rejected_saved_preference_is_reported_if_remote_provider_is_offline) ... ok
+test_repeated_run_keeps_current_terrain_without_rediscovery (test_terrain_reuse_unit.TerrainReuseUnitTests.test_repeated_run_keeps_current_terrain_without_rediscovery) ... ok
+test_reuses_native_grid_and_provenance_without_donor_facts_or_mutation (test_terrain_reuse_unit.TerrainReuseUnitTests.test_reuses_native_grid_and_provenance_without_donor_facts_or_mutation) ... ok
+test_same_id_but_changed_parcel_boundary_is_rejected (test_terrain_reuse_unit.TerrainReuseUnitTests.test_same_id_but_changed_parcel_boundary_is_rejected) ... ok
+test_unverified_units_or_missing_exact_metadata_are_rejected (test_terrain_reuse_unit.TerrainReuseUnitTests.test_unverified_units_or_missing_exact_metadata_are_rejected) ... ok
+
+----------------------------------------------------------------------
+Ran 18 tests in 0.229s
+
+OK

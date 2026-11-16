@@ -1,0 +1,235 @@
+Stormwater roof scope documentation verification, 2026-11-15
+Workspace: /Users/david/projects/property_analyzer
+Pre-existing dirty tree retained. Only scope/research documentation changed.
+Exact command: python3 /tmp/property-roof-scope-doc-check.py
+Exit: 0
+Local links: 110 checked across seven Markdown files; 0 missing.
+Previous TASK preserved verbatim: PASS; SHA256 1d1c0bed4dd076dc4da4298a3c48ad2121cb2bb43a6a67efd8ef457563cdb136
+Excluded process proposal and nine-step workflow retained as labeled history: PASS.
+Preservation: 145 unrelated baseline files checked.
+Unexpected new nonignored files: [].
+Accepted focus, excluded active machinery workflow and 14 retained research entries: PASS.
+git diff --check: exit 0.
+Application tests, browser checks, model inference and empirical validation: UNRUN (scope documentation only).
+
+Exact separate command: git diff --check; exit 0 (also run inside checker).
+No new source/rule research, application tests, inference, browser or empirical validation was performed.
+Archived process check verifies its retained heading, nine-step workflow and excluded status; previous TASK is compared verbatim.
+
+Checker source:
+from pathlib import Path
+import hashlib,json,re,subprocess
+root=Path('/Users/david/projects/property_analyzer')
+allowed={'README.md','docs/PRD.md','docs/STATE.md','docs/TASK.md','docs/CHECKPOINTS.md','docs/BUILDING-IMAGERY-PRIOR-ART.md','docs/PROPERTY-ASSESSMENT-PROCESS.md','docs/roof-scope-2026-11-15-checks.txt'}
+base=json.loads(Path('/tmp/property-roof-scope-baseline.json').read_text())
+errors=[]; links=0
+for name in sorted(p for p in allowed if p.endswith('.md')):
+    for target in re.findall(r'\[[^\]]*\]\(([^)]+)\)',(root/name).read_text()):
+        if re.match(r'^[A-Za-z][A-Za-z0-9+.-]*:',target) or target.startswith('#'):
+            continue
+        target=target.split('#',1)[0]
+        if target:
+            links+=1
+            if not (root/name).parent.joinpath(target).exists(): errors.append(f'Missing link: {name} -> {target}')
+print(f'Local links: {links} checked across seven Markdown files; {len(errors)} missing.')
+old=Path('/tmp/property-roof-scope-previous-task.md').read_text()
+cp=(root/'docs/CHECKPOINTS.md').read_text()
+assert old in cp, 'Previous TASK archive differs'
+print('Previous TASK preserved verbatim: PASS; SHA256 '+hashlib.sha256(old.encode()).hexdigest())
+archive=cp.split('## Archived rooftop equipment proposal excluded on 2026-11-15\n',1)[1]
+assert '## 3 Inventory existing rooftop assets with AI' in archive
+assert '9. **Validate before broad use.**' in archive
+assert 'Do not execute or implement it for this product' in archive
+print('Excluded process proposal and nine-step workflow retained as labeled history: PASS.')
+checked=0
+for name,digest in base.items():
+    if name not in allowed:
+        checked+=1
+        if not (root/name).is_file() or hashlib.sha256((root/name).read_bytes()).hexdigest()!=digest:
+            errors.append('Unrelated file changed: '+name)
+print(f'Preservation: {checked} unrelated baseline files checked.')
+current=set(subprocess.check_output(['rg','--files','--hidden','-g','!.git','-g','!.venv','-g','!data'],cwd=root,text=True).splitlines())
+extra=sorted(current-set(base)-allowed)
+print(f'Unexpected new nonignored files: {extra}.')
+errors.extend('Unexpected file: '+p for p in extra)
+prd=(root/'docs/PRD.md').read_text()
+assert '## Stormwater roof research focus (accepted 2026-11-15)' in prd
+assert 'drainage features, roof geometry and\nexisting vegetation' in prd
+assert 'other general roof asset inventories are\nout of scope' in prd
+process=(root/'docs/PROPERTY-ASSESSMENT-PROCESS.md').read_text()
+assert '### Proposed machinery identification procedure' not in process
+assert '## 3 Research roof drainage geometry and existing vegetation' in process
+survey=(root/'docs/BUILDING-IMAGERY-PRIOR-ART.md').read_text()
+assert len(re.findall(r'^### ',survey,re.M))==14
+assert 'existing roof inventory** joining' not in survey
+print('Accepted focus, excluded active machinery workflow and 14 retained research entries: PASS.')
+r=subprocess.run(['git','diff','--check'],cwd=root,capture_output=True,text=True)
+print(f'git diff --check: exit {r.returncode}.')
+if r.returncode: errors.append(r.stdout+r.stderr)
+print('Application tests, browser checks, model inference and empirical validation: UNRUN (scope documentation only).')
+for error in errors: print('FAIL: '+error)
+raise SystemExit(bool(errors))
+
+Starting nonignored-file SHA256 inventory:
+{
+  "gis": "69cd9ee6e50ea2b22b4f1730b6b2e88d554ac63ba32df0c7febb942bad9b6ab2",
+  "credits": "be2b6deee458745a27d4ea9a6d71f41d354fbf3a860147174a7f6750002d10db",
+  "AGENTS.md": "162673374ea112e6d73bd17b8e3c444f02df9c033e0664c0950527a1a7f2872b",
+  "run.command": "cc0a16147a315bd768ffb9f86c2728db56dce0d1818b0b747c75bb6498ef0023",
+  "run-gis.command": "a503ad64c48eef5c81c46602dbdce28a253c9e2ad9d1b1598f191e23dbd5b73a",
+  "examples/assessment-public/sources/47053d1026fb0598fe3b6084d793b09664d7f312ac5ee7b92428b1dfc9d56a6c.json": "47053d1026fb0598fe3b6084d793b09664d7f312ac5ee7b92428b1dfc9d56a6c",
+  "examples/assessment-public/sources/manifest.json": "c851dd1c5b16cce56cdef9d84b7b5e0c70d52a9fba9750bd33817376644fca4f",
+  "examples/assessment-public/sources/74f96b2fdc889ccaf85d328608b7a04d7df60e22531f43c8ce9949b5613caad1.json": "74f96b2fdc889ccaf85d328608b7a04d7df60e22531f43c8ce9949b5613caad1",
+  "examples/assessment-public/sources/db82aa33c2d9cd2535fcfb996cefec8859f8348a0fecccd3a15974e8ae9b7361.json": "db82aa33c2d9cd2535fcfb996cefec8859f8348a0fecccd3a15974e8ae9b7361",
+  "examples/assessment-public/sources/a0b97d16986dd815c2b8e18c3f735387f7e5a56bab24acfc2a2b1193719e75b8.json": "a0b97d16986dd815c2b8e18c3f735387f7e5a56bab24acfc2a2b1193719e75b8",
+  "examples/assessment-public/sources/249d43915829071b21ab100592cc26e214820e60c458337c4c981215dbc2f5a9.json": "249d43915829071b21ab100592cc26e214820e60c458337c4c981215dbc2f5a9",
+  "examples/assessment-public/replay.py": "6a5a33c8901cabbc61e03c89c22c866e87e45dc2f658e701d5006d9afd1b82d1",
+  "examples/assessment-public/README.md": "b9e207015f22acb20b38b460ab7458527a093ddffb1a06afc59e3db03f735089",
+  "examples/assessment-public/acquire.py": "201daf9e207c11522ca51bde4a5e232b5c839aa8a3e7b5f544c6e7d839ce8341",
+  "examples/assessment-synthetic/case.json": "4d9d3298b7a5456a792c2fc3d525719c27da3e0d456f0d1ddefdbfac4ec97049",
+  "examples/assessment-synthetic/README.md": "af10de8c1c10f1d75031a7e68391bb84184bb89a19e5155fd9de830089d147b8",
+  "examples/assessment-synthetic/build.py": "79010535d1caf9a8df4fd748b6a49183f14190329f0e594ee5040122175eb686",
+  "examples/research-drainage/README.md": "f55dfe830540c7f2df3710a0f2169a6c6cff2447f3c7e0c17dacaa0c0d0b74ac",
+  "examples/research-drainage/whitaker.py": "3e767450846bbaef83b6145977c9161cf9b60e44dda066da5a06ccf4e8feacb3",
+  "examples/automatic-public/sources/e94204bbc9cf494440fe1f13e960ded3a5ff756107dc5649a455234dacd848e1.json": "e94204bbc9cf494440fe1f13e960ded3a5ff756107dc5649a455234dacd848e1",
+  "examples/automatic-public/sources/fec79593ca028f3aad1d421151711911678d75819cde3343c38dd6e594a8489e.json": "fec79593ca028f3aad1d421151711911678d75819cde3343c38dd6e594a8489e",
+  "examples/automatic-public/sources/cb8935aa77d17f902dcfaaf9296def5f51d7fb3c84502668ee208f54e9b4e745.png": "cb8935aa77d17f902dcfaaf9296def5f51d7fb3c84502668ee208f54e9b4e745",
+  "examples/automatic-public/sources/4714d81cae8e20e4089140aa22cd8682cf955d832d3e9096aa4ea7e94739a8f2.json": "4714d81cae8e20e4089140aa22cd8682cf955d832d3e9096aa4ea7e94739a8f2",
+  "examples/automatic-public/sources/cba0f2e5156f8c7a92505f90e27d3ce31248f5bd9d05d1267cf59db23decae00.png": "cba0f2e5156f8c7a92505f90e27d3ce31248f5bd9d05d1267cf59db23decae00",
+  "examples/automatic-public/sources/ae3267e345b78ad9eb0430b2d90ef6dc977f10322dbf96aa1af72143d540af99.json": "ae3267e345b78ad9eb0430b2d90ef6dc977f10322dbf96aa1af72143d540af99",
+  "examples/automatic-public/manifest.json": "2f8bc830f543a0fd4381d61afaaa21b4b19195d12729dbdbc1cdc1aee3b3fd43",
+  "examples/automatic-public/replay.py": "163e721afa5b763bde09fda2e25362820b1dada505cdabc7b3cf5da13bccede8",
+  "examples/automatic-public/assess.py": "f09e5e96a019305830bd372f707b497479ebec3854ee879c83c234351e027472",
+  "examples/automatic-public/README.md": "5d89f1479fd41062931d2c331ec2f723d8e7560e4105f78bc6aa836e8e1a2aac",
+  "examples/sydney/case.json": "425d3ac98e53b875cb7bcc35df3d8073c7f4d45300665c63f2233506c4db9843",
+  "examples/philadelphia-synthetic/case.json": "e301df673d9747cee49dcc1b4315a7fc53360252a86fd80b70faa54c61f09775",
+  ".gitignore": "6372be34b70cfad5dd10f526cf57a8924da059c493390833bf2f0cbc0a1c0aad",
+  "README.md": "23c2660184cfadeb3f98fb1ce04195b5c3e475076c1f9799723a1ead964598ac",
+  "drainage_core/validation.py": "7ce54c2f783974668775d2cc5565c73648e04f0acbc012524d1b72bd3ddc4d01",
+  "drainage_core/report.py": "f35f26bfdfb4accdae88632c4a369fb96a48182f8b455aac03a7215dc177e306",
+  "drainage_core/__main__.py": "935a1c1166b0c1ea35a82256345000bf2c73ded718d77773bc27a71ecce28f7d",
+  "drainage_core/evidence.py": "96ae72b0c1fa5800258f4090197919512d4569b2258c33d30551f1a8b9b3c099",
+  "drainage_core/raster.py": "472d4a9cc13416004d1bf41518485d22eadc1712c04fa7fc569a7c30e958900f",
+  "drainage_core/projection.py": "a9bd4fec5c57cf9dc977887388fd7a400213f9c2765626581db992891fb62716",
+  "drainage_core/workspace.py": "7cc7b0660193b4c79f43fc39712345381cb3a7aa5758733e1de98d1315ad102d",
+  "drainage_core/semantic_cover.py": "30532ec82d026b2492c20039110d402959089324b50f75ed8022f644ecbd46f6",
+  "drainage_core/geometry.py": "8156c78df9276c510c4496c9a228959f1ed58829ba657bb23c05450536dd2ab0",
+  "drainage_core/drainage.py": "081de4c6152ce3a6fccc5148db6fd6dee6f0011e8c90d1315e083cbd6c182cec",
+  "drainage_core/cli.py": "0365c5ed0ba77177e170d67913e34039ba93a142b07b7b02b20c44b8ee853711",
+  "drainage_core/setup_semantic_model.py": "0b35b2ce41cd32e02760f87441ecad46850b07a1dc2a2d64dc58f0a60f51cd4d",
+  "drainage_core/engine.py": "a4248a996224fe15a98b900e874505ec14251bc34522e5b17e6cb22478a8807a",
+  "drainage_core/sources.py": "eb42841cb8c3ebadce23abb5f326e68700ddb53b6642553142535d2f146d3625",
+  "drainage_core/__init__.py": "97349d8d2fd794b888b82e7e627f35ce10b9df15f2eb42f6cdea356e827066cb",
+  "drainage_core/terrain.py": "daf7a7b9e1e80d3336e857e6b6d231192a4b635f5a3be3863a76760c53d92ff2",
+  "drainage_core/web/app.js": "c2b89af17d68fd7cf34a399d01dc586ff27fa845078081492b84bac670a711e4",
+  "drainage_core/web/style.css": "41216cabca457463fa1b3738a969b0097b5bd711ca57433a041a2033cd63cc55",
+  "drainage_core/web/index.html": "b787f3123c8cdca2cfe00a40cd48fa6274b4e959a94dcf409d3f963590999266",
+  "drainage_core/research.py": "67ba6ee89ad41d81f93ea34dbbee920f02f3c7b2496d9600ebd5a1e868964594",
+  "drainage_core/media.py": "c547ca8102ce2a633e84761a8d119a4efc5a8a25f022206cdfa5c01331362d95",
+  "drainage_core/server.py": "c6d3044a38b214a3667c53482720b926cb8cf3704f5787a9de6d0b1797becfcd",
+  "drainage_core/model_worker.py": "c35110132ffb8431dc74c4e4b83dd9f5a9dcdef4cffa158ffcd3cd8ec34ce05e",
+  "drainage_core/remote_sensing.py": "f522686b12b7397c22d09ce0843908577c675ff9fd212dda6e801f3d16b29738",
+  "drainage_core/freshness.py": "faabee9ab47cd5b34844a8b795d645918221d6804aa00d6daea0c3f531819490",
+  "stormwater/validation.py": "466939666142d3dc4639b0180f24f1c2df7c6728a88b35b656c10e9b0960c00a",
+  "stormwater/assessment_workflow.py": "313743a63bf3b473992f66862375abd8d988d7f024c2bf71cb832b6108f39a20",
+  "stormwater/automatic_terrain.py": "e928b5f887ede3926e92ff906ac757a72a5c8ea61098cf57c27131a30f643300",
+  "stormwater/fixtures.py": "2a798b52f18f6194087eefb71a8a0d0df8931d0fdacbf62b4ca19cb46e350dde",
+  "stormwater/policy_cli.py": "7e12015a5895923b4896e6b537af3837fb89fd9b0e7425b5e7ad66563d3592f2",
+  "stormwater/report.py": "7c5875a71b534ef4a001feeb03d5a765b61845b4cba2a706b525af6bb5b72970",
+  "stormwater/whitaker_dem.py": "6c3e82283de6d219f88af4d3167e54e88a841c3d286084cf39b5c94194c6b41f",
+  "stormwater/renewals.py": "89d6b85be8b5e9e02937cb23abc36cb16a76042ce29cb1483fd49d213574cab2",
+  "stormwater/raster.py": "a6655d1ddaed136628061db4083cfb3b014413a724a921a523682319dada428d",
+  "stormwater/acquisition.py": "766547c872899c60fbfdf85da64cc020e0ff6c777c1c784634ac6cd4b6886d3f",
+  "stormwater/assessment_report.py": "242634dda0b2eced6fda6144cbcbb6e710c10201b6201c56812c9952d233ddbf",
+  "stormwater/geometry.py": "2d2216a95c84da293571890f227ded34522ceb7f8c46b19c02b9d76392e9f95d",
+  "stormwater/whitaker_usgs.py": "b3181b283091dabac704a63e41dfa969c54d353a30d45058edf12efe6a9585ea",
+  "stormwater/drainage.py": "57fcc7dc813f85521c956b077d8c939777e09970078673366fb73de4b69f5756",
+  "stormwater/cli.py": "357244571b2acce954baecee01ff05e0994b93b9bf58505e9e6074397c29002c",
+  "stormwater/cases.py": "4cf527450c966c37cdf5f8da2292a89c67cadc7f74ac28287fc59b7449403287",
+  "stormwater/rules.py": "88b7f9cdbc146504eb4d0344ac76b02722cd159ba43e715a4e24b322806d9c26",
+  "stormwater/__init__.py": "d794e0959b5d1c29c902d7a654486e04a45e4ba85ea7660c17ee66914dcea89e",
+  "stormwater/terrain.py": "2b96d4f33f4b58f22ea444a1d3a84420293fa5106e68d2cbb16941ff5eac2798",
+  "stormwater/jurisdictions/__init__.py": "0e48f57168106f98b290e5cb10eef4221ede0550be931ef1b5eee47a9ee51abb",
+  "stormwater/jurisdictions/philadelphia.py": "52201a46b0bb2cfde6dd5d5f6171d1c28d7782251038e4e18e6110a0a603eeea",
+  "stormwater/automatic.py": "c06b4197bafd8e46b3357e5074294008235117a086f66e77007d09c4e7bbd8d4",
+  "stormwater/assessment_policy.py": "699b7cf66759edc53a7902688c07d3c268c85bbeb27e1e2ff4edd463f1b9d925",
+  "stormwater/billing.py": "fb23b7abbc301360ba10ea938a757748a23bff534f711f641183f72e578090e4",
+  "stormwater/server.py": "ed3947b32755b1a825a792ffc4d11de4a055a0660dab37454d4d516d38bcf97e",
+  "stormwater/assessment_sources.py": "b1de8718ebd182de4fc6752a639476141829b971d3bd172be256d7ae08c7c4eb",
+  "docs/freshness-test-results.txt": "7f7c3c08c17bc1f3215ce55ecbdc50424690739b639f4db401c278426ff063ad",
+  "docs/BUILDING-IMAGERY-PRIOR-ART.md": "9bc1ed42f9fff225095225e4af6920d99c431becb9f0056d2702f79bfd3628bb",
+  "docs/GIS-ARCHITECTURE.md": "80fb37bb5b507fb8cfd0a5e8c472a70f0bb85f1d0e3a71040ce84293d7487b58",
+  "docs/PROPERTY-ASSESSMENT-PROCESS.md": "bbd8e96534528d286877b04d907f2da1483023d3f1d67aa16e207f7b510c5fea",
+  "docs/research-baseline-restricted-results.txt": "64d013e7320073caea273ce48df58b430e5ea057ba83dc135b9144cef7d1e33e",
+  "docs/ASSESSMENT-USAGE.md": "68d7d7927215c324809c234177d85a0613affd1326d61b9e55e7f30059a49168",
+  "docs/test-results.txt": "98dc566ea79f067f38e22c978764cf6e74a35d347209ac2e9adf1a8c8251b77c",
+  "docs/CHECKPOINTS.md": "390612caab725e9cac33febc48b30f5599805a89a2992204c3ac974a62179117",
+  "docs/SESSION.md": "7a28ea415f0029152ec24a42a155928d8a3b75e1688c484c98b6c8ea17b233f8",
+  "docs/RULES.md": "c2bce8e1bcad4a4e9bc6b85a09ca22a79b85dfa387604fa5b751b82b80ec91ad",
+  "docs/project-brain-2026-11-15-tests.txt": "269718ddc2a5b1c2151a7f4217ebe484649ab06a06c2d28f2c663b5036e8f054",
+  "docs/package-build.txt": "9644581eb162dde557929420aaad5b099ea825e29273e6488fe9df836cecfe24",
+  "docs/TASK.md": "1d1c0bed4dd076dc4da4298a3c48ad2121cb2bb43a6a67efd8ef457563cdb136",
+  "docs/assessment-test-results.txt": "fb6864a00b6e8ebd59589e0bc2c0fd989b94a93127f55c595fe541c49ebf3ca2",
+  "docs/prior-art-2026-11-15-checks.txt": "1e7c35c10def119bc7f85ec1875cf7144202ff0c6c13b80641ed9f9b13510f13",
+  "docs/ASSESSMENT-PUBLIC-VALIDATION.md": "ffad5e7960f9a91115d9ec53eb1f46b82617e423c56b18205b8c4d67715ed761",
+  "docs/research-test-results.txt": "c160a6881c74f1ffa8f704a6ae5f368c5131909702fea9609e44094455bbb6b8",
+  "docs/GIS-QUICKSTART.md": "d38cdb6600b1a534a490c6947626b2a5c6d7c1c0245a9ecce9de38c606789473",
+  "docs/STATE.md": "0ec33051cf867e28b400c78a42b637472bd0853f0bb1e6f161261afe9a9b034c",
+  "docs/RESEARCH-WHITAKER-VALIDATION.md": "35876e7f8a1597043aed9c197f898bd96c80218e2bb1220eb41c1b846f2fb292",
+  "docs/package-verification.txt": "e66456823d34d35ce4c8ce1a1d7ee1ac88b815eaf4c022c448d87db7222b2970",
+  "docs/ASSESSMENT-RULES.md": "bae150a8b6dd453c004ebb4e48094a675f1bf4408766babbd94030d53dd08611",
+  "docs/VALIDATION.md": "587e72c901dcc4f6ffe0c425f2efade90ae5586b9a91710b97e3ea72ff958411",
+  "docs/JURISDICTIONS.md": "deacf81a15c7f50c3cb0880c6b939a9fb3e74bb3285721e1da7787eedce5c280",
+  "docs/DEM-RECONCILIATION.md": "2c7e822f4e65c87fa31f81fe3f0b31e1e45389ce82d32c96c844dc62faafd25e",
+  "docs/SOURCES.md": "5980279b8e4e6b1bf07f3f915684aa60521e908e714f02ca46177325e7f8e6d3",
+  "docs/DRAINAGE.md": "5efe693acae9d89f3ecc8cacae34040c3c3a753fddcec6f1e7d144633a31ee44",
+  "docs/automatic-test-results.txt": "602cf9bc245fffaab6b90170422f805d83fb070f6a3b1ba6a7b5ea463224fd05",
+  "docs/RESEARCH-METHOD.md": "5905a371368a12c9ed84c9b84e7a4b7db3baa358c617533a366bc70fe55a18d3",
+  "docs/ARCHITECTURE.md": "0708b37ac788e8bc4ff3f648de249d19920d4eb6513ac402e538a35cdac0cb34",
+  "docs/PRD.md": "68b1256eb37bef6494b095f92706880d643a8b69005bfac73c3dad0c5e781830",
+  "tests/test_pipeline.py": "441cb3dec3eca092f04b87f5fa77d2599485c6d0c1e4e1a8f47898044480d4fe",
+  "tests/test_geometry.py": "0008ac5b6692ede99f77cae53896f367a373376a8c816ba44ffdf32bb8e592c6",
+  "tests/test_rules.py": "3c1788212a135d0be5f92d974255e8d2b05fa4bce022de719405199f3e4edb37",
+  "tests/test_cli.py": "4b163d8ca4e5fb5b0ced303c2cde0744648316b6a0d90a6bb13b6e4410fa662f",
+  "tests/test_drainage.py": "9fb0af5fe369936c38bd376716225ca1f184ee83b3b0ce5ed8026683f071fa98",
+  "tests/test_assessment_ui.py": "0fbd7ea4c68d486bbee5ee0b2a65882f6e4122c28346cd999c4e59bc5b87416c",
+  "tests/test_generic_server.py": "077740d70e76eec36390439c5cbedf798279cb360748359a095cf7b54666542d",
+  "tests/test_integration.py": "c098eda17f9a4f30b4212a98181cc637aa838e83cbee412e965d0a44ce3e5230",
+  "tests/test_assessment_http.py": "67df15b458e2a1b76c77a83f3433d0c8ac9dd65efc5529adf46a3065db534953",
+  "tests/test_gis_cli.py": "3fe7f53fe45384b3b43fb17bcc50e89b756fe3ecd50506fbacff98813cb0f6ec",
+  "tests/test_assessment_policy.py": "c0615a3b8df6807cef721a1b4dcdf33986007abe592a4aaaf6a1683a3c9b8db7",
+  "tests/test_renewals.py": "46200e9480b04d07f10c8f0d7ef086fc2932ae0164864dcbf8808bb21b07bbb1",
+  "tests/assessment-ui-checks.js": "e5dfe93a6cfc9cd8618056d0fd8cde41246e82d785d9d19826e3c746fd161171",
+  "tests/test_server.py": "8e867d136e0029c8bbdf7f5c301e98308e32eb07689ae20485d1620aa199b0e6",
+  "tests/test_assessment_evidence.py": "26f90de6210a2b1cdbcecb042c21789217710314ae809f74501248255683bf55",
+  "tests/test_review_regressions.py": "8781091cd0f7dd1565f38a5ac75e69e92151ff84936c4e911653ca19e775e31d",
+  "tests/test_automatic_http.py": "2bb6e88bc1c198173224d02b174b3c15f68a5384656bf17ff90f4b898dc77a7d",
+  "tests/test_assessment_portability.py": "104fcf67e314a1d6abfcd088c6a9aeb02ab1986677fc93659b9e7b473eb3f6ea",
+  "tests/test_automatic_site.py": "071c006e998ef6fcfaa6d2860cb2737179e2a3ac5daeae3911cf4627f04de951",
+  "tests/test_core_boundaries.py": "222a8be8f3e7def100f64e8ba78aefb25afa8452a0a0a3b42eeb1a1ff05337e1",
+  "tests/test_terrain.py": "9a4708d12970dc9158c6fe72d60af858b8e4aec08ce35ffa1a022b8187c3335f",
+  "tests/test_source_freshness.py": "08ffbb9475b4fbd2f4dc50cd2abb46e24d37f4cadc72b597c532ab51230f6da5",
+  "tests/test_whitaker_dem.py": "dcb82795712d7e39b7b1926c1b4ac53717bc23f66e223de345da0f298cf2b2e4",
+  "tests/test_portable_media.py": "1a72b80ffd38aa15f395d7da5d84ff5bc4ea76fe6beb068038fc48f5d474693a",
+  "tests/test_policy_cli.py": "68f4342f1e5d4a0723d20f8b84d57f67a74cc1260de9f8157b6f1f0f00646dbb",
+  "tests/test_research_drainage.py": "005f01dbbff4af63475b447cde3c63534791429ccfe8f497aaca06e77ce6ccda",
+  "tests/test_jurisdiction_adapter.py": "18d92937a3637334c8ef76ac731636266e93714313c4aaaf2d99b1db62fdd50d",
+  "tests/test_semantic_cover.py": "5bca51819737cdd4efee36b25c72fea429c92a628c5e19a2237e743b2b74f10c",
+  "tests/test_billing.py": "ada9f65146dae0389e0a7064e2d5262394bc356f3fb98d9018bd3bbbb9d0843f",
+  "pyproject.toml": "6155bdf2ea13814458722ea8f0c8b2d6ba16126e006f517831962ba46c26b7bb",
+  "HANDOFF_PROMPT.txt": "c7090a933edc72357d09b97ef162ddd263d2345d93deca72c5c447152f3f95dc",
+  "config/rules-pwd-2026-09.json": "f8c93c11af5df4122f1e80c49d76f61a996b4cda33845755738952da4c946f5f",
+  "config/sources.json": "f5323607fe92f5ab1fa9a5f473e7cee91bbcf411048bee9bc25fd195d1127ded",
+  "SETUP.md": "45a7045c57c1e5b5a592c7fad4e463498d2539660beffa64c25c8728d86ce753",
+  "requirements.txt": "465c0b93fa92521633442fdb10e9983d603430b8d0f68fe9fb18a8df5d5053bc",
+  "requirements-imagery-model.txt": "862ca0aa7e4cb77219a5fadedd88427f433b394a03c30cc7eb03831074040651",
+  "PACKAGE-MANIFEST.json": "ba9479d8870fef4080fde36a569f6a24ef564e0b713ec55f8ca22e88c0a05ef8"
+}
+Final authored Markdown SHA256 values:
+16a2977acebf6e675e9ed0d6b34cc5e88f603fd69b22fa4b44aaaa1d2bf26975  README.md
+d6ef4db08f1e998c3e545b560c0d215707d601615d3cf1f4d188e1e8fd522454  docs/PRD.md
+1a920ea46ebdc26fa5aded394420c6b86018e8d5e25220ae81cf9c02822962a8  docs/STATE.md
+5226eb48a1bea047889b5e0086e4db6d108a0e8009e6fa2ef7d38a7b395c10d3  docs/TASK.md
+5344f2ebb5cd0e494821483bbc94557a6dc9b38f172a6cb4a5a2ea6c271d0788  docs/CHECKPOINTS.md
+f5f3abf15bad548fe8040ed9596411823d8d7697547b11bbf1560f77bb706dc6  docs/BUILDING-IMAGERY-PRIOR-ART.md
+a591880e3fcfbdd8df61b0b7b5e6d8155dbbdb72472879aaea86eabf2dbb8060  docs/PROPERTY-ASSESSMENT-PROCESS.md

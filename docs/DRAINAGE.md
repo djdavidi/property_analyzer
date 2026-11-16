@@ -1,5 +1,9 @@
 # Deterministic drainage model
 
+This describes the retained conservative engine. The additional Villanova/Temple
+adaptation runs alongside it; see [method specification](RESEARCH-METHOD.md).
+Its filling/conditioning assumptions do not change this conservative result.
+
 `stormwater.drainage.route_grid` accepts a JSON-compatible north-up elevation grid
 and returns cell catchment labels, next-cell pointers, sampled map-coordinate
 flow paths, on/off-parcel area totals, and explicit unresolved coverage.

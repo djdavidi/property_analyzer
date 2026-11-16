@@ -1,0 +1,887 @@
+{
+  "date": "2026-11-15",
+  "site": "Public Whitaker example",
+  "no_application_implementation": true,
+  "imagery": {
+    "original_tile": "27087E265654N",
+    "catalog_gsd": 0.07620015240030481,
+    "worldfile": [
+      0.25,
+      0.0,
+      0.0,
+      -0.25,
+      2708708.125,
+      268293.875
+    ],
+    "native_pixel_metres": 0.0762001524003048,
+    "source_crs_from_aux": "NAD83 Pennsylvania South US survey feet",
+    "small_zip_members_crc_verified": [
+      "27087E265654N.tfw",
+      "27087E265654N.tif.aux.xml"
+    ],
+    "complete_original_tiff_downloaded": false,
+    "zip_entries": [
+      {
+        "name": "27087E265654N.tfw",
+        "method": 8,
+        "crc32": 506236140,
+        "compressed": 32,
+        "uncompressed": 38,
+        "local_offset": 0
+      },
+      {
+        "name": "27087E265654N.tif",
+        "method": 8,
+        "crc32": 1987649701,
+        "compressed": 276603889,
+        "uncompressed": 334625798,
+        "local_offset": 107
+      },
+      {
+        "name": "27087E265654N.tif.aux.xml",
+        "method": 8,
+        "crc32": 1158256819,
+        "compressed": 468,
+        "uncompressed": 803,
+        "local_offset": 276604071
+      }
+    ],
+    "crops": [
+      {
+        "size": [
+          180,
+          180
+        ],
+        "metres_per_export_pixel": 0.27093387520108375,
+        "native_sampling_ratio": 3.555555555555556,
+        "png_color_type": 6,
+        "bands": "RGBA display, alpha is not NIR",
+        "sha256": "c82e2d8444a0e9e6a1650a236da61bc1cbeac3323209fcfd85a69305f2f9a021",
+        "extent": {
+          "xmin": 2709630,
+          "ymin": 265800,
+          "xmax": 2709790,
+          "ymax": 265960,
+          "spatialReference": {
+            "wkid": 102729,
+            "latestWkid": 2272
+          }
+        }
+      },
+      {
+        "size": [
+          320,
+          320
+        ],
+        "metres_per_export_pixel": 0.1524003048006096,
+        "native_sampling_ratio": 2.0,
+        "png_color_type": 6,
+        "bands": "RGBA display, alpha is not NIR",
+        "sha256": "c33680ca00479ab3633517d141faba27270c10a6f046762cda6c12d1c1d4350d",
+        "extent": {
+          "xmin": 2709630,
+          "ymin": 265800,
+          "xmax": 2709790,
+          "ymax": 265960,
+          "spatialReference": {
+            "wkid": 102729,
+            "latestWkid": 2272
+          }
+        }
+      },
+      {
+        "size": [
+          640,
+          640
+        ],
+        "metres_per_export_pixel": 0.0762001524003048,
+        "native_sampling_ratio": 1.0,
+        "png_color_type": 6,
+        "bands": "RGBA display, alpha is not NIR",
+        "sha256": "99d087d0d4e6b4088d379ac96b32e9d0ecf9b7504903e7c7545927c02f78ab3e",
+        "extent": {
+          "xmin": 2709630,
+          "ymin": 265800,
+          "xmax": 2709790,
+          "ymax": 265960,
+          "spatialReference": {
+            "wkid": 102729,
+            "latestWkid": 2272
+          }
+        }
+      },
+      {
+        "size": [
+          1280,
+          1280
+        ],
+        "metres_per_export_pixel": 0.0381000762001524,
+        "native_sampling_ratio": 0.5,
+        "png_color_type": 6,
+        "bands": "RGBA display, alpha is not NIR",
+        "sha256": "13d6fab5c1f5cd3c9e024444b2ee88b53d397ec08f4407a7445cb1982fd61c82",
+        "extent": {
+          "xmin": 2709630,
+          "ymin": 265800,
+          "xmax": 2709790,
+          "ymax": 265960,
+          "spatialReference": {
+            "wkid": 102729,
+            "latestWkid": 2272
+          }
+        }
+      }
+    ],
+    "visual_review": "180 and 640 pixel crops inspected; finer roof edges/seams and objects visible, no verified drain labels",
+    "original_tiff_band_ifd_reviewed": false
+  },
+  "lidar": {
+    "point_format": 6,
+    "record_length": 30,
+    "point_data_offset": 1709,
+    "header_point_count": 14526653,
+    "header_expected_minimum_bytes": 435801299,
+    "http_total_bytes": 200000000,
+    "available_whole_records_max": 6666609,
+    "trailing_partial_record_bytes": 21,
+    "declared_tail_request_status": 416,
+    "complete_file_verified": false,
+    "sampled_points": 380000,
+    "sample_classes": {
+      "1": 62080,
+      "2": 149415,
+      "3": 6787,
+      "4": 8951,
+      "5": 40114,
+      "6": 108373,
+      "7": 4280
+    },
+    "main_roof_objectid": 53642,
+    "nominal_main_roof_points": 4356,
+    "nominal_main_roof_building_class_points": 3855,
+    "five_ft_inset_roof_points": 3116,
+    "five_ft_inset_building_class_points": 3079,
+    "building_roof_raw_z_quantiles": [
+      137.48,
+      138.15,
+      143.46
+    ],
+    "horizontal_crs": "EPSG:6565 (LAS), EPSG:2272 (saved footprint); nominal-coordinate overlap only, datum alignment unverified",
+    "vertical_units": null,
+    "vertical_datum": null,
+    "whole_roof_coverage_verified": false,
+    "blocks": [
+      {
+        "file": "las-records-0.bin",
+        "points": 40000,
+        "sha256": "0253ae1a764d52aa04d0cc8c5bf5dbd0991ae45000ece55e93b7e565efb45c58",
+        "range": "bytes=1709-1201708"
+      },
+      {
+        "file": "las-records-1600000.bin",
+        "points": 40000,
+        "sha256": "df5403812720a0852b968f33644cb54a0718d14a80eb639541c578c613b7e707",
+        "range": "bytes=48001709-49201708"
+      },
+      {
+        "file": "las-records-3200000.bin",
+        "points": 40000,
+        "sha256": "82c6dd01625a86c8677f2d02d5d7e06e7b8edd2ce8553c3abee6b3a64ba61a59",
+        "range": "bytes=96001709-97201708"
+      },
+      {
+        "file": "las-records-3600000.bin",
+        "points": 30000,
+        "sha256": "d4aaa1cfc5ab8e6ab85d41fe55e17f5e5965db1bf8e38ddc709bf2e2cf897c3f",
+        "range": "bytes=108001709-108901708"
+      },
+      {
+        "file": "las-records-4000000.bin",
+        "points": 30000,
+        "sha256": "c25e7cac72ddfcd73c8dce2975aba03b6d606af38e705bd140a568afa936fef5",
+        "range": "bytes=120001709-120901708"
+      },
+      {
+        "file": "las-records-4400000.bin",
+        "points": 30000,
+        "sha256": "5c123571d58ee266f74bd8ad7193c203dc104ae2263c8b1ce4152adc5b708e42",
+        "range": "bytes=132001709-132901708"
+      },
+      {
+        "file": "las-records-4800000.bin",
+        "points": 40000,
+        "sha256": "4b532270efea8c3b1f4d07e941e5739c11c2af010f4479d44cbb048faf537b66",
+        "range": "bytes=144001709-145201708"
+      },
+      {
+        "file": "las-records-5200000.bin",
+        "points": 30000,
+        "sha256": "9d72df125c264368cb535a34f053e203512ad218678f8201c5a956c4ef7fc218",
+        "range": "bytes=156001709-156901708"
+      },
+      {
+        "file": "las-records-5600000.bin",
+        "points": 30000,
+        "sha256": "06b322265dd44a5b92314a63ca5d0bed7eb57f4c4cc2bb4456d45f4544ab9424",
+        "range": "bytes=168001709-168901708"
+      },
+      {
+        "file": "las-records-6000000.bin",
+        "points": 30000,
+        "sha256": "c874c19affd7aa5fb1f5fdaf24fb4d5d4b641714268275dddd43ab90bac21748",
+        "range": "bytes=180001709-180901708"
+      },
+      {
+        "file": "las-records-6400000.bin",
+        "points": 40000,
+        "sha256": "9311daa49fd0db6e2d454aab9ec226373a37849c192a41f5db30517fc8531364",
+        "range": "bytes=192001709-193201708"
+      }
+    ]
+  },
+  "relevance": {
+    "mapped_parcel_sqft": 255924.41575850366,
+    "mapped_roof_union_sqft": 95854.31764955388,
+    "mapped_roof_fraction": 0.3745415120533255,
+    "interpretation": "Source geometry screening only; no verified managed area, outlet destination or award"
+  },
+  "existing_input_sha256": {
+    "data/imagery-qa/cases/qa-whitaker-imagery/case.json": "ab2274727197940cd650d9709fda36f1c9a73504e570958e7bc0247b9e80affc",
+    "data/public/whitaker-las-header.bin": "909aa456fd47d1a3df6831bf3148f0898f50173eaefc458a1d8d25037c48c861"
+  },
+  "limits": [
+    "No roof slope calculation with unverified vertical units",
+    "No roof reconstruction or detector implemented",
+    "No independent drain/roof reference labels",
+    "No inference, training, credit calculation or eligibility determination"
+  ],
+  "network_provenance": [
+    {
+      "url": "https://imagery.pasda.psu.edu/arcgis/rest/services/pasda/PhiladelphiaImagery2025/MapServer/2/query?f=json&where=Category%3D1&geometry=2709267%2C265605%2C2710179%2C266502&geometryType=esriGeometryEnvelope&inSR=2272&spatialRel=esriSpatialRelIntersects&outFields=OBJECTID%2CName%2CMinPS%2CMaxPS%2CLowPS%2CHighPS&returnGeometry=false",
+      "requested_range": null,
+      "status": 200,
+      "headers": {
+        "Cache-Control": "must-revalidate,max-age=0,public",
+        "Content-Length": "858",
+        "Content-Type": "application/json; charset=UTF-8",
+        "ETag": "\"1767373963\"",
+        "Vary": "Origin",
+        "Server": "Microsoft-IIS/10.0",
+        "X-Content-Type-Options": "nosniff",
+        "Date": "Sun, 15 Nov 2026 19:02:51 GMT",
+        "Connection": "close"
+      },
+      "bytes_read": 858,
+      "sha256": "12132fd6d65ce9481c6d0bd6e501fd2b5fe3c7648b36ee41585c2ba163f1a820"
+    },
+    {
+      "label": "imagery-item655",
+      "url": "https://imagery.pasda.psu.edu/arcgis/rest/services/pasda/PhiladelphiaImagery2025/MapServer/2/query?f=json&where=OBJECTID%3D655&outFields=%2A&returnGeometry=true&outSR=2272",
+      "range": null,
+      "status": 200,
+      "headers": {
+        "Cache-Control": "must-revalidate,max-age=0,public",
+        "Content-Length": "5769",
+        "Content-Type": "application/json; charset=UTF-8",
+        "ETag": "\"1767373963\"",
+        "Vary": "Origin",
+        "Server": "Microsoft-IIS/10.0",
+        "X-Content-Type-Options": "nosniff",
+        "Date": "Sun, 15 Nov 2026 19:04:27 GMT",
+        "Connection": "close"
+      },
+      "bytes": 5769,
+      "sha256": "ef71405b53e332a0c8e305de8d7747009417fadedc015a0f495dde6cfafc1f6a"
+    },
+    {
+      "url": "https://imagery.pasda.psu.edu/arcgis/rest/services/pasda/PhiladelphiaImagery2025/MapServer?f=pjson",
+      "requested_range": null,
+      "status": 200,
+      "headers": {
+        "Cache-Control": "must-revalidate,max-age=0,public",
+        "Content-Length": "4391",
+        "Content-Type": "text/plain; charset=UTF-8",
+        "ETag": "\"6b65cbb8\"",
+        "Vary": "Origin",
+        "Server": "Microsoft-IIS/10.0",
+        "X-Content-Type-Options": "nosniff",
+        "Date": "Sun, 15 Nov 2026 19:02:51 GMT",
+        "Connection": "close"
+      },
+      "bytes_read": 4391,
+      "sha256": "669f59556f81ef4ba4a73f48902649851775269feec31223fd10033fea8da36f"
+    },
+    {
+      "label": "imagery-zip-first",
+      "url": "https://www.pasda.psu.edu/download/philacity/data/Imagery2025/tiles/27087E265654N.zip",
+      "range": "bytes=0-262143",
+      "status": 206,
+      "headers": {
+        "Content-Type": "application/x-zip-compressed",
+        "Last-Modified": "Wed, 31 Dec 2025 19:09:09 GMT",
+        "Accept-Ranges": "bytes",
+        "ETag": "\"c299f4f0887adc1:0\"",
+        "Server": "Microsoft-IIS/10.0",
+        "X-Powered-By": "ASP.NET",
+        "Date": "Sun, 15 Nov 2026 19:05:02 GMT",
+        "Connection": "close",
+        "Content-Length": "262144",
+        "Content-Range": "bytes 0-262143/276604913"
+      },
+      "bytes": 262144,
+      "sha256": "5a465bb45516bd5fbdad26918d6cb5e8ab801d506c7e1f1915f86596b33777cc"
+    },
+    {
+      "label": "imagery-zip-tail",
+      "url": "https://www.pasda.psu.edu/download/philacity/data/Imagery2025/tiles/27087E265654N.zip",
+      "range": "bytes=-131072",
+      "status": 206,
+      "headers": {
+        "Content-Type": "application/x-zip-compressed",
+        "Last-Modified": "Wed, 31 Dec 2025 19:09:09 GMT",
+        "Accept-Ranges": "bytes",
+        "ETag": "\"c299f4f0887adc1:0\"",
+        "Server": "Microsoft-IIS/10.0",
+        "X-Powered-By": "ASP.NET",
+        "Date": "Sun, 15 Nov 2026 19:05:02 GMT",
+        "Connection": "close",
+        "Content-Length": "131072",
+        "Content-Range": "bytes 276473841-276604912/276604913"
+      },
+      "bytes": 131072,
+      "sha256": "72466e712dab228309d7d5c7f2b0409f7c46341bd8691a85576d89b7fe673e2e"
+    },
+    {
+      "label": "las-declared-tail",
+      "url": "https://www.pasda.psu.edu/download/phillyLiDAR/2025/LAS/27086E264792N.las",
+      "range": "bytes=435735763-435801298",
+      "status": 416,
+      "headers": {
+        "Content-Type": "application/octet-stream",
+        "Last-Modified": "Mon, 12 Jan 2026 18:09:18 GMT",
+        "Accept-Ranges": "bytes",
+        "ETag": "\"f6b6e891ee83dc1:0\"",
+        "Server": "Microsoft-IIS/10.0",
+        "X-Powered-By": "ASP.NET",
+        "Date": "Sun, 15 Nov 2026 19:05:41 GMT",
+        "Connection": "close",
+        "Content-Length": "362",
+        "Content-Range": "bytes */200000000"
+      },
+      "error": "HTTP Error 416: Requested Range Not Satisfiable"
+    },
+    {
+      "url": "https://www.pasda.psu.edu/download/phillyLiDAR/2025/LAS/",
+      "range": null,
+      "status": 200,
+      "headers": {
+        "Content-Type": "text/html; charset=UTF-8",
+        "Server": "Microsoft-IIS/10.0",
+        "X-Powered-By": "ASP.NET",
+        "Date": "Sun, 15 Nov 2026 19:09:35 GMT",
+        "Connection": "close",
+        "Content-Length": "112930"
+      },
+      "bytes": 112930,
+      "sha256": "af82424e625f48ef99a4fced0bb5bbbf3a8df181597afa374702b930b95c9b4b",
+      "matching_listing": ":09 PM    200000000 <A HREF=\"/download/phillyLiDAR/2025/LAS/27086E264792N.las\">27086E264792N.las</A><br> 1/12/2026  1:09 P"
+    },
+    {
+      "url": "https://www.pasda.psu.edu/download/phillyLiDAR/2025/LAS/27086E264792N.las",
+      "requested_range": "bytes=0-65535",
+      "status": 206,
+      "headers": {
+        "Content-Type": "application/octet-stream",
+        "Last-Modified": "Mon, 12 Jan 2026 18:09:18 GMT",
+        "Accept-Ranges": "bytes",
+        "ETag": "\"f6b6e891ee83dc1:0\"",
+        "Server": "Microsoft-IIS/10.0",
+        "X-Powered-By": "ASP.NET",
+        "Date": "Sun, 15 Nov 2026 19:03:16 GMT",
+        "Connection": "close",
+        "Content-Length": "65536",
+        "Content-Range": "bytes 0-65535/200000000"
+      },
+      "bytes_read": 65536,
+      "sha256": "03d0235d9604bcbd53ad7dc219a3e3b433db01f51cdbde351c7d877f68475e99"
+    },
+    {
+      "label": "las-records-0",
+      "url": "https://www.pasda.psu.edu/download/phillyLiDAR/2025/LAS/27086E264792N.las",
+      "range": "bytes=1709-1201708",
+      "status": 206,
+      "headers": {
+        "Content-Type": "application/octet-stream",
+        "Last-Modified": "Mon, 12 Jan 2026 18:09:18 GMT",
+        "Accept-Ranges": "bytes",
+        "ETag": "\"f6b6e891ee83dc1:0\"",
+        "Server": "Microsoft-IIS/10.0",
+        "X-Powered-By": "ASP.NET",
+        "Date": "Sun, 15 Nov 2026 19:05:05 GMT",
+        "Connection": "close",
+        "Content-Length": "1200000",
+        "Content-Range": "bytes 1709-1201708/200000000"
+      },
+      "bytes": 1200000,
+      "sha256": "0253ae1a764d52aa04d0cc8c5bf5dbd0991ae45000ece55e93b7e565efb45c58"
+    },
+    {
+      "label": "las-records-1600000",
+      "url": "https://www.pasda.psu.edu/download/phillyLiDAR/2025/LAS/27086E264792N.las",
+      "range": "bytes=48001709-49201708",
+      "status": 206,
+      "headers": {
+        "Content-Type": "application/octet-stream",
+        "Last-Modified": "Mon, 12 Jan 2026 18:09:18 GMT",
+        "Accept-Ranges": "bytes",
+        "ETag": "\"f6b6e891ee83dc1:0\"",
+        "Server": "Microsoft-IIS/10.0",
+        "X-Powered-By": "ASP.NET",
+        "Date": "Sun, 15 Nov 2026 19:05:06 GMT",
+        "Connection": "close",
+        "Content-Length": "1200000",
+        "Content-Range": "bytes 48001709-49201708/200000000"
+      },
+      "bytes": 1200000,
+      "sha256": "df5403812720a0852b968f33644cb54a0718d14a80eb639541c578c613b7e707"
+    },
+    {
+      "label": "las-records-3200000",
+      "url": "https://www.pasda.psu.edu/download/phillyLiDAR/2025/LAS/27086E264792N.las",
+      "range": "bytes=96001709-97201708",
+      "status": 206,
+      "headers": {
+        "Content-Type": "application/octet-stream",
+        "Last-Modified": "Mon, 12 Jan 2026 18:09:18 GMT",
+        "Accept-Ranges": "bytes",
+        "ETag": "\"f6b6e891ee83dc1:0\"",
+        "Server": "Microsoft-IIS/10.0",
+        "X-Powered-By": "ASP.NET",
+        "Date": "Sun, 15 Nov 2026 19:05:38 GMT",
+        "Connection": "close",
+        "Content-Length": "1200000",
+        "Content-Range": "bytes 96001709-97201708/200000000"
+      },
+      "bytes": 1200000,
+      "sha256": "82c6dd01625a86c8677f2d02d5d7e06e7b8edd2ce8553c3abee6b3a64ba61a59"
+    },
+    {
+      "url": "https://www.pasda.psu.edu/download/phillyLiDAR/2025/LAS/27086E264792N.las",
+      "range": "bytes=108001709-108901708",
+      "status": 206,
+      "headers": {
+        "Content-Type": "application/octet-stream",
+        "Last-Modified": "Mon, 12 Jan 2026 18:09:18 GMT",
+        "Accept-Ranges": "bytes",
+        "ETag": "\"f6b6e891ee83dc1:0\"",
+        "Server": "Microsoft-IIS/10.0",
+        "X-Powered-By": "ASP.NET",
+        "Date": "Sun, 15 Nov 2026 19:07:22 GMT",
+        "Connection": "close",
+        "Content-Length": "900000",
+        "Content-Range": "bytes 108001709-108901708/200000000"
+      },
+      "bytes": 900000,
+      "sha256": "d4aaa1cfc5ab8e6ab85d41fe55e17f5e5965db1bf8e38ddc709bf2e2cf897c3f"
+    },
+    {
+      "url": "https://www.pasda.psu.edu/download/phillyLiDAR/2025/LAS/27086E264792N.las",
+      "range": "bytes=120001709-120901708",
+      "status": 206,
+      "headers": {
+        "Content-Type": "application/octet-stream",
+        "Last-Modified": "Mon, 12 Jan 2026 18:09:18 GMT",
+        "Accept-Ranges": "bytes",
+        "ETag": "\"f6b6e891ee83dc1:0\"",
+        "Server": "Microsoft-IIS/10.0",
+        "X-Powered-By": "ASP.NET",
+        "Date": "Sun, 15 Nov 2026 19:07:22 GMT",
+        "Connection": "close",
+        "Content-Length": "900000",
+        "Content-Range": "bytes 120001709-120901708/200000000"
+      },
+      "bytes": 900000,
+      "sha256": "c25e7cac72ddfcd73c8dce2975aba03b6d606af38e705bd140a568afa936fef5"
+    },
+    {
+      "url": "https://www.pasda.psu.edu/download/phillyLiDAR/2025/LAS/27086E264792N.las",
+      "range": "bytes=132001709-132901708",
+      "status": 206,
+      "headers": {
+        "Content-Type": "application/octet-stream",
+        "Last-Modified": "Mon, 12 Jan 2026 18:09:18 GMT",
+        "Accept-Ranges": "bytes",
+        "ETag": "\"f6b6e891ee83dc1:0\"",
+        "Server": "Microsoft-IIS/10.0",
+        "X-Powered-By": "ASP.NET",
+        "Date": "Sun, 15 Nov 2026 19:07:22 GMT",
+        "Connection": "close",
+        "Content-Length": "900000",
+        "Content-Range": "bytes 132001709-132901708/200000000"
+      },
+      "bytes": 900000,
+      "sha256": "5c123571d58ee266f74bd8ad7193c203dc104ae2263c8b1ce4152adc5b708e42"
+    },
+    {
+      "label": "las-records-4800000",
+      "url": "https://www.pasda.psu.edu/download/phillyLiDAR/2025/LAS/27086E264792N.las",
+      "range": "bytes=144001709-145201708",
+      "status": 206,
+      "headers": {
+        "Content-Type": "application/octet-stream",
+        "Last-Modified": "Mon, 12 Jan 2026 18:09:18 GMT",
+        "Accept-Ranges": "bytes",
+        "ETag": "\"f6b6e891ee83dc1:0\"",
+        "Server": "Microsoft-IIS/10.0",
+        "X-Powered-By": "ASP.NET",
+        "Date": "Sun, 15 Nov 2026 19:05:38 GMT",
+        "Connection": "close",
+        "Content-Length": "1200000",
+        "Content-Range": "bytes 144001709-145201708/200000000"
+      },
+      "bytes": 1200000,
+      "sha256": "4b532270efea8c3b1f4d07e941e5739c11c2af010f4479d44cbb048faf537b66"
+    },
+    {
+      "url": "https://www.pasda.psu.edu/download/phillyLiDAR/2025/LAS/27086E264792N.las",
+      "range": "bytes=156001709-156901708",
+      "status": 206,
+      "headers": {
+        "Content-Type": "application/octet-stream",
+        "Last-Modified": "Mon, 12 Jan 2026 18:09:18 GMT",
+        "Accept-Ranges": "bytes",
+        "ETag": "\"f6b6e891ee83dc1:0\"",
+        "Server": "Microsoft-IIS/10.0",
+        "X-Powered-By": "ASP.NET",
+        "Date": "Sun, 15 Nov 2026 19:07:22 GMT",
+        "Connection": "close",
+        "Content-Length": "900000",
+        "Content-Range": "bytes 156001709-156901708/200000000"
+      },
+      "bytes": 900000,
+      "sha256": "9d72df125c264368cb535a34f053e203512ad218678f8201c5a956c4ef7fc218"
+    },
+    {
+      "url": "https://www.pasda.psu.edu/download/phillyLiDAR/2025/LAS/27086E264792N.las",
+      "range": "bytes=168001709-168901708",
+      "status": 206,
+      "headers": {
+        "Content-Type": "application/octet-stream",
+        "Last-Modified": "Mon, 12 Jan 2026 18:09:18 GMT",
+        "Accept-Ranges": "bytes",
+        "ETag": "\"f6b6e891ee83dc1:0\"",
+        "Server": "Microsoft-IIS/10.0",
+        "X-Powered-By": "ASP.NET",
+        "Date": "Sun, 15 Nov 2026 19:08:03 GMT",
+        "Connection": "close",
+        "Content-Length": "900000",
+        "Content-Range": "bytes 168001709-168901708/200000000"
+      },
+      "bytes": 900000,
+      "sha256": "06b322265dd44a5b92314a63ca5d0bed7eb57f4c4cc2bb4456d45f4544ab9424"
+    },
+    {
+      "url": "https://www.pasda.psu.edu/download/phillyLiDAR/2025/LAS/27086E264792N.las",
+      "range": "bytes=180001709-180901708",
+      "status": 206,
+      "headers": {
+        "Content-Type": "application/octet-stream",
+        "Last-Modified": "Mon, 12 Jan 2026 18:09:18 GMT",
+        "Accept-Ranges": "bytes",
+        "ETag": "\"f6b6e891ee83dc1:0\"",
+        "Server": "Microsoft-IIS/10.0",
+        "X-Powered-By": "ASP.NET",
+        "Date": "Sun, 15 Nov 2026 19:08:03 GMT",
+        "Connection": "close",
+        "Content-Length": "900000",
+        "Content-Range": "bytes 180001709-180901708/200000000"
+      },
+      "bytes": 900000,
+      "sha256": "c874c19affd7aa5fb1f5fdaf24fb4d5d4b641714268275dddd43ab90bac21748"
+    },
+    {
+      "label": "las-records-6400000",
+      "url": "https://www.pasda.psu.edu/download/phillyLiDAR/2025/LAS/27086E264792N.las",
+      "range": "bytes=192001709-193201708",
+      "status": 206,
+      "headers": {
+        "Content-Type": "application/octet-stream",
+        "Last-Modified": "Mon, 12 Jan 2026 18:09:18 GMT",
+        "Accept-Ranges": "bytes",
+        "ETag": "\"f6b6e891ee83dc1:0\"",
+        "Server": "Microsoft-IIS/10.0",
+        "X-Powered-By": "ASP.NET",
+        "Date": "Sun, 15 Nov 2026 19:05:40 GMT",
+        "Connection": "close",
+        "Content-Length": "1200000",
+        "Content-Range": "bytes 192001709-193201708/200000000"
+      },
+      "bytes": 1200000,
+      "sha256": "9311daa49fd0db6e2d454aab9ec226373a37849c192a41f5db30517fc8531364"
+    },
+    {
+      "url": "https://pasda.psu.edu/download/phillyLiDAR/2025/LAS/27086E264792N.las",
+      "range": "bytes=435735763-435801298",
+      "status": 416,
+      "headers": {
+        "Content-Type": "application/octet-stream",
+        "Last-Modified": "Mon, 12 Jan 2026 18:09:18 GMT",
+        "Accept-Ranges": "bytes",
+        "ETag": "\"f6b6e891ee83dc1:0\"",
+        "Server": "Microsoft-IIS/10.0",
+        "X-Powered-By": "ASP.NET",
+        "Date": "Sun, 15 Nov 2026 19:09:05 GMT",
+        "Connection": "close",
+        "Content-Length": "362",
+        "Content-Range": "bytes */200000000"
+      },
+      "error": "HTTP Error 416: Requested Range Not Satisfiable"
+    },
+    {
+      "url": "https://www.pasda.psu.edu/download/phillyLiDAR/2025/LAS/27086E264792N.las?roof_source_audit=20261115",
+      "range": "bytes=435735763-435801298",
+      "status": 416,
+      "headers": {
+        "Content-Type": "application/octet-stream",
+        "Last-Modified": "Mon, 12 Jan 2026 18:09:18 GMT",
+        "Accept-Ranges": "bytes",
+        "ETag": "\"f6b6e891ee83dc1:0\"",
+        "Server": "Microsoft-IIS/10.0",
+        "X-Powered-By": "ASP.NET",
+        "Date": "Sun, 15 Nov 2026 19:09:35 GMT",
+        "Connection": "close",
+        "Content-Length": "362",
+        "Content-Range": "bytes */200000000"
+      },
+      "error": "HTTP Error 416: Requested Range Not Satisfiable"
+    },
+    {
+      "label": "roof-crop-1280-export",
+      "url": "https://imagery.pasda.psu.edu/arcgis/rest/services/pasda/PhiladelphiaImagery2025/MapServer/export?f=json&bbox=2709630%2C265800%2C2709790%2C265960&bboxSR=2272&imageSR=2272&size=1280%2C1280&format=png32&transparent=false",
+      "range": null,
+      "status": 200,
+      "headers": {
+        "Cache-Control": "must-revalidate,max-age=0,public",
+        "Content-Length": "323",
+        "Content-Type": "application/json; charset=UTF-8",
+        "ETag": "\"c1bda7d5\"",
+        "Vary": "Origin",
+        "Server": "Microsoft-IIS/10.0",
+        "X-Content-Type-Options": "nosniff",
+        "Date": "Sun, 15 Nov 2026 19:04:31 GMT",
+        "Connection": "close"
+      },
+      "bytes": 323,
+      "sha256": "26cb137949ef39f9420f54f7d0125bea3e8bcf63178d3cc31bac4fa9be3b8583"
+    },
+    {
+      "label": "roof-crop-1280",
+      "url": "https://imagery.pasda.psu.edu/arcgis/rest/directories/arcgisoutput/pasda/PhiladelphiaImagery2025_MapServer/_ags_map09753964a5ae4d318497909943378716.png",
+      "range": null,
+      "status": 200,
+      "headers": {
+        "Cache-Control": "max-age=86400,public",
+        "Content-Length": "2151061",
+        "Content-Type": "image/png",
+        "Accept-Ranges": "bytes",
+        "ETag": "\"1a1e098c728\"",
+        "Vary": "Origin",
+        "Server": "Microsoft-IIS/10.0",
+        "X-Content-Type-Options": "nosniff",
+        "Date": "Sun, 15 Nov 2026 19:05:41 GMT",
+        "Connection": "close"
+      },
+      "bytes": 2151061,
+      "sha256": "13d6fab5c1f5cd3c9e024444b2ee88b53d397ec08f4407a7445cb1982fd61c82"
+    },
+    {
+      "label": "roof-crop-180-export",
+      "url": "https://imagery.pasda.psu.edu/arcgis/rest/services/pasda/PhiladelphiaImagery2025/MapServer/export?f=json&bbox=2709630%2C265800%2C2709790%2C265960&bboxSR=2272&imageSR=2272&size=180%2C180&format=png32&transparent=false",
+      "range": null,
+      "status": 200,
+      "headers": {
+        "Cache-Control": "must-revalidate,max-age=0,public",
+        "Content-Length": "322",
+        "Content-Type": "application/json; charset=UTF-8",
+        "ETag": "\"5287cd9e\"",
+        "Vary": "Origin",
+        "Server": "Microsoft-IIS/10.0",
+        "X-Content-Type-Options": "nosniff",
+        "Date": "Sun, 15 Nov 2026 19:04:27 GMT",
+        "Connection": "close"
+      },
+      "bytes": 322,
+      "sha256": "75eabd591b9d634f13ea585c55a3dbe289dbca5adb06c11a17ba60cebcd6772e"
+    },
+    {
+      "label": "roof-crop-180",
+      "url": "https://imagery.pasda.psu.edu/arcgis/rest/directories/arcgisoutput/pasda/PhiladelphiaImagery2025_MapServer/_ags_mapf72872a9cf4c4714b825522fe82b8658.png",
+      "range": null,
+      "status": 200,
+      "headers": {
+        "Cache-Control": "max-age=86400,public",
+        "Content-Length": "76404",
+        "Content-Type": "image/png",
+        "Accept-Ranges": "bytes",
+        "ETag": "\"1a1e098bd12\"",
+        "Vary": "Origin",
+        "Server": "Microsoft-IIS/10.0",
+        "X-Content-Type-Options": "nosniff",
+        "Date": "Sun, 15 Nov 2026 19:05:41 GMT",
+        "Connection": "close"
+      },
+      "bytes": 76404,
+      "sha256": "c82e2d8444a0e9e6a1650a236da61bc1cbeac3323209fcfd85a69305f2f9a021"
+    },
+    {
+      "label": "roof-crop-320-export",
+      "url": "https://imagery.pasda.psu.edu/arcgis/rest/services/pasda/PhiladelphiaImagery2025/MapServer/export?f=json&bbox=2709630%2C265800%2C2709790%2C265960&bboxSR=2272&imageSR=2272&size=320%2C320&format=png32&transparent=false",
+      "range": null,
+      "status": 200,
+      "headers": {
+        "Cache-Control": "must-revalidate,max-age=0,public",
+        "Content-Length": "321",
+        "Content-Type": "application/json; charset=UTF-8",
+        "ETag": "\"90923a32\"",
+        "Vary": "Origin",
+        "Server": "Microsoft-IIS/10.0",
+        "X-Content-Type-Options": "nosniff",
+        "Date": "Sun, 15 Nov 2026 19:04:28 GMT",
+        "Connection": "close"
+      },
+      "bytes": 321,
+      "sha256": "b0d2e0fb5b90ce2af26b7e7616a1f0ea8c380f9714aee47138d5ab5e9f2a0745"
+    },
+    {
+      "label": "roof-crop-320",
+      "url": "https://imagery.pasda.psu.edu/arcgis/rest/directories/arcgisoutput/pasda/PhiladelphiaImagery2025_MapServer/_ags_map87591b1483a54d06901be849e048a748.png",
+      "range": null,
+      "status": 200,
+      "headers": {
+        "Cache-Control": "max-age=86400,public",
+        "Content-Length": "230263",
+        "Content-Type": "image/png",
+        "Accept-Ranges": "bytes",
+        "ETag": "\"1a1e098c14f\"",
+        "Vary": "Origin",
+        "Server": "Microsoft-IIS/10.0",
+        "X-Content-Type-Options": "nosniff",
+        "Date": "Sun, 15 Nov 2026 19:05:41 GMT",
+        "Connection": "close"
+      },
+      "bytes": 230263,
+      "sha256": "c33680ca00479ab3633517d141faba27270c10a6f046762cda6c12d1c1d4350d"
+    },
+    {
+      "label": "roof-crop-640-export",
+      "url": "https://imagery.pasda.psu.edu/arcgis/rest/services/pasda/PhiladelphiaImagery2025/MapServer/export?f=json&bbox=2709630%2C265800%2C2709790%2C265960&bboxSR=2272&imageSR=2272&size=640%2C640&format=png32&transparent=false",
+      "range": null,
+      "status": 200,
+      "headers": {
+        "Cache-Control": "must-revalidate,max-age=0,public",
+        "Content-Length": "321",
+        "Content-Type": "application/json; charset=UTF-8",
+        "ETag": "\"ea00b9f4\"",
+        "Vary": "Origin",
+        "Server": "Microsoft-IIS/10.0",
+        "X-Content-Type-Options": "nosniff",
+        "Date": "Sun, 15 Nov 2026 19:04:29 GMT",
+        "Connection": "close"
+      },
+      "bytes": 321,
+      "sha256": "52568406a8daf6ef38a50bf6c29609d168cab56bf98d397462ec7f910f47391e"
+    },
+    {
+      "label": "roof-crop-640",
+      "url": "https://imagery.pasda.psu.edu/arcgis/rest/directories/arcgisoutput/pasda/PhiladelphiaImagery2025_MapServer/_ags_map35940888e9ed499983087143b7f514af.png",
+      "range": null,
+      "status": 200,
+      "headers": {
+        "Cache-Control": "max-age=86400,public",
+        "Content-Length": "783200",
+        "Content-Type": "image/png",
+        "Accept-Ranges": "bytes",
+        "ETag": "\"1a1e098c427\"",
+        "Vary": "Origin",
+        "Server": "Microsoft-IIS/10.0",
+        "X-Content-Type-Options": "nosniff",
+        "Date": "Sun, 15 Nov 2026 19:05:41 GMT",
+        "Connection": "close"
+      },
+      "bytes": 783200,
+      "sha256": "99d087d0d4e6b4088d379ac96b32e9d0ecf9b7504903e7c7545927c02f78ab3e"
+    }
+  ],
+  "evidence_sha256": {
+    "27087E265654N.tfw": "8f671e0c8cea1fa604925e2bf5de881212eae9b253b84ef182a802db4e1a8808",
+    "27087E265654N.tfw.prefix": "8f671e0c8cea1fa604925e2bf5de881212eae9b253b84ef182a802db4e1a8808",
+    "27087E265654N.tif.aux.xml": "9c644841a4a488138c96342e90475e7bc08e409a3d50c95d013b2dabfd8b7d43",
+    "27087E265654N.tif.prefix": "7f2c6566327613414950ce895c19acc2fd47af946b68684a50b4263e565cbf47",
+    "audit-output.txt": "ef5e4752b412ed7d27358a5e40cbb96c4078b9170afa0d746c5a5079d93bc7de",
+    "audit-summary.json": "a337e155b79ee8fa4e40b4667bd25e553d94a3225f876756284e101a4cc40533",
+    "endpoint-output.txt": "b86afe5b8e4c23671c0ca619e652cec8210db98b3bf03068cf0e84629a1f06ba",
+    "fetch-output.txt": "96f05df8d3d9dfb24f5a3e7436abc0e1cda052b34b018e9c1439fba349407bdd",
+    "fetch-summary.json": "d840922c47692206f7fe5da6fab2c1e00aed7a118c547da71f33d402366a4d5e",
+    "imagery-footprint-provenance.json": "a74e066fa97e4b39c327d883e1e65389ef8dca71c8833d38bd93582037c500ca",
+    "imagery-footprint.json": "12132fd6d65ce9481c6d0bd6e501fd2b5fe3c7648b36ee41585c2ba163f1a820",
+    "imagery-item655-provenance.json": "80a75bbffb819ce6638019b270c59a926b7852eaa6d2f43e755f5eb60768ebde",
+    "imagery-item655.bin": "ef71405b53e332a0c8e305de8d7747009417fadedc015a0f495dde6cfafc1f6a",
+    "imagery-service-provenance.json": "960f5d8d50c9d0cc91a6c507acc43d82bb3fde7563f8e953d7fc87f09ad210fe",
+    "imagery-service.json": "669f59556f81ef4ba4a73f48902649851775269feec31223fd10033fea8da36f",
+    "imagery-zip-first-provenance.json": "1a19ab59778f251992412186651017a7243237d02122de07a944309006766ccf",
+    "imagery-zip-first.bin": "5a465bb45516bd5fbdad26918d6cb5e8ab801d506c7e1f1915f86596b33777cc",
+    "imagery-zip-tail-provenance.json": "546f08aa556ebe75a235cedf42b8ba8fe81e6e5d770aeec81427f8652ececcae",
+    "imagery-zip-tail.bin": "72466e712dab228309d7d5c7f2b0409f7c46341bd8691a85576d89b7fe673e2e",
+    "las-declared-tail-provenance.json": "423c7b87f752c101394e47d3296bd3c3966aedf28cf6316c78a959bed0c2c9ce",
+    "las-directory-live-provenance.json": "dceec408eb133fd3b2a3500f26287f91afdf30bf6398949f1704d486e59d2c91",
+    "las-directory-live.bin": "af82424e625f48ef99a4fced0bb5bbbf3a8df181597afa374702b930b95c9b4b",
+    "las-header-live-provenance.json": "211f4f99da05cc0b845fb705437abe455f1a624b8edff0eb653b5662e81add48",
+    "las-header-live.bin": "03d0235d9604bcbd53ad7dc219a3e3b433db01f51cdbde351c7d877f68475e99",
+    "las-records-0-provenance.json": "b324ea62a08dc1f637ab0e1e360e240582fcf18f8a92b3452a94a8081b39ccf9",
+    "las-records-0.bin": "0253ae1a764d52aa04d0cc8c5bf5dbd0991ae45000ece55e93b7e565efb45c58",
+    "las-records-1600000-provenance.json": "c06cb6ef56446e6eef95f15c5acb1be1adaf9df376da906acbf5fb4d4ee19805",
+    "las-records-1600000.bin": "df5403812720a0852b968f33644cb54a0718d14a80eb639541c578c613b7e707",
+    "las-records-3200000-provenance.json": "c554a5caf957c6b31f9850d0d8925a48baccb9201f5f014ce7302e6e2e3e8f3c",
+    "las-records-3200000.bin": "82c6dd01625a86c8677f2d02d5d7e06e7b8edd2ce8553c3abee6b3a64ba61a59",
+    "las-records-3600000-provenance.json": "b0dc108edecee614a99a369d4269ec60c561be17d9c41886cb238423b976db59",
+    "las-records-3600000.bin": "d4aaa1cfc5ab8e6ab85d41fe55e17f5e5965db1bf8e38ddc709bf2e2cf897c3f",
+    "las-records-4000000-provenance.json": "66c5e7174825d643ae4e9a9d420378352a55b8eab34b21b16c847cd70711348e",
+    "las-records-4000000.bin": "c25e7cac72ddfcd73c8dce2975aba03b6d606af38e705bd140a568afa936fef5",
+    "las-records-4400000-provenance.json": "5c2ea78ce57e66dce19d8820601369ab3be2fabbef1d65ba99ee2596b2b66fc2",
+    "las-records-4400000.bin": "5c123571d58ee266f74bd8ad7193c203dc104ae2263c8b1ce4152adc5b708e42",
+    "las-records-4800000-provenance.json": "bca74615d656b54c9f9234441cbafda785e58d0e4f9b31c926d8b9bd5ea40b1d",
+    "las-records-4800000.bin": "4b532270efea8c3b1f4d07e941e5739c11c2af010f4479d44cbb048faf537b66",
+    "las-records-5200000-provenance.json": "2255c8617eb6ff2a55c1d7477f3519cae63752c44c1e82a2d7ad386a5041ceb1",
+    "las-records-5200000.bin": "9d72df125c264368cb535a34f053e203512ad218678f8201c5a956c4ef7fc218",
+    "las-records-5600000-provenance.json": "7a6e6ac87b1bd4b76c088c17232d737532deabb769ee0a99dd95544cc24efe63",
+    "las-records-5600000.bin": "06b322265dd44a5b92314a63ca5d0bed7eb57f4c4cc2bb4456d45f4544ab9424",
+    "las-records-6000000-provenance.json": "1af80f4c2dbbb6d3b14129fd0d43f8990f8eeba7339de7ea5b835171982defc6",
+    "las-records-6000000.bin": "c874c19affd7aa5fb1f5fdaf24fb4d5d4b641714268275dddd43ab90bac21748",
+    "las-records-6400000-provenance.json": "429fbf055312357eb867a4c761cc4c15f495ff582395c00052585ab7db4d49e7",
+    "las-records-6400000.bin": "9311daa49fd0db6e2d454aab9ec226373a37849c192a41f5db30517fc8531364",
+    "las-tail-barehost-provenance.json": "01ed8f32551e9c34d5d9361812cc4912c90296f31fc7d5c8f4e316d0983a96dc",
+    "las-tail-query-provenance.json": "9d7afe6b1a2ad1b7374b0bf5fc2a95fed5979a5344ed4c25c9f7558d5ab4d670",
+    "lidar-target-output.txt": "28c15db7cbf1bacc71496894ad4e6123ad1391a3dd24d933d1d9c1252ce694e2",
+    "main-roof-point-samples.npy": "2d119511344ac3f3cc6bc8bab9a29eeaece5ac31f4ebbf6dadeb12bec4e7164c",
+    "original-zip-entries.json": "a17d83a136f3854b2ee5f22b537b753949c361028acf8ea189de94ed2ac4495a",
+    "roof-crop-1280-export-provenance.json": "2436e5f91678e18e81eb539cf8f40562c61b74757f9f0c32c34e48765bad2f4d",
+    "roof-crop-1280-export.bin": "26cb137949ef39f9420f54f7d0125bea3e8bcf63178d3cc31bac4fa9be3b8583",
+    "roof-crop-1280-provenance.json": "994e9be3e471cf8407e7bad845421fb011b6c67064ce04943cac5611ee1ca07e",
+    "roof-crop-1280.bin": "13d6fab5c1f5cd3c9e024444b2ee88b53d397ec08f4407a7445cb1982fd61c82",
+    "roof-crop-180-export-provenance.json": "578154d7a6339ddcb38b5836ae102e554c23e57eceeeae8033085a76fcba0c2a",
+    "roof-crop-180-export.bin": "75eabd591b9d634f13ea585c55a3dbe289dbca5adb06c11a17ba60cebcd6772e",
+    "roof-crop-180-provenance.json": "a66c685f47a7e31b53bc03363eea519b1579839fdc7cf56b16bad78948317efa",
+    "roof-crop-180.bin": "c82e2d8444a0e9e6a1650a236da61bc1cbeac3323209fcfd85a69305f2f9a021",
+    "roof-crop-320-export-provenance.json": "42ed8bd42c5314953250e4f3745671184705ce3e84d9f77631a26dbd866828b0",
+    "roof-crop-320-export.bin": "b0d2e0fb5b90ce2af26b7e7616a1f0ea8c380f9714aee47138d5ab5e9f2a0745",
+    "roof-crop-320-provenance.json": "30105025ca61c2a1b6a2bed5d8cc2d986300f687f8d6a42eaa720243678d44f6",
+    "roof-crop-320.bin": "c33680ca00479ab3633517d141faba27270c10a6f046762cda6c12d1c1d4350d",
+    "roof-crop-640-export-provenance.json": "76f8ff7ba0f08dbb87a495fa1c2ba91de939f0768b674c3d98c79ba0aee163b6",
+    "roof-crop-640-export.bin": "52568406a8daf6ef38a50bf6c29609d168cab56bf98d397462ec7f910f47391e",
+    "roof-crop-640-provenance.json": "992daf9494bca91dd140ca04d58e9e1728f5ee50d852ce988cb516de9d9e686a",
+    "roof-crop-640.bin": "99d087d0d4e6b4088d379ac96b32e9d0ecf9b7504903e7c7545927c02f78ab3e",
+    "roof-crop-coarse-27cm.png": "c82e2d8444a0e9e6a1650a236da61bc1cbeac3323209fcfd85a69305f2f9a021",
+    "roof-crop-native-7p6cm.png": "99d087d0d4e6b4088d379ac96b32e9d0ecf9b7504903e7c7545927c02f78ab3e",
+    "sample-roof-matches-preliminary.json": "a44b2c4b214570c1ea16335a6217c0403453f9fa156559e295e76427ebdabbfa"
+  }
+}

@@ -318,6 +318,62 @@ def _economics(case, gis, records, as_of, tariff):
             'claim':'One baseline minus one reconciled final bill; annual reduction is twelve times monthly. No refund included.'}
 
 
+def research_economics(case, gis, records, as_of, tariff):
+    """Counterfactual management value of frozen modeled catchments, never a fact.
+
+    Reuse the existing reconciled ledger/minima/rule blocks. Assumed prerequisites
+    live only in a local copy; no confirmed record or evidence is persisted.
+    """
+    research=gis.get('research_drainage',{})
+    if not research.get('primary'):return {'status':'unavailable','scenarios':[]}
+    from shapely.geometry import mapping
+    from drainage_core.geometry import union
+    reserved=[]
+    for r in case.get('assessment',{}).get('existing_credit_allocations',[])+case.get('assessment',{}).get('records',[]):
+        if r.get('geometry') and r.get('decision')!='rejected':
+            try:reserved.append(shape(r['geometry']))
+            except (ValueError,TypeError,ShapelyError):pass
+    for f in effective_features(case):
+        if f.get('properties',{}).get('layer')=='benefit':reserved.append(shape(f['geometry']))
+    occupied=union(reserved); scenarios=[]
+    assumed={key:True for key in ('physical_area_confirmed','parcel_allocation_confirmed','account_current',
+             'routing_confirmed','approved_record_drawings','current_condition_confirmed',
+             'maintenance_documented','professional_reviewed')}
+    assumed['treatment_depth_inches']=1.5
+    for name,run in [('nominal',research['primary'])]+[(r['name'],r) for r in research.get('sensitivity',[])]:
+        known=shape(run['known_ia_union_geometry'])
+        unknown=shape(run.get('unknown_ground_union_geometry') or {'type':'GeometryCollection','geometries':[]})
+        hypotheses=[('known_ground_only',known,False)]
+        if not unknown.is_empty:hypotheses.append(('unknown_ground_assumed_impervious',known.union(unknown),True))
+        for surface_basis,raw_region,assume_unknown in hypotheses:
+            region=raw_region.difference(occupied)
+            scenario_assumptions=deepcopy(assumed)
+            scenario_assumptions['existing_installation']=True
+            view=gis
+            if assume_unknown:
+                scenario_assumptions['all_unclassified_catchment_ground_is_impervious']=True
+                # Counterfactual policy view only: original physical measurement
+                # and unknown geometry in the frozen GIS artifact stay unchanged.
+                geoms={**gis['measurement']['geometries'],
+                       'physical_ia':mapping(shape(gis['measurement']['geometries']['physical_ia']).union(unknown))}
+                view={**gis,'measurement':{**gis['measurement'],'geometries':geoms}}
+            if region.is_empty or case_area_sqft(region,case)<.000001:
+                s=_blocked(['No unallocated known impervious area modeled to GSI; unknown surfaces and missing connections are not zero-area evidence'])
+            else:
+                working=deepcopy(case)
+                working['features']['features'].append({'type':'Feature','id':'research-management-counterfactual',
+                    'geometry':mapping(region),'properties':{'layer':'benefit','benefit':{
+                        'id':'research-management-counterfactual','category':'management','area_sqft':case_area_sqft(region,case),
+                        'basis':'modeled','existing_overlap_reconciled':True,'evidence':scenario_assumptions}}})
+                s=_economics(working,view,records,as_of,tariff)['modeled']
+            scenarios.append({**s,'name':name+' / '+surface_basis,'basis':'conditional research scenario',
+                'surface_assumption':surface_basis,'modeled_unallocated_area_sqft':case_area_sqft(region,case),
+                'assumed_prerequisites':scenario_assumptions,
+                'claim':'Counterfactual: only if the modeled existing system meets all management prerequisites and the stated ground assumption holds. No screen pass, approval or treatment capacity is established.'})
+    return {'status':'conditional','scenarios':scenarios,
+            'claim':'Alternatives to the existing assessment, never additional savings to sum; physical/credit evidence is unchanged.'}
+
+
 def historical_flags(case, economics):
     """Review flags retain periods and evidence; do not calculate recoveries."""
     baseline=case.get('baseline') or {};flags=[];base=economics.get('baseline') or {}
@@ -354,7 +410,17 @@ def evaluate_assessment(case, gis_result, as_of=None, tariff=None):
         categories.append({'category':category,'label':label,'status':status,'records':selected,
                            'missing':['No reviewed evidence records supplied'] if not selected else [],'managed_area_sqft':None if not selected else sum(r['managed_area_sqft'] for r in selected if r['managed_area_sqft'] is not None) if any(r['managed_area_sqft'] is not None for r in selected) else None})
     economics=_economics(case,gis_result,records,day,tariff)
+    from .model_assessment import integrate as integrate_models
+    modeled=integrate_models(case,gis_result,records,day,tariff)
+    for info in modeled.get('records',[]):
+        for record in records:
+            if record['id']==info['record_id']:record['modeled_context']=info
+    for category in categories:
+        if category['category'] in modeled.get('category_context',{}):
+            category['modeled_context']=modeled['category_context'][category['category']]
     result={'rule_version':VERSION,'as_of':day.isoformat(),'categories':categories,'economics':economics,
+            'modeled_integration':modeled,
+            'research_drainage_scenarios':research_economics(case,gis_result,records,day,tariff),
             'historical_flags':historical_flags(case,economics),
             'rules':{**deepcopy(RULES),'applicability':'applicable' if RULES['effective_from']<=day.isoformat()<=RULES['verified_through'] else 'outside_verified_period'}}
     result['assessment_sha256']=sha256(json.dumps(result,sort_keys=True,separators=(',',':'),allow_nan=False).encode()).hexdigest()

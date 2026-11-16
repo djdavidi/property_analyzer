@@ -20,7 +20,7 @@ from .geometry import projected_crs, reproject, polygon
 
 def _write(path, value):
     path=Path(path);path.parent.mkdir(parents=True,exist_ok=True)
-    path.write_text(json.dumps(value,indent=2,allow_nan=False)+'\n')
+    path.write_text(json.dumps(value,separators=(',',':'),allow_nan=False)+'\n')
 
 
 def _declared_crs(data):

@@ -72,3 +72,22 @@ provider coverage and a saved snapshot were visible. The screenshot is retained 
 ignored `data/assessment-public/browser-verification.jpg`. No personal Chrome was used.
 This was a smoke check, not full map-gesture, file-chooser, responsive or accessibility
 validation. Real HTTP tests separately cover original-byte attachment upload/download.
+
+
+## Automatic property follow-up
+
+The 0.4.0 follow-up acquires/measures historical canopy and seven surface classes,
+refreshes public building observations, analyzes RGB vegetation candidates and acquires
+verified-unit native USGS terrain where supported. It was exercised on 5300 Whitaker
+Ave and 1901 Vine St. The isolated browser entered 1901 Vine St and obtained saved
+measurements without supplied layers; final palette-corrected imagery and source/coverage
+limits were visible with no browser console errors. A screenshot is retained in ignored
+`data/auto-research/automatic-browser-proof.jpg`.
+
+Original bounded public classification responses and hashes are now in
+`examples/automatic-public`; its replay validates historical source interpretation,
+not current-site accuracy. The classification year is 2018. RGB green pixels are
+candidate evidence only and can miss leaf-off/shadowed vegetation or confuse grass,
+trees and coatings. Zero detected RGB patches does not prove no canopy or green roof.
+Underlying ground, private drainage, eligibility, actual awards and invoices remain
+separate evidence questions. See automatic-test-results.txt for the final 240 checks.

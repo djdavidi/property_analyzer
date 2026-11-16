@@ -1,0 +1,217 @@
+[
+  {
+    "id": "whitaker",
+    "name": "5300 Whitaker \u2014 USGS 1 m drainage (verified units)",
+    "crs": "EPSG:26918",
+    "parcel": {
+      "coordinates": [
+        [
+          [
+            491261.518683204,
+            4431337.767968905
+          ],
+          [
+            491137.5069223352,
+            4431427.7244972
+          ],
+          [
+            491231.48640010756,
+            4431551.115199979
+          ],
+          [
+            491355.4997524769,
+            4431461.15746974
+          ],
+          [
+            491355.5223392454,
+            4431461.148140529
+          ],
+          [
+            491261.518683204,
+            4431337.767968905
+          ]
+        ]
+      ],
+      "type": "Polygon"
+    },
+    "rendered_bounds": [
+      491137.34864105843,
+      4431337.767968905,
+      491355.68062052224,
+      4431551.115199979
+    ],
+    "source_vintage": "2018",
+    "source_snapshots": [
+      {
+        "file": "4714d81cae8e20e4089140aa22cd8682cf955d832d3e9096aa4ea7e94739a8f2.json",
+        "url": "https://imagery.pasda.psu.edu/arcgis/rest/services/pasda/PhillyLULC/MapServer/2?f=json",
+        "retrieved_at": "2026-11-15T16:52:58.981437+00:00",
+        "acquisition_date": null,
+        "crs": null,
+        "horizontal_unit": null,
+        "vertical_unit": null,
+        "resolution": null,
+        "sha256": "4714d81cae8e20e4089140aa22cd8682cf955d832d3e9096aa4ea7e94739a8f2",
+        "bytes": 4712
+      },
+      {
+        "file": "e94204bbc9cf494440fe1f13e960ded3a5ff756107dc5649a455234dacd848e1.json",
+        "url": "https://imagery.pasda.psu.edu/arcgis/rest/services/pasda/PhillyLULC/MapServer/legend?f=json",
+        "retrieved_at": "2026-11-15T16:52:59.064107+00:00",
+        "acquisition_date": null,
+        "crs": null,
+        "horizontal_unit": null,
+        "vertical_unit": null,
+        "resolution": null,
+        "sha256": "e94204bbc9cf494440fe1f13e960ded3a5ff756107dc5649a455234dacd848e1",
+        "bytes": 5343
+      },
+      {
+        "file": "fec79593ca028f3aad1d421151711911678d75819cde3343c38dd6e594a8489e.json",
+        "url": "https://imagery.pasda.psu.edu/arcgis/rest/services/pasda/PhillyLULC/MapServer/export?f=json&bbox=491137.5069223352%2C4431337.767968905%2C491355.5223392454%2C4431551.115199979&bboxSR=26918&imageSR=26918&size=219%2C214&layers=show%3A2&format=png32&transparent=true&interpolation=RSP_NearestNeighbor",
+        "retrieved_at": "2026-11-15T16:52:59.681799+00:00",
+        "acquisition_date": null,
+        "crs": null,
+        "horizontal_unit": null,
+        "vertical_unit": null,
+        "resolution": null,
+        "sha256": "fec79593ca028f3aad1d421151711911678d75819cde3343c38dd6e594a8489e",
+        "bytes": 369
+      },
+      {
+        "file": "cb8935aa77d17f902dcfaaf9296def5f51d7fb3c84502668ee208f54e9b4e745.png",
+        "url": "https://imagery.pasda.psu.edu/arcgis/rest/directories/arcgisoutput/pasda/PhillyLULC_MapServer/_ags_mapfe37a8a63e434f06a53bd15c5dad3843.png",
+        "retrieved_at": "2026-11-15T16:52:59.776699+00:00",
+        "acquisition_date": null,
+        "crs": null,
+        "horizontal_unit": null,
+        "vertical_unit": null,
+        "resolution": null,
+        "sha256": "cb8935aa77d17f902dcfaaf9296def5f51d7fb3c84502668ee208f54e9b4e745",
+        "bytes": 5251
+      }
+    ],
+    "expected_source_areas_sqft": {
+      "canopy": 22144.07234998372,
+      "grass_shrub": 49937.70483764678,
+      "bare_soil": 0.0,
+      "water": 0.0,
+      "roof": 95791.82193992392,
+      "road": 0.0,
+      "other_pavement": 88051.84163347492
+    },
+    "claim": "Regression of historical published classification interpretation; not independent current-site accuracy.",
+    "area_crs": "EPSG:2272"
+  },
+  {
+    "id": "library",
+    "name": "1901 VINE ST",
+    "crs": "EPSG:2272",
+    "parcel": {
+      "type": "Polygon",
+      "coordinates": [
+        [
+          [
+            2691528.9472720413,
+            238552.56623995517
+          ],
+          [
+            2691146.4956093444,
+            238602.2597921934
+          ],
+          [
+            2691179.900234105,
+            238859.34876310552
+          ],
+          [
+            2691182.4002291113,
+            238859.0239606069
+          ],
+          [
+            2691171.279024325,
+            238870.60571239554
+          ],
+          [
+            2691199.522898255,
+            239087.97650483903
+          ],
+          [
+            2691591.8916999064,
+            239036.993995206
+          ],
+          [
+            2691528.9472720413,
+            238552.56623995517
+          ]
+        ]
+      ]
+    },
+    "rendered_bounds": [
+      2691146.4956093444,
+      238551.72372955823,
+      2691591.8916999064,
+      239088.81901523593
+    ],
+    "source_vintage": "2018",
+    "source_snapshots": [
+      {
+        "file": "4714d81cae8e20e4089140aa22cd8682cf955d832d3e9096aa4ea7e94739a8f2.json",
+        "acquisition_date": null,
+        "bytes": 4712,
+        "crs": null,
+        "horizontal_unit": null,
+        "resolution": null,
+        "retrieved_at": "2026-11-15T16:55:57.848351+00:00",
+        "sha256": "4714d81cae8e20e4089140aa22cd8682cf955d832d3e9096aa4ea7e94739a8f2",
+        "url": "https://imagery.pasda.psu.edu/arcgis/rest/services/pasda/PhillyLULC/MapServer/2?f=json",
+        "vertical_unit": null
+      },
+      {
+        "file": "e94204bbc9cf494440fe1f13e960ded3a5ff756107dc5649a455234dacd848e1.json",
+        "acquisition_date": null,
+        "bytes": 5343,
+        "crs": null,
+        "horizontal_unit": null,
+        "resolution": null,
+        "retrieved_at": "2026-11-15T16:55:57.938834+00:00",
+        "sha256": "e94204bbc9cf494440fe1f13e960ded3a5ff756107dc5649a455234dacd848e1",
+        "url": "https://imagery.pasda.psu.edu/arcgis/rest/services/pasda/PhillyLULC/MapServer/legend?f=json",
+        "vertical_unit": null
+      },
+      {
+        "file": "ae3267e345b78ad9eb0430b2d90ef6dc977f10322dbf96aa1af72143d540af99.json",
+        "url": "https://imagery.pasda.psu.edu/arcgis/rest/services/pasda/PhillyLULC/MapServer/export?f=json&bbox=2691146.4956093444%2C238552.56623995517%2C2691591.8916999064%2C239087.97650483903&bboxSR=2272&imageSR=2272&size=136%2C164&layers=show%3A2&format=png32&transparent=true&interpolation=RSP_NearestNeighbor",
+        "retrieved_at": "2026-11-15T16:58:46.976655+00:00",
+        "acquisition_date": null,
+        "crs": null,
+        "horizontal_unit": null,
+        "vertical_unit": null,
+        "resolution": null,
+        "sha256": "ae3267e345b78ad9eb0430b2d90ef6dc977f10322dbf96aa1af72143d540af99",
+        "bytes": 369
+      },
+      {
+        "file": "cba0f2e5156f8c7a92505f90e27d3ce31248f5bd9d05d1267cf59db23decae00.png",
+        "url": "https://imagery.pasda.psu.edu/arcgis/rest/directories/arcgisoutput/pasda/PhillyLULC_MapServer/_ags_mapc55b7dbf3a764a19983c3a84451a7eca.png",
+        "retrieved_at": "2026-11-15T16:58:47.066635+00:00",
+        "acquisition_date": null,
+        "crs": null,
+        "horizontal_unit": null,
+        "vertical_unit": null,
+        "resolution": null,
+        "sha256": "cba0f2e5156f8c7a92505f90e27d3ce31248f5bd9d05d1267cf59db23decae00",
+        "bytes": 2111
+      }
+    ],
+    "expected_source_areas_sqft": {
+      "canopy": 2637.875268404406,
+      "grass_shrub": 13435.115873846695,
+      "bare_soil": 0.0,
+      "water": 0.0,
+      "roof": 79823.37353490392,
+      "road": 7499.875799714736,
+      "other_pavement": 87232.43451661944
+    },
+    "claim": "Regression of historical published classification interpretation; not independent current-site accuracy."
+  }
+]

@@ -1,7 +1,7 @@
 {
   "package": "Property-Analyzer-Repo-Starter",
   "baseline_version": "0.2.0",
-  "next_release_status": "Implemented existing-site assessment 0.3.0 with explicit rule/evidence/validation limits; see docs/STATE.md",
+  "next_release_status": "Completed source includes automatic imagery/drainage integration, bounded prospect screening, compact JSON and saved views. Runtime evidence remains local and Git-ignored.",
   "included": "Analyzer code, tests, docs, configuration, synthetic fixtures and scoped local public evidence only",
   "excluded": [
     "Parent Cindris application and business research",
@@ -1239,14 +1239,16 @@
     }
   ],
   "manifest_scope": "Original 0.2.0 export inventory below; original hashes retained as provenance, not an integrity manifest of the modified working tree.",
-  "working_release_version": "0.3.0",
+  "working_release_version": "0.4.0",
   "working_release_verification": {
-    "tests": 219,
-    "baseline_tests_included": 154,
+    "tests": 240,
+    "prior_suite_functions": 219,
+    "updated_expectations": "Two previous tests now expect unknown canopy where no layer was acquired",
     "skipped": 0,
     "result": "passed",
-    "log": "docs/assessment-test-results.txt",
-    "empirical_validation": "incomplete",
-    "browser": "limited isolated in-app smoke; personal Chrome not used"
-  }
+    "log": "docs/automatic-test-results.txt",
+    "empirical_validation": "Independent current-site accuracy incomplete",
+    "browser": "Isolated address entry and automatic estimates, with no supplied layers"
+  },
+  "inventory_scope": "The files/hashes below describe the original starter export, not the current Git tree; use git for current source inventory."
 }

@@ -33,6 +33,16 @@ class _Fallback:
             return {'data':data,'provenance':{**saved[1],'cache_reused_after_failure':True,
                                             'refresh_failed_at':now(),'refresh_error':str(exc)}}
 
+    def fetch_bytes(self,url,refresh=False,metadata=None):
+        try:return self.cache.fetch_bytes(url,refresh,metadata)
+        except Exception as exc:
+            saved=self.cache._read(url) if hasattr(self.cache,'_read') else None
+            self.failures.append(str(exc))
+            if not saved:raise
+            self.used_cache=True
+            return {'content':saved[0],'provenance':{**saved[1],'cache_reused_after_failure':True,
+                    'refresh_failed_at':now(),'refresh_error':str(exc)}}
+
 
 def _status(provider,url,proxy,*,count=None,error=None):
     return {'provider':provider,'url':url,'attempted_at':now(),

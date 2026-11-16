@@ -6,7 +6,8 @@ import os
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urlencode, urlparse
-from urllib.request import Request, urlopen
+from urllib.request import Request, urlopen, build_opener, HTTPSHandler
+import ssl
 
 def now():
     return datetime.now(timezone.utc).isoformat()
@@ -34,7 +35,10 @@ class Cache:
         self.root = Path(root)
         for name in ('blobs', 'manifests', 'history'):
             (self.root/name).mkdir(parents=True, exist_ok=True)
-        self.opener = opener or urlopen
+        if opener is None:
+            import certifi
+            opener=build_opener(HTTPSHandler(context=ssl.create_default_context(cafile=certifi.where()))).open
+        self.opener = opener
         self.timeout = timeout
         self.max_bytes = max_bytes
 

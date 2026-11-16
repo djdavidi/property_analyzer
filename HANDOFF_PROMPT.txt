@@ -1,3 +1,7 @@
+HISTORICAL RELEASE BRIEF — retained for context, not the current task.
+For a new session read AGENTS.md and follow docs/SESSION.md, using docs/TASK.md.
+The original brief below does not instruct a session to repeat completed work.
+
 Implement the property analyzer release specified in docs/PRD.md.
 
 Read AGENTS.md, README.md, SETUP.md, docs/STATE.md and docs/TASK.md first. Inspect the existing implementation and baseline tests, then present a concise implementation sequence and proceed. The interview decisions are settled; ask only about consequential unresolved scope or access.

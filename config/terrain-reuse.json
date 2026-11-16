@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "properties": {
+    "98627": {
+      "case_id": "pwd-98627-usgs-1m",
+      "input_sha256": "b7fc3c94b2555e7a854ae0f68835da98e72f09feb41e990d4f757546808377f1",
+      "terrain_sha256": "ba1914e07d1385886aa30fbad9ab5cd2dc5339d8b47ace6c0c1137bc6b14ffe0",
+      "dem_sha256": "8d0f86a23169e3a9179c1719de6194f126e002dbf5ad802f1bd1f2206d856692",
+      "metadata_sha256": "acc8db0f855ed500b4c14f9f830e8507226de05fa8b4e5fa17ff747c9d663711",
+      "reason": "Previously selected verified native 1 m USGS terrain; reuse for the same parcel without managing a separate case.",
+      "minimum_buffer_m": 45.72
+    }
+  }
+}

@@ -115,13 +115,15 @@ def acquire_property(parcel_id, cache, refresh=False):
             'independent_drainage_validation':'incomplete'}
 
 
-def acquire_imagery(parcel, cache, *, crs='EPSG:2272', refresh=False, size=1024):
+def acquire_imagery(parcel, cache, *, crs='EPSG:2272', refresh=False, size=1024, freshness_policy=None):
     """Cache a bounded public aerial PNG; disclose fallback and unknown capture dates.
 
     Service vintage is not the exact acquisition date. No raster classifier is
     silently applied to RGB values; trees/green roofs cannot prove perviousness.
     """
     from shapely.geometry import shape
+    from drainage_core.freshness import age_policy
+    freshness_policy=freshness_policy or age_policy(now()[:10])
     bounds=list(shape(parcel).buffer(100).bounds)
     width=int(size); height=max(1,round(width*(bounds[3]-bounds[1])/(bounds[2]-bounds[0])))
     height=min(height,2048)
@@ -131,6 +133,12 @@ def acquire_imagery(parcel, cache, *, crs='EPSG:2272', refresh=False, size=1024)
             'imageSR':crs.split(':')[-1], 'size':f'{width},{height}', 'format':'png','transparent':'false'}
     warnings=[]
     for service,vintage in services:
+        if freshness_policy:
+            from drainage_core.freshness import freshness
+            check=freshness({'service_vintage':vintage},freshness_policy)
+            if not check['eligible']:
+                warnings.append(service+': '+check['status']+'; excluded by three-year imagery limit')
+                continue
         try:
             source=cache.fetch_json(service+'/export?'+urlencode(params),refresh,
                                     {'crs':crs,'horizontal_unit':'us-ft' if crs=='EPSG:2272' else None,
@@ -146,14 +154,26 @@ def acquire_imagery(parcel, cache, *, crs='EPSG:2272', refresh=False, size=1024)
                                  'service_vintage':vintage,'bounds':data.get('extent'),
                                  'resolution':[(bounds[2]-bounds[0])/width,(bounds[3]-bounds[1])/height]})
             extent=data.get('extent',{})
+            if freshness_policy:
+                from pyproj import CRS
+                sr=extent.get('spatialReference',{})
+                returned=sr.get('latestWkid',sr.get('wkid',sr.get('wkt')))
+                if returned is None or not CRS(returned).equals(CRS(crs),ignore_axis_order=True):
+                    raise SourceError('Imagery response CRS differs from measurement CRS')
+                if not all(k in extent for k in ('xmin','ymin','xmax','ymax')):
+                    raise SourceError('Imagery response lacks exact rendering bounds')
             actual=[extent.get(k,bounds[i]) for i,k in enumerate(['xmin','ymin','xmax','ymax'])]
             return {'sha256':image['provenance']['sha256'],'blob_path':str(cache.root/'blobs'/image['provenance']['sha256']),
                     'bounds':actual,'crs':crs,'width':width,'height':height,'media_type':'image/png',
                     'sources':[source['provenance'],image['provenance']],
+                    'source_vintage':vintage,'acquisition_date':None,
+                    'imagery_age_policy':freshness_policy,
                     'attribution':'PASDA / Philadelphia' if vintage else 'Esri World Imagery and contributors',
                     'warnings':warnings+['Aerial capture date and season remain unverified; service vintage: '+str(vintage)]}
         except SourceError as exc:
             warnings.append(str(exc))
+    if freshness_policy:
+        raise SourceError('No imagery within the three-year age limit: '+'; '.join(warnings))
     try:
         image=acquire_tile_imagery(parcel,cache,crs=crs,size=size,refresh=refresh)
         image['warnings']=warnings+image['warnings']

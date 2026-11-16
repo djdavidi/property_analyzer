@@ -20,7 +20,7 @@ class Handler(BaseHTTPRequestHandler):
     store=None
 
     def send(self,data,status=200,mime='application/json'):
-        body=data if isinstance(data,bytes) else json.dumps(data,allow_nan=False).encode() if mime=='application/json' else data.encode()
+        body=data if isinstance(data,bytes) else json.dumps(data,allow_nan=False,separators=(',',':')).encode() if mime=='application/json' else data.encode()
         self.send_response(status);self.send_header('Content-Type',mime);self.send_header('Content-Length',str(len(body)))
         self.send_header('X-Content-Type-Options','nosniff');self.send_header('Cache-Control','no-store')
         self.end_headers();self.wfile.write(body)
@@ -32,7 +32,8 @@ class Handler(BaseHTTPRequestHandler):
         if not self.local():return self.send({'error':'Loopback Host required'},403)
         path=urlparse(self.path).path
         try:
-            if path=='/api/config':return self.send({'mode':'gis','title':'GIS & drainage workbench','jurisdictions':[]})
+            if path=='/api/config':return self.send({'mode':'gis','title':'GIS & drainage workbench','jurisdictions':[],'saved_views':True})
+            if path.startswith('/api/saved/'):return self.send(self.store.saved())
             if path=='/api/cases':return self.send(self.store.list())
             if path.startswith('/api/cases/'):
                 case=self.store.load()

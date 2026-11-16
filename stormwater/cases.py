@@ -32,6 +32,8 @@ def _analyze_pair(case):
             'processing_seconds':round(time.perf_counter()-start,6),
             'claim':'Research screening; independent empirical validation and professional review required'}
     result.pop('analysis_sha256',None)
+    if case.get('automatic'):
+        result['automatic']=deepcopy(case['automatic'])
     return gis,result
 
 
@@ -54,6 +56,15 @@ class CaseStore:
     def load(self,id):
         return json.loads((self.directory(id)/'case.json').read_text())
 
+    def saved(self,id):
+        from drainage_core.saved import saved_view
+        from .rules import RULE_VERSION
+        view=saved_view(self.directory(id),self.load(id))
+        if view['analysis'] and view['analysis'].get('rule_version') not in (None,RULE_VERSION):
+            view['saved_status']['policy_changed']=True
+            view['saved_status']['message']+=' Saved policy version differs from current code.'
+        return view
+
     def save(self,case):
         from .report import render_report, export_geojson
         from drainage_core.evidence import AttachmentStore, validate_references
@@ -66,10 +77,10 @@ class CaseStore:
         digest=result['input_sha256']; payload=canonical(case)+'\n'
         frozen=revisions/(digest+'.json')
         if not frozen.exists(): frozen.write_text(payload)
-        outputs={'case.json':payload,'analysis.json':json.dumps(result,indent=2,allow_nan=False),
-                 'gis-analysis.json':json.dumps(gis,indent=2,allow_nan=False),
+        outputs={'case.json':payload,'analysis.json':canonical(result),
+                 'gis-analysis.json':canonical(gis),
                  'report.html':render_report(case,result),
-                 'measurements.geojson':json.dumps(export_geojson(case,result),indent=2,allow_nan=False,sort_keys=True)}
+                 'measurements.geojson':canonical(export_geojson(case,result))}
         for name,body in outputs.items():
             temp=folder/(name+'.tmp'); temp.write_text(body); temp.replace(folder/name)
         return result
@@ -100,7 +111,15 @@ class CaseStore:
     def run_assessment(self,case,cache=None):
         from drainage_core.sources import Cache
         from .assessment_workflow import gather
-        updated=gather(case,cache or Cache(ROOT/'data/public',timeout=8),refresh=True)
+        selected_cache=cache or Cache(ROOT/'data/public',timeout=15)
+        updated=case
+        if re.match(r'^pwd-\d+',case.get('id','')) or case.get('automatic'):
+            from .automatic import acquire,enrich_candidates
+            updated=acquire(case,selected_cache,refresh=True,case_root=self.root)
+        updated=gather(updated,selected_cache,refresh=True)
+        if updated.get('automatic'):
+            from .automatic import enrich_candidates
+            updated=enrich_candidates(updated)
         now=datetime.now(timezone.utc).isoformat()
         run_id=uuid.uuid4().hex
         updated['assessment'].setdefault('snapshots',[]).append({'id':run_id,'at':now,

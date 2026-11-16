@@ -1,0 +1,255 @@
+Compact storage / ranking / saved-view checks — 2026-11-15
+Shared dirty checkout; no new public data or full property assessment.
+
+Commands:
+.venv/bin/python -m unittest discover -s tests -p test_prospects.py -v
+.venv/bin/python -m unittest discover -s tests -p test_saved_results.py -v
+.venv/bin/python -m unittest discover -s tests -p test_saved_http.py -v
+PYTHONPATH=tests .venv/bin/python -m unittest test_core_boundaries.CoreBoundaryTests.test_fresh_core_imports_cannot_load_legacy_or_jurisdiction_packages -v
+node --check drainage_core/web/app.js
+node --check stormwater/web/prospects.js
+node tests/assessment-ui-checks.js
+node tests/prospect-ui-checks.js
+
+
+prospect-improvement-tests.txt
+test_current_parcel_total_is_used_once_and_rounded (test_prospects.BillingRankingTests.test_current_parcel_total_is_used_once_and_rounded) ... ok
+test_government_in_billing_vetoes_private_parcel_owner (test_prospects.BillingRankingTests.test_government_in_billing_vetoes_private_parcel_owner) ... ok
+test_known_gap_then_annual_charge_deterministic_and_not_savings (test_prospects.BillingRankingTests.test_known_gap_then_annual_charge_deterministic_and_not_savings) ... ok
+test_missing_credits_are_unknown_and_unranked (test_prospects.BillingRankingTests.test_missing_credits_are_unknown_and_unranked) ... ok
+test_rate_period_identity_multiple_current_and_errors_rejected (test_prospects.BillingRankingTests.test_rate_period_identity_multiple_current_and_errors_rejected) ... ok
+test_unknown_owner_is_not_ranked (test_prospects.BillingRankingTests.test_unknown_owner_is_not_ranked) ... ok
+test_dominant_overlap_is_explicit (test_prospects.MatchingTests.test_dominant_overlap_is_explicit) ... ok
+test_duplicate_systems_produce_one_parcel (test_prospects.MatchingTests.test_duplicate_systems_produce_one_parcel) ... ok
+test_private_existing_only (test_prospects.MatchingTests.test_private_existing_only) ... ok
+test_shared_footprint_and_point_touch_are_not_assigned (test_prospects.MatchingTests.test_shared_footprint_and_point_touch_are_not_assigned) ... ok
+test_government_variants_and_coowner_are_excluded (test_prospects.OwnershipTests.test_government_variants_and_coowner_are_excluded) ... ok
+test_missing_or_uncertain_public_bodies_require_review (test_prospects.OwnershipTests.test_missing_or_uncertain_public_bodies_require_review) ... ok
+test_private_names_containing_geography_or_federal_are_retained (test_prospects.OwnershipTests.test_private_names_containing_geography_or_federal_are_retained) ... ok
+test_billing_failure_is_partial_without_fabricated_zero_or_rank (test_prospects.WorkflowTests.test_billing_failure_is_partial_without_fabricated_zero_or_rank) ... ok
+test_cancel_stops_new_cached_and_network_work (test_prospects.WorkflowTests.test_cancel_stops_new_cached_and_network_work) ... ok
+test_failed_small_match_stops_expansion (test_prospects.WorkflowTests.test_failed_small_match_stops_expansion) ... ok
+test_freshness_explicit_dates_and_unknown (test_prospects.WorkflowTests.test_freshness_explicit_dates_and_unknown) ... ok
+test_one_writer_and_cleanup (test_prospects.WorkflowTests.test_one_writer_and_cleanup) ... ok
+test_request_cap_allows_cache_and_blocks_network_after_budget (test_prospects.WorkflowTests.test_request_cap_allows_cache_and_blocks_network_after_budget) ... ok
+test_scan_never_calls_full_flow_and_persists_hash_and_exports (test_prospects.WorkflowTests.test_scan_never_calls_full_flow_and_persists_hash_and_exports) ... ok
+test_site_grouping_keeps_distinct_owners_and_distant_locations (test_prospects.WorkflowTests.test_site_grouping_keeps_distinct_owners_and_distant_locations) ... ok
+test_stale_refresh_is_explicit_and_offline_cannot_send (test_prospects.WorkflowTests.test_stale_refresh_is_explicit_and_offline_cannot_send) ... ok
+test_time_budget_blocks_new_requests (test_prospects.WorkflowTests.test_time_budget_blocks_new_requests) ... ok
+test_worker_and_request_caps_cannot_be_expanded (test_prospects.WorkflowTests.test_worker_and_request_caps_cannot_be_expanded) ... ok
+
+----------------------------------------------------------------------
+Ran 24 tests in 0.031s
+
+OK
+
+saved-result-tests.txt
+test_display_keeps_measurements_findings_without_mutating_full_result (test_saved_results.SavedResultsTests.test_display_keeps_measurements_findings_without_mutating_full_result) ... ok
+test_generated_json_is_compact_with_identical_values (test_saved_results.SavedResultsTests.test_generated_json_is_compact_with_identical_values) ... ok
+test_missing_or_input_mismatch_never_automatically_recalculates (test_saved_results.SavedResultsTests.test_missing_or_input_mismatch_never_automatically_recalculates) ... ok
+test_open_builds_small_saved_view_then_reuses_it_without_analysis (test_saved_results.SavedResultsTests.test_open_builds_small_saved_view_then_reuses_it_without_analysis) ... ok
+test_tampered_view_rejected_and_source_change_invalidates_it (test_saved_results.SavedResultsTests.test_tampered_view_rejected_and_source_change_invalidates_it) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.008s
+
+OK
+
+saved-http-tests.txt
+test_cancel_and_duplicate_start_use_one_worker (test_saved_http.JobControlTests.test_cancel_and_duplicate_start_use_one_worker) ... ok
+test_rerank_job_cannot_invoke_acquisition (test_saved_http.JobControlTests.test_rerank_job_cannot_invoke_acquisition) ... ok
+test_default_scan_is_local_rerank_and_cancel_is_available (test_saved_http.SavedHTTPTests.test_default_scan_is_local_rerank_and_cancel_is_available) ... ok
+test_saved_route_never_calls_analysis_or_acquisition (test_saved_http.SavedHTTPTests.test_saved_route_never_calls_analysis_or_acquisition) ... ok
+test_traversal_does_not_read_another_case (test_saved_http.SavedHTTPTests.test_traversal_does_not_read_another_case) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.551s
+
+OK
+
+core-import-test.txt
+test_fresh_core_imports_cannot_load_legacy_or_jurisdiction_packages (test_core_boundaries.CoreBoundaryTests.test_fresh_core_imports_cannot_load_legacy_or_jurisdiction_packages) ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 0.125s
+
+OK
+
+Both Node behavior harnesses passed; both JS syntax checks exited 0. HTTP tests use loopback and mocked acquisition/analysis. Initial failures were obsolete ranking expectations, a tuple/list fixture equality comparison and an invalid cached-JSON fixture; updated fixture/expectations and reran successfully.
+
+Actual read-only checks:
+[
+  {
+    "path": "/api/config",
+    "status": 200,
+    "seconds": 0.0094,
+    "bytes": 121
+  },
+  {
+    "path": "/api/saved/pwd-98627",
+    "status": 200,
+    "seconds": 0.2412,
+    "bytes": 9202913
+  },
+  {
+    "path": "/api/prospects/latest",
+    "status": 200,
+    "seconds": 0.0228,
+    "bytes": 458829
+  },
+  {
+    "path": "/prospects",
+    "status": 200,
+    "seconds": 0.001,
+    "bytes": 2121
+  }
+]
+
+Actual compaction, saved-view and offline cached-scan measurements:
+{
+  "compact_files": {
+    "analysis.json": {
+      "before_bytes": 71546163,
+      "after_bytes": 29495604,
+      "values_identical": true,
+      "semantic_sha256": "fdb9f7869f2e34f27f6b66626420ff23d88daca3ecaa59cd2c1f2ec821e7c127"
+    },
+    "gis-analysis.json": {
+      "before_bytes": 70346563,
+      "after_bytes": 29032771,
+      "values_identical": true,
+      "semantic_sha256": "316a9e3ca306da33634b660dbe400f8845573185ffaf231e9170914f956bd29f"
+    },
+    "measurements.geojson": {
+      "before_bytes": 8462555,
+      "after_bytes": 3747377,
+      "values_identical": true,
+      "semantic_sha256": "d6f11f8f353caa7a928077b83cbcadd5e62c2417825485540345012ab4ce0fdd"
+    }
+  },
+  "no_new_network_or_full_analysis": true,
+  "first_saved_view_seconds": 0.2977,
+  "cached_saved_view_seconds": 0.0985,
+  "saved_view_bytes": 5594334,
+  "baseline_unchanged": true,
+  "offline_scan_seconds": 0.3964,
+  "prospect_run_id": "a6347fa4b5964a2e92bc8fdf5321875b",
+  "counts": {
+    "inventory_features": 9159,
+    "system_status": {
+      "public_project": 4331,
+      "mapped_existing": 3903,
+      "installation_unknown": 846,
+      "not_completed": 79
+    },
+    "usable_existing_private_features": 3820,
+    "selected_project_count": 120,
+    "matched_parcels": 111,
+    "billing_attempts": 79,
+    "ranked_prospects": 57,
+    "returned": 50,
+    "ambiguous_systems": 143,
+    "failed_requests_or_geometry": 20,
+    "invalid_systems": 83,
+    "exclusions_by_status": {
+      "government": 29,
+      "review": 3
+    },
+    "ranked_parcels": 59,
+    "stale_or_undated_billing": 0,
+    "recorded_owners": 57
+  },
+  "new_requests": 0,
+  "top5": [
+    {
+      "rank": 1,
+      "address": "5600 CITY AVE",
+      "parcels": 1,
+      "annual_charge": 197225.28
+    },
+    {
+      "rank": 2,
+      "address": "8000 CHEROKEE ST",
+      "parcels": 3,
+      "annual_charge": 163409.28
+    },
+    {
+      "rank": 3,
+      "address": "2800 FOX ST",
+      "parcels": 1,
+      "annual_charge": 149628.0
+    },
+    {
+      "rank": 4,
+      "address": "1001-99 N DELAWARE AVE",
+      "parcels": 1,
+      "annual_charge": 149436.24
+    },
+    {
+      "rank": 5,
+      "address": "3144 W PASSYUNK AVE",
+      "parcels": 1,
+      "annual_charge": 120944.64
+    }
+  ],
+  "donor_files_unchanged": 5
+}
+
+Pure local rerank 0.0521 seconds, no spatial/provider queries or network; final run fc0d8a3d75864b6589d5a329503d6d6e. 50 site prospects / 52 member parcels. No source cache or frozen case snapshot bytes rewritten. Visual browser, broad suite, empirical accuracy and cross-platform crash recovery unrun.
+
+Final consolidated run:
+PYTHONPATH=tests .venv/bin/python -m unittest test_prospects test_saved_results test_saved_http test_core_boundaries.CoreBoundaryTests.test_fresh_core_imports_cannot_load_legacy_or_jurisdiction_packages -v
+test_current_parcel_total_is_used_once_and_rounded (test_prospects.BillingRankingTests.test_current_parcel_total_is_used_once_and_rounded) ... ok
+test_government_in_billing_vetoes_private_parcel_owner (test_prospects.BillingRankingTests.test_government_in_billing_vetoes_private_parcel_owner) ... ok
+test_known_gap_then_annual_charge_deterministic_and_not_savings (test_prospects.BillingRankingTests.test_known_gap_then_annual_charge_deterministic_and_not_savings) ... ok
+test_missing_credits_are_unknown_and_unranked (test_prospects.BillingRankingTests.test_missing_credits_are_unknown_and_unranked) ... ok
+test_rate_period_identity_multiple_current_and_errors_rejected (test_prospects.BillingRankingTests.test_rate_period_identity_multiple_current_and_errors_rejected) ... ok
+test_unknown_owner_is_not_ranked (test_prospects.BillingRankingTests.test_unknown_owner_is_not_ranked) ... ok
+test_dominant_overlap_is_explicit (test_prospects.MatchingTests.test_dominant_overlap_is_explicit) ... ok
+test_duplicate_systems_produce_one_parcel (test_prospects.MatchingTests.test_duplicate_systems_produce_one_parcel) ... ok
+test_private_existing_only (test_prospects.MatchingTests.test_private_existing_only) ... ok
+test_shared_footprint_and_point_touch_are_not_assigned (test_prospects.MatchingTests.test_shared_footprint_and_point_touch_are_not_assigned) ... ok
+test_government_variants_and_coowner_are_excluded (test_prospects.OwnershipTests.test_government_variants_and_coowner_are_excluded) ... ok
+test_missing_or_uncertain_public_bodies_require_review (test_prospects.OwnershipTests.test_missing_or_uncertain_public_bodies_require_review) ... ok
+test_private_names_containing_geography_or_federal_are_retained (test_prospects.OwnershipTests.test_private_names_containing_geography_or_federal_are_retained) ... ok
+test_billing_failure_is_partial_without_fabricated_zero_or_rank (test_prospects.WorkflowTests.test_billing_failure_is_partial_without_fabricated_zero_or_rank) ... ok
+test_cancel_stops_new_cached_and_network_work (test_prospects.WorkflowTests.test_cancel_stops_new_cached_and_network_work) ... ok
+test_failed_small_match_stops_expansion (test_prospects.WorkflowTests.test_failed_small_match_stops_expansion) ... ok
+test_freshness_explicit_dates_and_unknown (test_prospects.WorkflowTests.test_freshness_explicit_dates_and_unknown) ... ok
+test_one_writer_and_cleanup (test_prospects.WorkflowTests.test_one_writer_and_cleanup) ... ok
+test_request_cap_allows_cache_and_blocks_network_after_budget (test_prospects.WorkflowTests.test_request_cap_allows_cache_and_blocks_network_after_budget) ... ok
+test_scan_never_calls_full_flow_and_persists_hash_and_exports (test_prospects.WorkflowTests.test_scan_never_calls_full_flow_and_persists_hash_and_exports) ... ok
+test_site_grouping_keeps_distinct_owners_and_distant_locations (test_prospects.WorkflowTests.test_site_grouping_keeps_distinct_owners_and_distant_locations) ... ok
+test_stale_refresh_is_explicit_and_offline_cannot_send (test_prospects.WorkflowTests.test_stale_refresh_is_explicit_and_offline_cannot_send) ... ok
+test_time_budget_blocks_new_requests (test_prospects.WorkflowTests.test_time_budget_blocks_new_requests) ... ok
+test_worker_and_request_caps_cannot_be_expanded (test_prospects.WorkflowTests.test_worker_and_request_caps_cannot_be_expanded) ... ok
+test_display_keeps_measurements_findings_without_mutating_full_result (test_saved_results.SavedResultsTests.test_display_keeps_measurements_findings_without_mutating_full_result) ... ok
+test_generated_json_is_compact_with_identical_values (test_saved_results.SavedResultsTests.test_generated_json_is_compact_with_identical_values) ... ok
+test_missing_or_input_mismatch_never_automatically_recalculates (test_saved_results.SavedResultsTests.test_missing_or_input_mismatch_never_automatically_recalculates) ... ok
+test_open_builds_small_saved_view_then_reuses_it_without_analysis (test_saved_results.SavedResultsTests.test_open_builds_small_saved_view_then_reuses_it_without_analysis) ... ok
+test_tampered_view_rejected_and_source_change_invalidates_it (test_saved_results.SavedResultsTests.test_tampered_view_rejected_and_source_change_invalidates_it) ... ok
+test_cancel_and_duplicate_start_use_one_worker (test_saved_http.JobControlTests.test_cancel_and_duplicate_start_use_one_worker) ... ok
+test_rerank_job_cannot_invoke_acquisition (test_saved_http.JobControlTests.test_rerank_job_cannot_invoke_acquisition) ... ok
+test_default_scan_is_local_rerank_and_cancel_is_available (test_saved_http.SavedHTTPTests.test_default_scan_is_local_rerank_and_cancel_is_available) ... ok
+test_saved_route_never_calls_analysis_or_acquisition (test_saved_http.SavedHTTPTests.test_saved_route_never_calls_analysis_or_acquisition) ... ok
+test_traversal_does_not_read_another_case (test_saved_http.SavedHTTPTests.test_traversal_does_not_read_another_case) ... ok
+test_fresh_core_imports_cannot_load_legacy_or_jurisdiction_packages (test_core_boundaries.CoreBoundaryTests.test_fresh_core_imports_cannot_load_legacy_or_jurisdiction_packages) ... ok
+
+----------------------------------------------------------------------
+Ran 35 tests in 0.726s
+
+OK
+
+Final Node behavior harnesses passed, JS syntax passed, 148 handoff links resolved, git diff --check exit 0.
+Final code hashes:
+{
+  "drainage_core/saved.py": "752755321432b92654cd1e7d0817cac9d36a0c9a418884a483644dd4b73525bd",
+  "drainage_core/workspace.py": "e4d673ad2b00eb8fcdc1157e802965a4c7fd558d7f0c9ffa5dddf0e9d1c43d40",
+  "drainage_core/server.py": "0cef5c8962812a8b8f52dbb756acb2568c08cf4b314dbc1434763fdb4223da5f",
+  "drainage_core/web/app.js": "e0448008b3a6b42198a878c5eedcd94193c144cce08e3f98aabe4a23479e8ed7",
+  "stormwater/cases.py": "277c5de44af10349cf2f42c34d88bc81bacc58832ab7e3f8d7a333c0d9401c56",
+  "stormwater/server.py": "dd180b6cb34bed9c1f4a07294f4c72f68b29606e85321a0f0fe51b3d9c201f07",
+  "stormwater/prospects.py": "6beaf9e5f74d8ebacd2d62962d4fb6ccc67d7a449ce647574b46642d972656f2",
+  "stormwater/prospect_jobs.py": "67d5352033664002f017b00135befd05ca57dc22bc4a4341fc598370966922e8",
+  "stormwater/web/prospects.js": "ff6e48edfdaff6c94f6b98e1b882b390a9907f3657f42ac5a506bf7dad22e623"
+}
