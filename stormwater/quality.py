@@ -34,7 +34,13 @@ from drainage_core.quality import (
 #    a labelled discontinuity; green roofs priced as IAR (manual Table 1 / 4.3.2.1); NPDES 12-month
 #    compliance window; research scenarios exclude rejected/vetoed receivers; inferred undeveloped
 #    status labelled; storage-limited partial label.
-POLICY_INTERPRETATION_VERSION = 4
+# 5: Final LIVE-SAVINGS fixes: literal parcel-level minimum (manual 4.3.5 step 5) with a
+#    labelled discontinuity and 0% accounts billed nothing; PWD money rounding (double x 100,
+#    half to even); permit program class + site identity, one industrial what-if; mapped
+#    systems as management leads; one-GA-source IA measurement range; on-parcel research
+#    route scope; recorded-IA canopy cap; image green-roof candidates; storage check on
+#    catchment rows; observed_ia_only and developed-on-2018-paved IA bounds.
+POLICY_INTERPRETATION_VERSION = 5
 POLICY_SCOPE = (
     "rules",
     "billing",
@@ -77,6 +83,9 @@ DERIVED_MONEY_KEYS = frozenset(
         "supported_annual_change",
         "supported_additional_annual_change",
         "conditional_final_annual_bill",
+        # Fix 2/9 (policy 5): IA measurement-range ends and discontinuity notes.
+        "monthly_change",
+        "scenario_monthly_total",
     }
 )
 # Recorded observations that are never withheld (documentation and tests).

@@ -1117,7 +1117,7 @@ def integrate(case, gis, screened, as_of, tariff):
                     "ia_sqft": row["ia_sqft"],
                     "ia_vs_recorded_sqft": row["ia_vs_recorded_sqft"],
                     "status": row.get("status"),
-                    "monthly_total": row.get("monthly_total") if calculated else None,
+                    "scenario_monthly_total": row.get("monthly_total") if calculated else None,
                     "monthly_change": row.get("monthly_savings") if calculated else None,
                     "annual_change": row.get("annual_savings") if calculated else None,
                     "unavailable_reason": None

@@ -22,9 +22,9 @@ SWMS share and no Billing & Collection charge, as all 60 such accounts are in th
 
 Money rounding (fix 10): PWD rounds each money step in binary floating point, scaled
 by 100 and rounded half to even (the .NET ``Math.Round(double, 2)`` default):
-``pwd_cents``. It reproduces every current-year GrossCharge, ImpervCharge,
-AccountSubtotal and DistributedAccountSubtotal of the 5,983 nonresidential/condominium
-accounts in the snapshot; exact-decimal half-up did not (it missed 119 GA charges).
+``pwd_cents``. It reproduces every current-year GrossCharge, ImpervCharge and
+AccountSubtotal in the snapshot and the DistributedAccountSubtotal of all 5,983 account
+rows outside flat-rate residential parcels; exact-decimal half-up missed 119 GA charges.
 
 NPDES (one representation): manual section 4.3.5.2 applies the NPDES credit as area
 credits ("a 7% credit towards both the IA and GA square footage"); tariff 4.5(e)
