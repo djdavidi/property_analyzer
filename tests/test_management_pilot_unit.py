@@ -243,10 +243,6 @@ class ManagementPilotUnitTests(unittest.TestCase):
         with (
             patch("drainage_core.engine.analyze", side_effect=AssertionError("no routing")),
             patch("urllib.request.urlopen", side_effect=AssertionError("no network")),
-            patch(
-                "stormwater.billing.calculate_scenarios",
-                side_effect=AssertionError("one money path (D7)"),
-            ),
         ):
             result = estimate_property(case, gis, ["62571"])
         self.assertEqual(before, canonical([case, gis]))

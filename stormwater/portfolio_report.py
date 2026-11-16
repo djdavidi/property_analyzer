@@ -911,13 +911,16 @@ def _plain_finding(category, member):
             else "We do not have a confirmed system and the area it serves."
         )
         if values:
-            partial = any(
-                s.get("partial_label")
-                for s in category.get("scenarios", [])
-                if s.get("annual_change") is not None
+            partial = next(
+                (
+                    s["partial_label"]
+                    for s in category.get("scenarios", [])
+                    if s.get("annual_change") is not None and s.get("partial_label")
+                ),
+                None,
             )
             amount = _saving_example(max(values), ceiling=True) + (
-                " (partial: true value may be higher)" if partial else ""
+                " (" + partial + ")" if partial else ""
             )
         action = "Find the approved drainage plan, area served and treatment design; check current condition."
     elif key == "permeable_pavement":

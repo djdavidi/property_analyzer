@@ -4,6 +4,47 @@ from html import escape
 import json
 
 
+def route_note(row):
+    """D2: a partial row shows its label; a row without one shows a non-complete route state."""
+    row = row or {}
+    if row.get("partial_label"):
+        return row["partial_label"]
+    state = row.get("route_state")
+    return "Route state: " + state if state and state != "complete_in_window" else ""
+
+
+def research_section(data):
+    """Research bill-reduction alternatives with route labels and excluded receivers."""
+    if not data or not data.get("scenarios"):
+        return ""
+    e = lambda value: escape(str(value if value is not None else "Unknown"))
+    n = lambda value: "Unknown" if value is None else f"{value:,.2f}"
+    out = [
+        "<table><tr><th>Scenario</th><th>Status</th><th>Monthly reduction</th><th>Annual reduction</th><th>Labels / blockers</th></tr>"
+    ]
+    for s in data["scenarios"]:
+        notes = [route_note(s)] + list(s.get("reasons") or [])
+        notes += [
+            "Receiver " + str(r["receiver_id"]) + " not re-priced: " + "; ".join(r["reasons"])
+            for r in s.get("excluded_receivers") or []
+        ]
+        out.append(
+            "<tr><td>"
+            + e(s.get("name"))
+            + "</td><td>"
+            + e(s.get("status"))
+            + "</td><td>"
+            + n(s.get("gross_monthly_reduction"))
+            + "</td><td>"
+            + n(s.get("gross_annual_reduction"))
+            + "</td><td>"
+            + e("; ".join(x for x in notes if x))
+            + "</td></tr>"
+        )
+    out.append("</table>")
+    return "".join(out)
+
+
 def modeled_record_section(info):
     if not info:
         return ""
@@ -48,9 +89,10 @@ def modeled_record_section(info):
             + "</p>"
         )
         parts.append(
-            "<table><tr><th>Assumption</th><th>Modeled IA (ft²)</th><th>Status</th><th>Monthly reduction</th><th>Annual reduction</th></tr>"
+            "<table><tr><th>Assumption</th><th>Modeled IA (ft²)</th><th>Status</th><th>Monthly reduction</th><th>Annual reduction</th><th>Labels / blockers</th></tr>"
         )
         for s in run["scenarios"]:
+            notes = [route_note(s) or route_note(run)] + list(s.get("reasons") or [])
             parts.append(
                 "<tr><td>"
                 + e(s["bound"])
@@ -62,6 +104,8 @@ def modeled_record_section(info):
                 + n(s.get("gross_monthly_reduction"))
                 + "</td><td>"
                 + n(s.get("gross_annual_reduction"))
+                + "</td><td>"
+                + e("; ".join(x for x in notes if x))
                 + "</td></tr>"
             )
         parts.append("</table>")
@@ -90,7 +134,11 @@ def modeled_combined_section(data):
         + "</p><p>These are alternatives to the existing findings and to each other. Tested bounds are assumptions, not statistical confidence. No approval or actual savings is established.</p><table><tr><th>Drainage run / area assumption</th><th>Status</th><th>Monthly reduction</th><th>Annual reduction</th><th>Blockers</th></tr>"
     ]
     for s in data.get("combined", []):
-        notes = s.get("reasons", []) + [s.get("financial_scope", ""), s.get("scope", "")]
+        notes = (
+            [route_note(s)]
+            + s.get("reasons", [])
+            + [s.get("financial_scope", ""), s.get("scope", "")]
+        )
         if s.get("excluded_records"):
             notes.append(
                 "Excluded records require review: "
@@ -149,12 +197,13 @@ def modeled_combined_section(data):
         out.append(
             "<h4>"
             + label
-            + "</h4><p>Conditional alternatives only; eligibility and actual savings are unverified.</p><table><tr><th>Scenario / receiver</th><th>Area (ft²)</th><th>Status</th><th>Monthly reduction</th><th>Annual reduction</th></tr>"
+            + "</h4><p>Conditional alternatives only; eligibility and actual savings are unverified.</p><table><tr><th>Scenario / receiver</th><th>Area (ft²)</th><th>Status</th><th>Monthly reduction</th><th>Annual reduction</th><th>Labels / blockers</th></tr>"
         )
         for v in data.get(key, []):
             name = " / ".join(
                 str(v.get(k)) for k in ("name", "receiver_id", "permit_id", "bound") if v.get(k)
             )
+            notes = [route_note(v)] + list(v.get("reasons") or [])
             out.append(
                 "<tr><td>"
                 + e(name)
@@ -166,6 +215,8 @@ def modeled_combined_section(data):
                 + n(v.get("gross_monthly_reduction"))
                 + "</td><td>"
                 + n(v.get("gross_annual_reduction"))
+                + "</td><td>"
+                + e("; ".join(x for x in notes if x))
                 + "</td></tr>"
             )
         out.append("</table>")

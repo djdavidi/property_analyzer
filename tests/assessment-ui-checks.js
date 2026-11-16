@@ -50,6 +50,13 @@ async function harness(mode){
  assert.match(g.node('research-results').innerHTML,/&lt;img/);
  assert(!g.node('research-results').innerHTML.includes('<script>bad</script>'));
  assert.equal(typeof g.node('show-research').onchange,'function');
+ // D2 (final review p7): partial research money rows carry their label; vetoed receivers are listed.
+ await g.run("result.assessment={research_drainage_scenarios:{scenarios:[{name:'nominal / known_ground_only',status:'calculated',gross_monthly_reduction:7.05,gross_annual_reduction:84.6,route_state:'partial_upstream_unknown',partial_label:'partial: true value may be higher',reasons:[]},{name:'conservative / known_ground_only',status:'blocked',route_state:'partial_upstream_unknown',partial_label:null,reasons:['Receiver G1 is not re-priced'],excluded_receivers:[{receiver_id:'G1',reasons:['Record rej was manually rejected']}]}]}};renderResults()");
+ assert.match(g.node('research-results').innerHTML,/partial: true value may be higher/,'Partial research row shows its label');
+ assert.match(g.node('research-results').innerHTML,/Route state: partial_upstream_unknown/,'A partial row without a label shows its route state');
+ assert.match(g.node('research-results').innerHTML,/Receiver G1 not re-priced: Record rej was manually rejected/);
+ const partialRows=await p.run("modeledScenarioRows([{bound:'nominal',status:'calculated',gross_annual_reduction:12,route_state:'partial_upstream_unknown',partial_label:null}])");
+ assert.match(partialRows,/Route state: partial_upstream_unknown/);
  const invalid=await p.run("modeledCombinedHtml({status:'invalidated',reason:'Historical <script>bad</script> figures invalidated'})");
  assert.match(invalid,/Model-derived savings unavailable/);assert(!invalid.includes('<script>'));
  const subset=await p.run("modeledScenarioRows([{bound:'upper',status:'calculated',gross_annual_reduction:20,financial_scope:'credits only',scope:'calculable subset',excluded_records:[{record_id:'off',reasons:['outside parcel']}],net_with_area_correction:{status:'calculated',gross_annual_reduction:-200}}])");

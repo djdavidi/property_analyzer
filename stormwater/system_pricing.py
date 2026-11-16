@@ -9,7 +9,7 @@ Money (D7)
     reconciliation and occupied-area checks, the 500 sq ft gross-area rule, rule and
     tariff periods, the pending baseline-refresh gate and the shared known-false
     prerequisite veto (``prerequisites.case_vetoes``) are therefore identical to the
-    app. No adapter calls ``billing.calculate_scenarios``.
+    app. ``billing.calculate_scenarios`` was deleted (final review fix 9).
 
 Route state (D2)
     One rule for the app paths and the pilot, read from frozen per-catchment

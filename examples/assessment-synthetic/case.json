@@ -234,7 +234,9 @@
           "current_condition_confirmed": true,
           "maintenance_documented": true,
           "professional_reviewed": true,
-          "treatment_depth_inches": 1.5
+          "treatment_depth_inches": 1.5,
+          "site_plan_documented": true,
+          "photographs_current": true
         },
         "evidence_refs": [
           {
@@ -254,9 +256,11 @@
             "existing_installation",
             "maintenance_documented",
             "parcel_allocation_confirmed",
+            "photographs_current",
             "physical_area_confirmed",
             "professional_reviewed",
             "routing_confirmed",
+            "site_plan_documented",
             "treatment_depth_inches"
           ]
         }

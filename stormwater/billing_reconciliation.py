@@ -36,6 +36,7 @@ from .billing import (
     decimal,
     default_tariff,
     monthly_bill,
+    recorded_credits,
     undeveloped_unknown,
 )
 from .record_cache import billing_problem, captured
@@ -201,8 +202,10 @@ def _number(value):
 def reconcile(baseline, tariff=None, *, raw=None):
     """Rows comparing PWD billed areas with computed final/billed areas for one record.
 
-    Account allocation, discounts and NPDES do not change billed areas, so the
-    computation uses one notional account and 0% NPDES; no charge is reported.
+    Account allocation and discounts do not change billed areas, so the computation
+    uses one notional account; no charge is reported. Recorded credits, the unknown
+    IAR split and a recorded NPDES credit go through ``billing.recorded_credits``, the
+    same function as the assessment ledger baseline, so the two always agree.
     """
     t = tariff or default_tariff()
     base = {
@@ -276,13 +279,6 @@ def reconcile(baseline, tariff=None, *, raw=None):
             )
         ]
     assumptions = []
-    iar = base["existing_iar_sqft"]
-    if iar is None:
-        iar = 0
-        assumptions.append(
-            "Existing IAR split unknown; the recorded impervious credit is treated as the whole IA-side "
-            "credit (labelled assumption; a match supports it, a mismatch may come from it)"
-        )
     if undeveloped_unknown(baseline, base["recorded_ga_sqft"], tariff=t):
         alternatives = list(STATUS_ALTERNATIVES)
         assumptions.append(
@@ -293,21 +289,32 @@ def reconcile(baseline, tariff=None, *, raw=None):
     rows = []
     for name, flag in alternatives:
         try:
+            terms = recorded_credits(
+                baseline,
+                base["recorded_ga_sqft"],
+                base["recorded_ia_sqft"],
+                flag,
+                t,
+            )
             bill = monthly_bill(
                 base["recorded_ga_sqft"],
                 base["recorded_ia_sqft"],
                 None,
                 t,
-                ga_credit_sqft=base["existing_ga_credit_sqft"],
-                ia_credit_sqft=base["existing_ia_credit_sqft"],
-                iar_sqft=iar,
-                npdes_fraction=0,
+                ga_credit_sqft=terms["ga_credit_sqft"],
+                ia_credit_sqft=terms["ia_credit_sqft"],
+                iar_sqft=terms["iar_sqft"],
                 property_type=property_type,
                 undeveloped=flag,
             )
         except ValueError as exc:
             rows.append(row("not_evaluated", alternative=name, more=assumptions + [str(exc)]))
             continue
+        labels = list(terms["assumptions"])
+        if terms["iar_split"] == "unknown":
+            labels.append(
+                "A match supports the combined IA-side treatment; a mismatch may come from it"
+            )
         check = billed_area_check(baseline, bill)
         fields = {r["field"]: r["status"] for r in check["rows"]}
         rows.append(
@@ -322,7 +329,7 @@ def reconcile(baseline, tariff=None, *, raw=None):
                     "ia_match": fields.get("billed_ia_sqft"),
                 },
                 alternative=name,
-                more=assumptions + ([check["warning"]] if check.get("warning") else []),
+                more=assumptions + labels + ([check["warning"]] if check.get("warning") else []),
             )
         )
     return rows

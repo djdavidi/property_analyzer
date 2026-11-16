@@ -29,7 +29,12 @@ from drainage_core.quality import (
 #    range-first storage-limited pricing with per-component and off-parcel load budgets (D4, R6/R7),
 #    system-bed exclusion (H16), one identity resolver (H1/H10), nominal headline (H2), required
 #    lineage and published-gap gate (H7/H9), labelled class-table road bound in the app (D3).
-POLICY_INTERPRETATION_VERSION = 3
+# 4: Final review fixes: unknown IAR split no longer blocks a computable baseline; one area-based
+#    NPDES representation (recorded and permit, manual 4.3.5.2) with the manual-literal residual and
+#    a labelled discontinuity; green roofs priced as IAR (manual Table 1 / 4.3.2.1); NPDES 12-month
+#    compliance window; research scenarios exclude rejected/vetoed receivers; inferred undeveloped
+#    status labelled; storage-limited partial label.
+POLICY_INTERPRETATION_VERSION = 4
 POLICY_SCOPE = (
     "rules",
     "billing",
@@ -61,6 +66,11 @@ DERIVED_MONEY_KEYS = frozenset(
         "gross_annual_reduction",
         "annual_savings_estimate",
         "annual_savings_range",
+        "in_window_annual_savings_range",
+        # A scenario's final bill (its monthly/annualized totals) is derived money; the
+        # computed baseline stays visible with an interpretation label (ECONOMICS_KEPT).
+        "bill",
+        "net_with_area_correction",
         "estimated_savings",
         "annual_change",
         "net_annual_change",

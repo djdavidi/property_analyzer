@@ -107,13 +107,15 @@ class AssessmentPolicyTests(unittest.TestCase):
         self.assertEqual(run(c, g)["categories"][0]["records"][0]["status"], "requirements_failed")
 
     def test_managed_footprint_and_physical_ia_are_separate_and_unchanged(self):
+        # An approved SMP (permeable pavement): IA credit is for the managed drainage
+        # area, not the footprint (manual 4.3.2.2): 80% x 1,000 = 800.
         c, g = fixture()
-        r = record()
+        r = record("permeable_pavement")
         r["footprint_geometry"] = mapping(box(0, 0, 1.524, 30.48))
         c["assessment"]["records"] = [r]
         frozen = canonical(g)
         result = run(c, g)
-        entry = result["categories"][0]["records"][0]
+        entry = result["categories"][1]["records"][0]
         self.assertAlmostEqual(entry["managed_area_sqft"], 1000)
         self.assertAlmostEqual(entry["footprint_area_sqft"], 500)
         self.assertEqual(canonical(g), frozen)
@@ -122,9 +124,46 @@ class AssessmentPolicyTests(unittest.TestCase):
         # 9200 final square feet rounds up to 9500, not footprint or zero IA.
         self.assertEqual(result["economics"]["documented"]["bill"]["billed_ia_sqft"], 9500)
 
-    def test_green_roof_depth_and_pavement_construction_are_required(self):
+    def test_green_roof_is_an_impervious_area_reduction_of_its_footprint(self):
+        # Manual Table 1 / 4.3.2.1: "Rooftop Disconnection via Green Roof" is an IAR, a
+        # direct reduction of billable IA. A 1.524 m x 30.48 m footprint = 500 sq ft on the
+        # roof; the 1,000 sq ft contributing geometry is not credited by the IAR.
+        # Baseline: GA 20 units x $1.003 = $20.06; IA 20 units x $7.048 = $140.96;
+        # $161.02 + $2.81 = $163.83. Final IA 9,500 -> 19 units x $7.048 = $133.912 ->
+        # $133.91; GA unchanged $20.06; $153.97 + $2.81 = $156.78; reduction $7.05.
+        c, g = fixture()
+        r = record("green_roof")
+        r["footprint_geometry"] = mapping(box(0, 0, 1.524, 30.48))
+        c["assessment"]["records"] = [r]
+        result = run(c, g)
+        entry = result["categories"][0]["records"][0]
+        self.assertEqual(entry["status"], "screen_pass", entry)
+        self.assertEqual(entry["credit_path"], "impervious_area_reduction")
+        self.assertAlmostEqual(entry["iar_area_sqft"], 500)
+        s = result["economics"]["documented"]
+        self.assertAlmostEqual(s["ledger"]["new_iar_sqft"], 500)
+        self.assertEqual(
+            (s["ledger"]["new_ia_credit_sqft"], s["ledger"]["new_ga_credit_sqft"]), (0, 0)
+        )
+        self.assertEqual((s["bill"]["final_ia_sqft"], s["bill"]["final_ga_sqft"]), (9500, 10000))
+        self.assertEqual((s["bill"]["monthly_total"], s["gross_monthly_reduction"]), (156.78, 7.05))
+        # Manual 4.5.1: an IAR needs a site plan and recent photographs, not SMP depth.
+        for key in ("site_plan_documented", "photographs_current"):
+            r2 = record("green_roof")
+            r2["facts"][key] = False
+            c["assessment"]["records"] = [r2]
+            self.assertIn(key, run(c, g)["categories"][0]["records"][0]["failed"])
+        r3 = record("green_roof")
+        r3["facts"]["treatment_depth_inches"] = 0.5
+        r3.pop("geometry")
+        c["assessment"]["records"] = [r3]
+        self.assertEqual(run(c, g)["categories"][0]["records"][0]["status"], "screen_pass")
+        r3["facts"]["credit_path"] = "management"
+        self.assertIn("unsupported_credit_path", run(c, g)["categories"][0]["records"][0]["failed"])
+
+    def test_pavement_depth_and_construction_are_required(self):
         for category, key, value in [
-            ("green_roof", "treatment_depth_inches", 1.49),
+            ("permeable_pavement", "treatment_depth_inches", 1.49),
             ("permeable_pavement", "construction_documented", False),
         ]:
             c, g = fixture()
@@ -191,12 +230,18 @@ class AssessmentPolicyTests(unittest.TestCase):
         self.assertEqual(scenario["gross_annual_reduction"], 96.6)
 
     def test_npdes_plus_management_uses_uplift_and_residual_once(self):
+        # Manual 4.3.5.2: 87% x 1,000 managed = 870 IA and GA; remaining uncredited IA
+        # 10,000 - 1,000 = 9,000 x 7% = 630 toward both: 1,500 each. Final 8,500 each ->
+        # 17 units: GA $17.051 -> $17.05; IA $119.816 -> $119.82; $136.87 + $2.81 = $139.68.
         c, g = fixture()
-        c["assessment"]["records"] = [record(), record("industrial_npdes", "permit")]
+        c["assessment"]["records"] = [
+            record("permeable_pavement"),
+            record("industrial_npdes", "permit"),
+        ]
         scenario = run(c, g)["economics"]["documented"]
         self.assertEqual(scenario["ledger"]["new_ga_credit_sqft"], 1500)
         self.assertEqual(scenario["ledger"]["new_ia_credit_sqft"], 1500)
-        self.assertEqual(scenario["bill"]["npdes_fraction"], 0)
+        self.assertNotIn("npdes_fraction", scenario["bill"])
         self.assertEqual(scenario["bill"]["monthly_total"], 139.68)
         self.assertEqual(scenario["gross_monthly_reduction"], 24.15)
         self.assertEqual(scenario["gross_annual_reduction"], 289.8)
@@ -221,13 +266,14 @@ class AssessmentPolicyTests(unittest.TestCase):
                 "evidence_refs": existing["evidence_refs"],
             }
         ]
-        new = record(identifier="new-roof", start=3.048)
+        new = record("permeable_pavement", "new-roof", 3.048)
         new["facts"]["existing_overlap_reconciled"] = True
         new["evidence_review"]["fact_keys"].append("existing_overlap_reconciled")
         c["assessment"]["records"] = [new, record("industrial_npdes", "permit")]
         scenario = run(c, g)["economics"]["documented"]
         self.assertEqual(scenario["status"], "calculated", scenario)
-        # Prior800 replaced by uplifted870, new870, residual560: total2300.
+        # Prior 800 replaced by uplifted 870; new 870; residual 7% x (10,000 - 2,000 managed)
+        # = 560 (manual 4.3.5.2): IA credits 2,300, i.e. 1,500 more than the recorded 800.
         self.assertEqual(scenario["ledger"]["new_ia_credit_sqft"], 1500)
         self.assertEqual(scenario["bill"]["final_ia_sqft"], 7700)
         c["assessment"]["existing_credit_allocations"][0]["ia_credit_sqft"] = 700
@@ -280,7 +326,13 @@ class AssessmentPolicyTests(unittest.TestCase):
         self.assertEqual(scenario["bill"]["monthly_total"], 124.58)
         self.assertEqual(scenario["gross_monthly_reduction"], 11.06)
 
-    def test_npdes_iar_ga_interpretation_remains_explicitly_unresolved(self):
+    def test_npdes_with_iar_uses_literal_residual_and_reports_discontinuity(self):
+        # Manual 4.3.5.2 literally: canopy IAR 50% x 1,000 = 500 (4.3.2.1) is an IA credit
+        # option, so NPDES gives 7% of remaining uncredited IA: (10,000 - 500) x 7% = 665
+        # toward both IA and GA. Final GA 9,335 -> 19 units -> $19.057 -> $19.06; final IA
+        # 10,000 - 500 - 665 = 8,835 -> 18 units -> $126.864 -> $126.86; $145.92 + $2.81 =
+        # $148.73; reduction from $163.83 is $15.10. NPDES alone gives GA 700 / IA 700
+        # ($155.78), so the GA credit falls 700 -> 665: a labelled manual rule discontinuity.
         c, g = fixture()
         canopy = record()["geometry"]
         g["measurement"]["geometries"]["canopy_ground_ia"] = canopy
@@ -301,10 +353,21 @@ class AssessmentPolicyTests(unittest.TestCase):
         ]
         c["assessment"]["records"] = [record("industrial_npdes")]
         scenario = run(c, g)["economics"]["documented"]
-        self.assertEqual(scenario["status"], "blocked")
-        self.assertTrue(
-            any("GA allocation interpretation" in reason for reason in scenario["reasons"])
+        self.assertEqual(scenario["status"], "calculated", scenario.get("reasons"))
+        self.assertAlmostEqual(scenario["ledger"]["new_iar_sqft"], 500)
+        self.assertAlmostEqual(scenario["ledger"]["new_ia_credit_sqft"], 665)
+        self.assertAlmostEqual(scenario["ledger"]["new_ga_credit_sqft"], 665)
+        self.assertEqual(
+            (scenario["bill"]["monthly_total"], scenario["gross_monthly_reduction"]),
+            (148.73, 15.10),
         )
+        note = scenario["manual_rule_discontinuity"]
+        self.assertEqual(
+            (note["npdes_alone_ga_credit_sqft"], note["scenario_ga_credit_sqft"]), (700, 665)
+        )
+        self.assertEqual(note["npdes_alone_monthly_total"], 155.78)
+        self.assertFalse(note["bill_higher_than_npdes_alone"])
+        self.assertTrue(any("Manual rule discontinuity" in a for a in scenario["assumptions"]))
 
     def test_npdes_plus_surface_discharge_uses_ninety_seven_percent(self):
         c, g = fixture()
@@ -324,7 +387,9 @@ class AssessmentPolicyTests(unittest.TestCase):
         self.assertEqual(result["categories"][1]["status"], "screen_pass")
         self.assertEqual(result["economics"]["documented"]["status"], "blocked")
         c["assessment"]["records"][1] = record("permeable_pavement", "p", 3.048)
-        self.assertEqual(run(c, g)["economics"]["documented"]["ledger"]["new_ia_credit_sqft"], 1600)
+        # Green roof: 1,000 sq ft IAR (manual 4.3.2.1); pavement: 80% x 1,000 = 800 IA credit.
+        ledger = run(c, g)["economics"]["documented"]["ledger"]
+        self.assertEqual((ledger["new_iar_sqft"], ledger["new_ia_credit_sqft"]), (1000, 800))
 
     def test_physical_ia_geometry_and_scalar_mismatch_are_explicit(self):
         c, g = fixture()
@@ -353,7 +418,7 @@ class AssessmentPolicyTests(unittest.TestCase):
 
     def test_combined_preserves_totals_and_cannot_credit_corrected_away_area(self):
         c, g = fixture()
-        c["assessment"]["records"] = [record()]
+        c["assessment"]["records"] = [record("permeable_pavement")]
         g["measurement"]["ia_sqft"] = 8000
         result = run(c, g)["economics"]
         scenario = result["documented_combined"]
@@ -366,7 +431,7 @@ class AssessmentPolicyTests(unittest.TestCase):
 
     def test_existing_credits_preserved_and_reconciliation_required(self):
         c, g = fixture()
-        r = record()
+        r = record("permeable_pavement")
         c["assessment"]["records"] = [r]
         c["baseline"].update(existing_ga_credit_sqft=800, existing_ia_credit_sqft=800)
         self.assertEqual(run(c, g)["economics"]["baseline"]["final_ia_sqft"], 9200)
@@ -395,13 +460,18 @@ class AssessmentPolicyTests(unittest.TestCase):
         c, g = fixture()
         c["baseline"]["npdes_fraction"] = 0.07
         c["assessment"]["records"] = [record("industrial_npdes")]
-        s = run(c, g)["economics"]["documented"]
+        out = run(c, g)["economics"]
+        s = out["documented"]
+        # One area representation (manual 4.3.5.2): the recorded NPDES baseline already
+        # holds 700 GA + 700 IA credits ($155.78), so the permit record adds nothing.
+        self.assertEqual(out["baseline"]["monthly_total"], 155.78)
+        self.assertEqual(out["baseline"]["npdes_credit"]["ga_credit_sqft"], 700)
         self.assertEqual(s["gross_monthly_reduction"], 0)
-        self.assertEqual(s["bill"]["npdes_fraction"], 0.07)
+        self.assertEqual(s["bill"]["monthly_total"], 155.78)
 
     def test_legacy_benefit_and_new_system_share_one_spatial_ledger(self):
         c, g = fixture()
-        r = record()
+        r = record("permeable_pavement")
         c["assessment"]["records"] = [r]
         c["benefits"] = [
             {

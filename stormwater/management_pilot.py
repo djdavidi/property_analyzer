@@ -96,14 +96,10 @@ def surface_storage_system(system_type):
 
 
 def _canopy_money(case, gis, area, geometry, day, tariff, ledger):
-    """One canopy scenario through the ledger; recorded contrary canopy facts block."""
+    """One canopy scenario through the ledger; known-false account facts block (shared veto)."""
+    # Assessment records cannot be canopy (assessment_policy.LABELS); known-false
+    # account facts reach this path through the ledger's shared veto.
     errors = list(ledger["errors"])
-    for record in case.get("assessment", {}).get("records", []):
-        if record.get("category") not in ("canopy", "tree_canopy"):
-            continue
-        facts = record.get("facts") or {}
-        if record.get("decision") == "rejected" or any(facts.get(k) is False for k in CANOPY_FACTS):
-            errors.append("Recorded canopy prerequisite fails")
     if errors:
         return {
             "status": "blocked",

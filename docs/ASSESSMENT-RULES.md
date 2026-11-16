@@ -65,19 +65,33 @@ therefore neither proves eligibility nor automatically disqualifies a documented
   without failing the IA credit. A direct-discharge record whose area is all open space
   is the GA-only open-space credit; approved ledgers may also use the existing
   allocation category `open_space_direct_discharge`. Unresolved ground is never credited.
-- **NPDES residual (review B1).** Manual §4.3.5.2 gives 7% of IA and GA when no other
-  credit applies, and 7% to "remaining uncredited IA area" otherwise. Read literally, the
-  second sentence drops the 7% on uncredited open space, so a 100 sq ft SMP lowered a
-  100,000 sq ft parcel's GA credit from 7,000 to 1,480. One base is now used in both
-  cases: residual IA = 7% × (IA − IAR − managed IA); residual GA = 7% × (GA − managed IA
-  − credited open space). Table A-2's NPDES factor for CN 74 (4.35%) is below 7%, so that
-  open space stays in the residual instead of lowering the credit. Adding a qualifying
-  credit can no longer reduce the total. This reading needs PWD confirmation.
-- **NPDES dates (review B7).** Manual §4.3.4 requires compliance "during the preceding
-  twelve months" and §4.5.5 the required DMRs "from the previous 12 months". A
-  `compliance_through` before the assessment date is accepted only while the next
-  required DMR is not yet due (`next_dmr_due`, a sourced fact); otherwise the record is
-  missing evidence and `needs_update`, not a failed permit. An expired permit is missing
+- **NPDES residual (final review 2026-11-16, fix 6; supersedes review B1).** Manual
+  §4.3.5.2, read literally, is the primary calculation: "Any remaining uncredited IA area
+  will receive 7% credit toward both the IA and GA square footage"; only "If the property
+  is not eligible for any GA or IA credits, then the property will receive a 7% credit
+  towards both the IA and GA square footage." Residual = 7% × (billable IA − IAR − IA
+  Managed), added to both the IA and the GA credit; 7% of all IA and of all GA only when no
+  other GA or IA credit (IAR, management, credited open space, recorded credit) applies.
+  Table A-2's NPDES column corroborates it: 0.00 at CN ≥ 75 and 4.35% at CN 74, which would
+  be pointless if uncredited open space kept 7%. The rule is discontinuous: a 100 sq ft SMP
+  on a 100,000 sq ft GA / 20,000 sq ft IA parcel lowers the GA credit from 7,000 to 1,480
+  and the bill from $457.19 to $469.22 (reduction $16.11 instead of $28.14). Whenever a
+  scenario's GA or IA-side credit falls below the NPDES-alone credit, the scenario carries
+  `manual_rule_discontinuity` (both totals and both bills) and the note is listed in its
+  assumptions; nothing is hidden. With the literal base, NPDES with an IAR is no longer
+  ambiguous (the GA residual equals the IA residual), so it is priced instead of blocked.
+  PWD confirmation is still needed.
+- **NPDES dates (review B7; final review fix 3).** Manual §4.3.4 requires that "the
+  operator has been in compliance with the permit requirements during the preceding
+  twelve months" and §4.5.5 the required PADEP DMR results "from the previous 12 months".
+  `compliance_from` must be at or before the assessment date minus twelve months, and
+  must not follow `compliance_through`. A `compliance_through` before the assessment date
+  is accepted only when no DMR has fallen due since it ended (`next_dmr_due`, a sourced
+  fact after the assessment date) and it ended within `npdes_max_compliance_lag_months`
+  (6, `config/rules-pwd-2026-09.json`) of the assessment date, so most of the twelve
+  months is evidenced. The six-month figure is a project screening threshold, not a PWD
+  or DEP rule. Otherwise the record is missing evidence (`compliance_through_current`)
+  and `needs_update`, not a failed permit. An expired permit is missing
   evidence unless `administratively_continued` is reviewed: 25 Pa. Code §92a.7(b)–(c)
   continues an expiring permit when a timely reissuance application was filed and DEP has
   not acted; §92a.75(a) makes "timely" at least 180 days before expiry unless DEP allowed
@@ -93,27 +107,40 @@ therefore neither proves eligibility nor automatically disqualifies a documented
 - **One savings path (review B6, decision D7).** The report billing table is a relabelled
   view of the assessment ledger; canopy and AI surface alternatives also price through
   it. It checks the assessment date, not `bill_date`, against the verified tariff period.
+  The rule period (`RULES`) is read from `config/rules-pwd-2026-09.json`.
+- **Research receivers (final review fix 2).** Research bill-reduction scenarios resolve
+  receiver identity with the same `receiver_links`/`record_vetoes` as catchment
+  alternatives. Catchments whose receiver is linked to a rejected record or one with a
+  known-false prerequisite are removed from the priced region and listed in
+  `excluded_receivers`; when none remain the scenario is blocked with those reasons.
+- **Recorded credits (final review fixes 1 and 8).** See RULES.md: the unknown IAR split
+  bills with a label and blocks only split-dependent scenarios; NPDES is one area
+  representation for recorded baselines and permit records.
 
 ## Implemented interpretation and explicit limits
 
-Green roofs and permeable pavement are assessed through the approved SMP management
-path. Their footprint is stored separately from the contributing managed IA geometry.
-The current manual mentions green-roof IAR in its table, while its detailed criteria
-and the current tariff do not clearly authorize the older standalone green-roof/porous
-IAR formulas. This implementation blocks an alternative `credit_path` rather than
-copying a 2018/2019 formula into the current period. An existing IAR award remains
-historical evidence and part of the recorded baseline.
+Green roofs are impervious area reductions (final review fix 7). Manual Table 1
+("Impervious Area Credit Breakdown") lists "Roof Leader/Downspout Disconnection or
+Rooftop Disconnection via Green Roof" under Impervious Area Reductions (IARs); §4.3.2.1:
+"IARs result in a direct reduction of the billable IA on a parcel"; tariff
+§4.5(c)(1)(i)(A) lists rooftop disconnection as an IAR. The IAR equals the green-roof
+footprint on mapped physical IA, with no GA credit and no 80% factor; the contributing
+roof that drains to it is not credited by the IAR. Requirements are the common
+existing-installation/account/area/allocation facts plus manual §4.5.1's IAR documents
+(`site_plan_documented`, `photographs_current`); SMP depth and record-drawing facts are
+not required. Any `credit_path` other than the IAR is unsupported. Permeable pavement is
+not an IAR in Table 1 and stays on the approved SMP management path; its footprint is
+stored separately from the contributing managed IA geometry. An existing IAR award
+remains historical evidence and part of the recorded baseline.
 
-NPDES with IAR has an unresolved allocation of the seven-percent GA benefit under
-reduced IA and is blocked. A legacy `npdes_fraction` baseline is preserved unchanged;
-new management combinations with that charge-based baseline are blocked pending an
-approved area-based reconciliation. This avoids changing old billing results by
-silently switching from charge discounts to area credits.
+NPDES is applied only as area credits, for recorded baselines and permit records alike
+(manual §4.3.5.2; tariff §4.5(e)). Saved results computed with the former
+charge-percentage baseline are labelled outdated by the policy interpretation version (4)
+and recompute from saved inputs.
 
-For non-surface NPDES combinations, Table A-2 governs credited open-space GA; IA not
-otherwise credited gets seven percent, and GA not otherwise credited (including
-uncredited open space) gets seven percent, the same base as the standalone NPDES
-scenario. Independently calculated savings are never added.
+For non-surface NPDES combinations, Table A-2's NPDES column governs credited open-space
+GA and the residual follows the literal §4.3.5.2 rule above. Independently calculated
+savings are never added.
 
 All new-benefit and measurement scenarios with existing area awards require a validated
 `assessment.existing_credit_allocations` ledger, even if reconciliation booleans are true. Every item requires `id`, supported
@@ -150,7 +177,11 @@ Examples include $163.83 baseline and $139.68 final bill for 10,000 ft² GA/IA w
 NPDES monotonicity, managed drainage areas with lawn, GA-only direct discharge, lagging
 DMRs, administrative continuation, undeveloped alternatives, billed-area mismatch).
 A mixed 10,000 ft² GA/8,000 ft² IA site with CN55 over 2,000 ft² open space and NPDES
-has 2,300 ft² GA credit and 560 ft² IA credit, giving $124.58/month. These invented
+has 2,300 ft² GA credit (1,740 + 7% × 8,000 uncredited IA) and 560 ft² IA credit, giving
+$124.58/month. `tests/test_final_review_fixes.py` converts the final-review probes
+(recorded credits with an unknown IAR split, rejected research receivers, the NPDES
+compliance window, the inferred undeveloped status, partial labels, NPDES representation
+and the green-roof IAR) into hand-derived regressions. These invented
 fixtures validate implementation logic, not real-site accuracy or actual awards.
 
 ## Original rule evidence

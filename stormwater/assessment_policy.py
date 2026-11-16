@@ -21,30 +21,40 @@ from .billing import (
     cents,
     decimal,
     bill_terms,
+    billable_ia,
+    recorded_credits,
+    npdes_alone_credits,
+    BaselineError,
+    IAR_SPLIT_BLOCK,
     undeveloped_unknown,
     merge_status_alternatives,
     STATUS_ALTERNATIVES,
     billed_area_check,
 )
-from .rules import screen, open_space_factor, factor, MANUAL_URL, TARIFF_URL
+from .rules import screen, open_space_factor, factor, load_rule_config, MANUAL_URL, TARIFF_URL
 from .prerequisites import case_vetoes
 
-VERSION = "pwd-existing-site-2026-09-v1"
+_CONFIG = load_rule_config()
+VERSION = _CONFIG["existing_site_rule_version"]
 LABELS = {
     "green_roof": "Existing green roofs",
     "permeable_pavement": "Existing permeable pavement",
     "direct_discharge": "Direct surface-water discharge",
     "industrial_npdes": "Industrial NPDES",
 }
+# One source for the verified rule period: config/rules-pwd-2026-09.json (the
+# assessment uses the tariff verification window; docs/ASSESSMENT-RULES.md).
 RULES = {
     "version": VERSION,
-    "verified_on": "2026-11-15",
-    "effective_from": "2026-09-01",
-    "verified_through": "2027-08-31",
+    "verified_on": _CONFIG["verified_on"],
+    "effective_from": _CONFIG["tariff_effective_from"],
+    "verified_through": _CONFIG["tariff_verified_through"],
+    "config_source": "config/rules-pwd-2026-09.json",
     "manual": MANUAL_URL,
     "tariff": TARIFF_URL,
     "gis_area_numerical_precision_sqft": "0.000000001",
     "manual_sections": [
+        "4.3.2.1",
         "4.3.2.2",
         "4.3.3.1",
         "4.3.3.2",
@@ -101,6 +111,12 @@ DIRECT = (
     "photographs_current",
     "private_connections_resolved",
 )
+# Manual Table 1 and 4.3.2.1: "Rooftop Disconnection via Green Roof" is an impervious
+# area reduction (IAR), "a direct reduction of the billable IA" (tariff 4.5(c)(1)(i)(A),
+# rooftop disconnection). Manual 4.5.1 (Impervious Area Reductions): "submit a site plan
+# delineating the requested areas to be credited as well as recent photographs".
+GREEN_ROOF_IAR = ("site_plan_documented", "photographs_current")
+GREEN_ROOF_PATHS = (None, "impervious_area_reduction", "iar")
 NPDES = (
     "site_match",
     "operator_match",
@@ -179,16 +195,34 @@ def _validate_assessment_inputs(assessment):
                 raise ValueError("Evidence references must be a list of objects")
 
 
+def _months_before(day, months):
+    year, month = divmod(day.year * 12 + day.month - 1 - months, 12)
+    month += 1
+    for d in (day.day, 30, 29, 28):
+        try:
+            return day.replace(year=year, month=month, day=d)
+        except ValueError:
+            continue
+    raise ValueError("Invalid date")
+
+
 def _lagging_dmr_period(facts, through, as_of, output, missing):
-    """Manual 4.3.4 / 4.5.5: compliance during the preceding twelve months, shown by
-    the required PADEP DMRs "from the previous 12 months". DMR periods end before
-    the assessment date. A lagging period is complete evidence only while the next
-    required DMR is not yet due (a sourced ``next_dmr_due`` fact); otherwise the
-    record needs an update. Stale evidence is missing, never a failed permit.
+    """Manual 4.3.4 / 4.5.5: compliance "during the preceding twelve months", shown by
+    the required PADEP DMRs "from the previous 12 months". The evidence must cover the
+    whole window before the assessment date (``compliance_from`` at or before as_of
+    minus twelve months, checked by the caller). Only the tail after the latest DMR
+    period may be unevidenced, and only when (a) no DMR has fallen due since that
+    period ended (a sourced ``next_dmr_due`` after the assessment date) and (b) the
+    period ended recently: within ``npdes_max_compliance_lag_months`` (a project
+    screening threshold in the rule config, not a PWD or DEP rule) so most of the
+    twelve months is evidenced. Otherwise the record needs an update: stale evidence
+    is missing, never a failed permit.
     """
     output.setdefault("date_notes", [])
     due = facts.get("next_dmr_due")
-    if through >= _prior_year(as_of) and due:
+    lag = int(_CONFIG.get("npdes_max_compliance_lag_months", 6))
+    recent = through >= _months_before(as_of, lag)
+    if recent and due:
         try:
             if _day(due) > as_of:
                 output["date_notes"].append(
@@ -196,17 +230,30 @@ def _lagging_dmr_period(facts, through, as_of, output, missing):
                     + through.isoformat()
                     + "; next required DMR is due "
                     + _day(due).isoformat()
-                    + ", so the reporting cycle is current"
+                    + ", so no DMR has fallen due since and the reporting cycle is current"
                 )
                 return True
         except (ValueError, TypeError):
             return False
     output.setdefault("needs_update", []).append("compliance_through")
+    if not recent:
+        missing.append("compliance_through_current")
+        output["date_notes"].append(
+            "Compliance evidence ends "
+            + through.isoformat()
+            + ", more than "
+            + str(lag)
+            + " months before the assessment date, so it does not show compliance during most of "
+            "the preceding twelve months (manual 4.3.4); supply later DMRs (needs update, not a "
+            "failed requirement)"
+        )
+        return None
     missing.append("compliance_through_current" if due else "next_dmr_due")
     output["date_notes"].append(
         "Compliance evidence ends "
         + through.isoformat()
-        + " before the assessment date; supply the reporting schedule or later DMRs (needs update, not a failed requirement)"
+        + " before the assessment date and a DMR may have fallen due since; supply the reporting "
+        "schedule or later DMRs (needs update, not a failed requirement)"
     )
     return None
 
@@ -287,6 +334,12 @@ def _managed_surfaces(record, category, geom, case, gis):
             "basis": "manual 4.3.3.1 note: open space managed by an approved SMP sized for it, with PWD design-phase pre-approval, may receive 80%",
         }
     return out
+
+
+def _green_roof_iar(footprint, case, gis):
+    """Manual 4.3.2.1: green-roof IAR area = the roof footprint on mapped physical IA."""
+    part = footprint.intersection(shape(gis["measurement"]["geometries"]["physical_ia"]))
+    return case_area_sqft(part, case) if not part.is_empty else 0.0
 
 
 def _evidence(record, case):
@@ -380,6 +433,13 @@ def screen_record(record, case, gis, as_of):
             if not facts.get(key):
                 missing.append(key)
                 continue
+            if key == "compliance_through" and facts.get("compliance_from"):
+                try:
+                    if _day(facts["compliance_from"]) > _day(facts[key]):
+                        failed.append("compliance_period_order")
+                        continue
+                except (ValueError, TypeError):
+                    pass
             try:
                 day = _day(facts[key])
                 if key == "effective_from":
@@ -405,7 +465,8 @@ def screen_record(record, case, gis, as_of):
     else:
         geom = None
         if not record.get("geometry"):
-            missing.append("managed_area_geometry")
+            if category != "green_roof":
+                missing.append("managed_area_geometry")
         else:
             try:
                 geom = shape(record["geometry"])
@@ -422,7 +483,8 @@ def screen_record(record, case, gis, as_of):
                     failed.append("managed_geometry_inside_parcel")
                 output.update(_managed_surfaces(record, category, geom, case, gis))
                 if (
-                    output["managed_ia_sqft"] < 0.000001
+                    category != "green_roof"
+                    and output["managed_ia_sqft"] < 0.000001
                     and output["managed_open_space_sqft"] < 0.000001
                 ):
                     # Only unresolved ground: neither managed IA nor open space is established.
@@ -445,20 +507,31 @@ def screen_record(record, case, gis, as_of):
                 output["footprint_area_sqft"] = case_area_sqft(footprint, case)
                 if footprint.difference(shape(case["parcel"])).area > 1e-8:
                     failed.append("footprint_inside_parcel")
+                if category == "green_roof":
+                    # The IAR is the vegetated roof itself: footprint within mapped IA.
+                    output["iar_area_sqft"] = _green_roof_iar(footprint, case, gis)
+                    if output["iar_area_sqft"] < 0.000001:
+                        missing.append("green_roof_on_mapped_impervious_roof")
             except (ValueError, TypeError, KeyError, IndexError, AttributeError, ShapelyError):
                 failed.append("footprint_geometry")
         elif category in ("green_roof", "permeable_pavement"):
             missing.append("physical_footprint_geometry")
-        if category in ("green_roof", "permeable_pavement"):
+        if category == "green_roof":
+            # Manual Table 1 / 4.3.2.1: an IAR, not SMP management; 4.5.1 documents.
+            output["credit_path"] = "impervious_area_reduction"
+            for key in GREEN_ROOF_IAR:
+                require(key)
+            if facts.get("credit_path") not in GREEN_ROOF_PATHS:
+                failed.append("unsupported_credit_path")
+        elif category == "permeable_pavement":
             for key in SMP:
                 require(key)
             number(
                 "treatment_depth_inches",
                 1 if facts.get("old_standard_renewal_verified") is True else 1.5,
             )
-            if category == "permeable_pavement":
-                for key in PAVEMENT:
-                    require(key)
+            for key in PAVEMENT:
+                require(key)
             if facts.get("credit_path") not in (None, "management"):
                 failed.append("unsupported_credit_path")
         else:
@@ -552,7 +625,7 @@ def ledger_billing_view(economics):
         "baseline": deepcopy(base),
         "claim": "Rows are the assessment ledger scenarios; alternatives, never additive.",
     }
-    for key in ("billed_area_check", "undeveloped_status"):
+    for key in ("billed_area_check", "undeveloped_status", "allocation_sensitive"):
         if key in economics:
             view[key] = deepcopy(economics[key])
     for legacy, key in BILLING_VIEW:
@@ -615,9 +688,10 @@ def _legacy_benefits(case, gis):
     return result
 
 
-IA_MANAGED_CATEGORIES = ("management", "direct_discharge", "green_roof", "permeable_pavement")
+IA_MANAGED_CATEGORIES = ("management", "direct_discharge", "permeable_pavement")
 OPEN_CATEGORIES = ("open_space", "open_space_direct_discharge")
-IAR_CATEGORIES = ("canopy", "roof_disconnection", "pavement_disconnection")
+# Manual Table 1 IARs; a green roof is "Rooftop Disconnection via Green Roof".
+IAR_CATEGORIES = ("canopy", "roof_disconnection", "pavement_disconnection", "green_roof")
 ECONOMIC_KEYS = (
     "documented",
     "modeled",
@@ -645,12 +719,11 @@ def _factors(direct, npdes):
 
 
 def _open_space_credit(area, curve_number, npdes):
-    """Table A-2 open-space GA credit. With NPDES (manual 4.3.5.2) every uncredited
-    area keeps the 7% residual; a Table A-2 factor below 7% (CN 74 -> 4.35%) would
-    lower the parcel's credit, so that area stays in the residual instead."""
+    """Table A-2 open-space GA credit, read literally (the NPDES column gives 0.00 at
+    CN >= 75 and 4.35% at CN 74). A credited open space is a GA credit, so with NPDES
+    the property then receives the 7% residual only on uncredited IA (manual
+    4.3.5.2); a resulting drop below the NPDES-alone credit is reported, not hidden."""
     rate = Decimal(str(open_space_factor(curve_number, npdes)))
-    if npdes and rate < factor("npdes_unmanaged_area_factor"):
-        return Decimal(0), False
     return area * rate, rate > 0
 
 
@@ -766,7 +839,18 @@ def _existing_allocations(case, gis, baseline):
         except (ValueError, TypeError, KeyError, IndexError, AttributeError, ShapelyError) as exc:
             errors.append(str(exc))
     for key, total in totals.items():
-        if abs(total - decimal(baseline.get("existing_" + key, 0))) > tolerance:
+        recorded = baseline.get("existing_" + key, 0)
+        if recorded is None:
+            errors.append(
+                IAR_SPLIT_BLOCK if key == "iar_sqft" else "Recorded existing " + key + " unknown"
+            )
+            continue
+        try:
+            recorded = decimal(recorded)
+        except ValueError:
+            errors.append("Recorded existing " + key + " is not a valid number")
+            continue
+        if abs(total - recorded) > tolerance:
             errors.append("Existing allocation totals do not reconcile " + key)
     return allocations, errors
 
@@ -801,9 +885,18 @@ def _hypothetical_benefits(benefits):
     return out, errors
 
 
+UNDEVELOPED_INFERENCE = (
+    "Inference, not a recorded classification: {failed} status infeasible given recorded "
+    "credits ({reason}), so only the {chosen} alternative of tariff 4.3(a)(2)(i) can be billed. "
+    "Confirm the BRT/OPA classification (tariff 1.0(p))."
+)
+
+
 def _economics(case, gis, records, as_of, tariff, hypothetical=None):
     """One ledger for every savings figure. Unknown undeveloped status on a parcel
     under 5,000 sq ft GA yields explicit developed/undeveloped alternatives (D6).
+    When only one alternative can be billed (for example recorded credits exceed the
+    25% undeveloped statutory IA), that one is used and labelled as an inference.
 
     ``hypothetical`` (list of benefits) replaces saved case benefits with adapter
     alternatives priced by this same ledger (D7); see ``_hypothetical_benefits``."""
@@ -816,8 +909,7 @@ def _economics(case, gis, records, as_of, tariff, hypothetical=None):
     if not baseline:
         return {
             "baseline": None,
-            "documented": _blocked(["Billing baseline missing"]),
-            "modeled": _blocked(["Billing baseline missing"]),
+            **{k: _blocked(["Billing baseline missing"]) for k in ECONOMIC_KEYS},
         }
     t = tariff or default_tariff()
     measured_ga = (gis.get("measurement") or {}).get("ga_sqft")
@@ -828,42 +920,106 @@ def _economics(case, gis, records, as_of, tariff, hypothetical=None):
             )
             for name, flag in STATUS_ALTERNATIVES
         }
-        if any(output.get("baseline") is None for output in outputs.values()):
+        billed = [name for name, _ in STATUS_ALTERNATIVES if outputs[name].get("baseline")]
+        if len(billed) == 1:
+            chosen = billed[0]
+            failed = next(name for name, _ in STATUS_ALTERNATIVES if name != chosen)
+            reason = "; ".join((outputs[failed].get("documented") or {}).get("reasons") or [])
+            out = outputs[chosen]
+            note = UNDEVELOPED_INFERENCE.format(failed=failed, chosen=chosen, reason=reason)
+            label = {
+                "status": "inferred",
+                "basis": "inference",
+                "inferred": chosen,
+                "infeasible": failed,
+                "note": note,
+            }
+            out["undeveloped_status"] = label
+            out["baseline"]["undeveloped_status"] = deepcopy(label)
+            out["baseline"]["undeveloped_basis"] = "inference"
+            for key in ECONOMIC_KEYS:
+                if isinstance(out.get(key), dict) and out[key].get("status") == "calculated":
+                    out[key]["assumptions"] = list(out[key].get("assumptions", [])) + [note]
+            return out
+        if not billed:
             return outputs[STATUS_ALTERNATIVES[0][0]]
         return merge_status_alternatives(outputs, ECONOMIC_KEYS, _blocked)
     return _economics_once(case, baseline, gis, records, as_of, t, hypothetical)
+
+
+ALLOCATION_SENSITIVE = (
+    "A per-account minimum applies under the assumed equal allocation; the unknown actual "
+    "allocation (Form A-1, manual 2.2.6) can change the total."
+)
+BASELINE_AREAS = {
+    "ga_sqft": "recorded gross area (GrossArea)",
+    "ia_sqft": "recorded impervious area (ImpervArea)",
+}
+
+
+def _baseline_area(baseline, key):
+    value = baseline.get(key)
+    if value is None:
+        raise BaselineError(
+            "The billing baseline does not state the "
+            + BASELINE_AREAS[key]
+            + "; the bill cannot be computed (missing evidence is not zero)."
+        )
+    try:
+        return decimal(value, key)
+    except ValueError:
+        raise BaselineError(
+            "The " + BASELINE_AREAS[key] + " is not a valid nonnegative number."
+        ) from None
+
+
+def _baseline_reason(exc):
+    """A readable baseline failure; never a bare validator message."""
+    text = str(exc)
+    if isinstance(exc, BaselineError):
+        return text
+    if isinstance(exc, KeyError):
+        return "Billing baseline cannot be computed: missing field " + text
+    return "Billing baseline cannot be computed: " + text
 
 
 def _economics_once(case, baseline, gis, records, as_of, t, hypothetical=None):
     try:
         common, allocation = bill_terms(baseline, t)
         if not RULES["effective_from"] <= as_of.isoformat() <= RULES["verified_through"]:
-            raise ValueError("Assessment date outside verified rule period")
+            raise BaselineError("Assessment date outside verified rule period")
         if not t["effective_from"] <= as_of.isoformat() <= t["verified_through"]:
-            raise ValueError("Assessment date outside verified tariff period")
-        ga = decimal(baseline.get("ga_sqft"))
-        ia = decimal(baseline.get("ia_sqft"))
-        cg = decimal(baseline.get("existing_ga_credit_sqft", 0))
-        ci = decimal(baseline.get("existing_ia_credit_sqft", 0))
-        ir = decimal(baseline.get("existing_iar_sqft", 0))
-        old_npdes = decimal(baseline.get("npdes_fraction", 0))
+            raise BaselineError("Assessment date outside verified tariff period")
+        ga = _baseline_area(baseline, "ga_sqft")
+        ia = _baseline_area(baseline, "ia_sqft")
+        terms = recorded_credits(baseline, ga, ia, baseline.get("undeveloped"), t)
+        cg = terms["recorded_ga_credit_sqft"]
+        ci = terms["recorded_ia_credit_sqft"]
+        ir = terms["recorded_iar_sqft"]
+        recorded_npdes = terms["npdes"]
         base = monthly_bill(
             ga,
             ia,
-            ga_credit_sqft=cg,
-            ia_credit_sqft=ci,
-            iar_sqft=ir,
-            npdes_fraction=old_npdes,
+            ga_credit_sqft=terms["ga_credit_sqft"],
+            ia_credit_sqft=terms["ia_credit_sqft"],
+            iar_sqft=terms["iar_sqft"],
             **common,
         )
     except (ValueError, KeyError) as exc:
-        return {
-            "baseline": None,
-            "documented": _blocked([str(exc)]),
-            "modeled": _blocked([str(exc)]),
-        }
+        blocked = _blocked([_baseline_reason(exc)])
+        return {"baseline": None, **{k: deepcopy(blocked) for k in ECONOMIC_KEYS}}
     if allocation:
         base["allocation_status"] = allocation
+    base["iar_split"] = terms["iar_split"]
+    if terms["assumptions"]:
+        base["assumptions"] = list(terms["assumptions"])
+    if recorded_npdes:
+        base["npdes_credit"] = {
+            "basis": "recorded NPDES credit",
+            "representation": "area credits (manual 4.3.5.2)",
+            "ga_credit_sqft": float(terms["npdes_ga_credit_sqft"]),
+            "ia_credit_sqft": float(terms["npdes_ia_credit_sqft"]),
+        }
     for field, target in (
         ("published_monthly_total", "published_difference"),
         ("actual_bill_total", "actual_bill_difference"),
@@ -910,6 +1066,7 @@ def _economics_once(case, baseline, gis, records, as_of, t, hypothetical=None):
         errors = []
         regions = []
         ledger = []
+        notes = []
         new_ga = Decimal(0)
         new_ia = Decimal(0)
         new_iar = Decimal(0)
@@ -917,7 +1074,9 @@ def _economics_once(case, baseline, gis, records, as_of, t, hypothetical=None):
             errors.extend(hypothetical_errors)
         if active or legacy_active:
             errors.extend(vetoes)
-        npdes = any(r["category"] == "industrial_npdes" for r in active) or bool(old_npdes)
+        # One NPDES representation (manual 4.3.5.2 area credits): a recorded NPDES
+        # baseline and a passing NPDES record are the same credit.
+        npdes = recorded_npdes or any(r["category"] == "industrial_npdes" for r in active)
         if use_measure:
             measurement = gis.get("measurement", {})
             if measurement.get("complete") is not True:
@@ -926,6 +1085,8 @@ def _economics_once(case, baseline, gis, records, as_of, t, hypothetical=None):
                 total_ga = _area_decimal(measurement.get("ga_sqft"))
                 total_ia = _area_decimal(measurement.get("ia_sqft"))
         existing = bool(cg or ci or ir)
+        if terms["iar_split"] == "unknown" and (existing or npdes):
+            errors.append(IAR_SPLIT_BLOCK)
         if (active or legacy_active) and total_ga < minimum_credit_ga:
             errors.append("Minimum parcel gross area for credit is 500 square feet")
         if existing and baseline.get("existing_credits_spatially_reconciled") is not True:
@@ -938,7 +1099,7 @@ def _economics_once(case, baseline, gis, records, as_of, t, hypothetical=None):
         )
         if allocation_errors and (supplied_allocations or existing):
             errors.extend(allocation_errors)
-        uplift = bool(npdes and not old_npdes)
+        uplift = bool(npdes)
         if existing_allocations and not allocation_errors:
             regions.extend((item["id"], shape(item["geometry"])) for item in existing_allocations)
             if uplift:
@@ -983,20 +1144,44 @@ def _economics_once(case, baseline, gis, records, as_of, t, hypothetical=None):
                             "existing": True,
                         }
                     )
-        if old_npdes and (
-            any(r["category"] != "industrial_npdes" for r in active) or legacy_active or use_measure
-        ):
-            errors.append(
-                "Existing percentage-based NPDES baseline requires approved area-ledger reconciliation; unresolved"
-            )
         for r in active:
             if r["category"] == "industrial_npdes":
                 continue
             source = originals[r["id"]]
-            region = shape(source["geometry"])
-            regions.append((r["id"], region))
             if existing and source.get("facts", {}).get("existing_overlap_reconciled") is not True:
                 errors.append("New benefit overlap with existing credits is unreconciled")
+            if r["category"] == "green_roof":
+                # Manual Table 1 / 4.3.2.1: rooftop disconnection via green roof is an
+                # IAR, a direct reduction of billable IA by the vegetated roof area.
+                try:
+                    roof = shape(source["footprint_geometry"])
+                    if roof.is_empty or not roof.is_valid:
+                        raise ValueError()
+                except (ValueError, TypeError, KeyError, AttributeError, ShapelyError):
+                    errors.append(
+                        "Green roof "
+                        + str(r["id"])
+                        + " needs its documented roof footprint (manual 4.5.1 site plan)"
+                    )
+                    continue
+                regions.append((r["id"], roof))
+                j = _area_decimal(_green_roof_iar(roof, case, gis))
+                new_iar += j
+                ledger.append(
+                    {
+                        "id": r["id"],
+                        "category": "green_roof",
+                        "credit_path": "impervious_area_reduction",
+                        "area_sqft": float(j),
+                        "ga_credit_sqft": 0.0,
+                        "ia_credit_sqft": 0.0,
+                        "iar_sqft": float(j),
+                        "rule": "manual Table 1 / 4.3.2.1: rooftop disconnection via green roof (IAR)",
+                    }
+                )
+                continue
+            region = shape(source["geometry"])
+            regions.append((r["id"], region))
             managed_ia = r.get("managed_ia_sqft")
             a = _area_decimal(managed_ia if managed_ia is not None else r["managed_area_sqft"])
             rate, open_rate = _factors(r["category"] == "direct_discharge", npdes)
@@ -1083,29 +1268,36 @@ def _economics_once(case, baseline, gis, records, as_of, t, hypothetical=None):
         open_area = total(rows, OPEN_CATEGORIES) + total(
             rows, IA_MANAGED_CATEGORIES, "open_space_area_sqft"
         )
-        open_credited = total(ledger, OPEN_CATEGORIES, only_applied=True) + total(
-            ledger, IA_MANAGED_CATEGORIES, "open_space_area_sqft"
-        )
         reserved_aggregate_iar = ir if allocation_errors else Decimal(0)
         if managed + iar_area > total_ia - reserved_aggregate_iar:
             errors.append("Allocations exceed available physical impervious area")
         if open_area > total_ga - total_ia:
             errors.append("Open-space allocations exceed available physical open space")
-        if npdes and (ir or new_iar):
-            errors.append(
-                "NPDES with IAR requires an approved GA allocation interpretation; unresolved"
-            )
-        if uplift:
-            # Manual 4.3.5.2: uncredited IA receives 7% toward IA and the GA under it;
-            # with no other credit the whole parcel receives 7% of IA and GA. One base
-            # in both cases: residual GA = 7% x (GA - GA already credited by area), so
-            # adding a qualifying credit can never reduce the total (review B1).
-            unmanaged = total_ia - ir - new_iar - managed
-            if unmanaged < 0:
-                errors.append("NPDES residual area is negative")
-            residual_ga_base = max(Decimal(0), total_ga - managed - open_credited)
-            residual_ia = max(Decimal(0), unmanaged) * residual_rate
-            residual_ga = residual_ga_base * residual_rate
+        literal = None
+        if npdes:
+            # Manual 4.3.5.2, read literally (PWD confirmation pending): "Any remaining
+            # uncredited IA area will receive 7% credit toward both the IA and GA square
+            # footage"; only "if the property is not eligible for any GA or IA credits"
+            # does it receive 7% of all IA and GA. Table A-2's NPDES column (0.00 at
+            # CN >= 75, 4.35 at CN 74) agrees: uncredited open space keeps no 7%.
+            other_ga, other_ia, other_iar = cg + new_ga, ci + new_ia, ir + new_iar
+            has_other = other_ga > 0 or other_ia > 0 or other_iar > 0
+            try:
+                bia = billable_ia(total_ga, total_ia, baseline.get("undeveloped"), t)
+            except ValueError as exc:
+                errors.append(str(exc))
+                bia = total_ia
+            if has_other:
+                uncredited = bia - other_iar - managed
+                if uncredited < 0:
+                    errors.append("NPDES residual area is negative")
+                uncredited = max(Decimal(0), uncredited)
+                residual_ia = residual_ga = uncredited * residual_rate
+                rule = "manual 4.3.5.2: 7% of remaining uncredited IA, toward both IA and GA"
+            else:
+                uncredited = bia
+                residual_ga, residual_ia = npdes_alone_credits(total_ga, bia)
+                rule = "manual 4.3.5.2: no other GA or IA credit, 7% of IA and of GA"
             new_ia += residual_ia
             new_ga += residual_ga
             ledger.append(
@@ -1115,10 +1307,16 @@ def _economics_once(case, baseline, gis, records, as_of, t, hypothetical=None):
                     "ga_credit_sqft": float(residual_ga),
                     "ia_credit_sqft": float(residual_ia),
                     "iar_sqft": 0,
-                    "area_sqft": float(max(Decimal(0), unmanaged)),
-                    "residual_ga_base_sqft": float(residual_ga_base),
+                    "area_sqft": float(uncredited),
+                    "rule": rule,
                 }
             )
+            if has_other and not existing and not supplied_allocations:
+                literal = (
+                    npdes_alone_credits(total_ga, bia),
+                    other_ga + residual_ga,
+                    other_ia + other_iar + residual_ia,
+                )
         if ci + new_ia + ir + new_iar > total_ia:
             errors.append("Credits exceed remaining IA")
         if cg + new_ga > total_ga:
@@ -1132,11 +1330,14 @@ def _economics_once(case, baseline, gis, records, as_of, t, hypothetical=None):
                 ga_credit_sqft=cg + new_ga,
                 ia_credit_sqft=ci + new_ia,
                 iar_sqft=ir + new_iar,
-                npdes_fraction=old_npdes,
                 **common,
             )
         except ValueError as exc:
             return _blocked([str(exc)])
+        if literal is not None:
+            note = _discontinuity_note(total_ga, total_ia, literal, bill, common)
+            if note:
+                notes.append(note)
         saving = cents(decimal(base["monthly_total"]) - decimal(bill["monthly_total"]))
         basis = (
             "documented"
@@ -1153,11 +1354,13 @@ def _economics_once(case, baseline, gis, records, as_of, t, hypothetical=None):
             if baseline.get("actual_bill_verified")
             else ["Actual account bill, payer and special-rate enrollment are unverified"]
         )
+        assumptions += list(terms["assumptions"])
         assumptions += [allocation["note"]] if allocation else []
+        assumptions += [n["note"] for n in notes]
         assumptions += [
             "Gross current-rate illustration; no approval, award or realized savings asserted"
         ]
-        return {
+        out = {
             "status": "calculated",
             "basis": basis,
             "gross_monthly_reduction": float(saving),
@@ -1174,8 +1377,11 @@ def _economics_once(case, baseline, gis, records, as_of, t, hypothetical=None):
             },
             "assumptions": assumptions,
         }
+        if notes:
+            out["manual_rule_discontinuity"] = notes[0]
+        return out
 
-    return {
+    output = {
         "baseline": base,
         "documented": scenario(True),
         "modeled": scenario(False),
@@ -1186,6 +1392,101 @@ def _economics_once(case, baseline, gis, records, as_of, t, hypothetical=None):
         "billed_area_check": billed_area_check(baseline, base),
         "claim": "One baseline minus one reconciled final bill; annual reduction is twelve times monthly. No refund included.",
     }
+    # Tariff 4.3(a)(8) equal default under an unknown allocation: when a per-account
+    # minimum binds, the actual (unknown) Form A-1 allocation can change the total.
+    if (
+        allocation
+        and len(base["accounts"]) > 1
+        and (
+            base.get("minimum_applied")
+            or any(
+                ((output.get(k) or {}).get("bill") or {}).get("minimum_applied")
+                for k in ECONOMIC_KEYS
+            )
+        )
+    ):
+        output["allocation_sensitive"] = True
+        base["allocation_sensitive"] = True
+        base["assumptions"] = list(base.get("assumptions", [])) + [ALLOCATION_SENSITIVE]
+    return output
+
+
+def _discontinuity_note(total_ga, total_ia, literal, bill, common):
+    """Manual 4.3.5.2 read literally is discontinuous: the first other GA or IA credit
+    replaces 7% of all IA and GA with 7% of the remaining uncredited IA. When that
+    lowers a credit total below the NPDES-alone credit, say so with both bills."""
+    (alone_ga, alone_ia), ga_total, ia_side = literal
+    if ga_total >= alone_ga and ia_side >= alone_ia:
+        return None
+    try:
+        alone_total = monthly_bill(
+            total_ga, total_ia, ga_credit_sqft=alone_ga, ia_credit_sqft=alone_ia, **common
+        )["monthly_total"]
+    except ValueError:
+        alone_total = None
+    parts = []
+    if ga_total < alone_ga:
+        parts.append(
+            f"the GA credit falls from {float(alone_ga):,.2f} to {float(ga_total):,.2f} sq ft"
+        )
+    if ia_side < alone_ia:
+        parts.append(
+            f"the IA-side credit falls from {float(alone_ia):,.2f} to {float(ia_side):,.2f} sq ft"
+        )
+    text = (
+        "Manual rule discontinuity (manual 4.3.5.2 read literally): once any other GA or IA "
+        "credit applies, the 7% NPDES credit covers only the remaining uncredited IA (toward "
+        "both IA and GA) instead of 7% of all IA and GA, so "
+        + " and ".join(parts)
+        + ". NPDES alone would bill "
+        + (f"${alone_total:,.2f}" if alone_total is not None else "an uncomputed amount")
+        + f"/month; this scenario bills ${bill['monthly_total']:,.2f}/month. PWD confirmation is "
+        "needed; the customer may decline the other credit."
+    )
+    return {
+        "kind": "manual_rule_discontinuity",
+        "rule": "manual 4.3.5.2",
+        "note": text,
+        "npdes_alone_ga_credit_sqft": float(alone_ga),
+        "npdes_alone_ia_credit_sqft": float(alone_ia),
+        "scenario_ga_credit_sqft": float(ga_total),
+        "scenario_ia_side_credit_sqft": float(ia_side),
+        "npdes_alone_monthly_total": alone_total,
+        "scenario_monthly_total": bill["monthly_total"],
+        "bill_higher_than_npdes_alone": alone_total is not None
+        and bill["monthly_total"] > alone_total,
+    }
+
+
+def _research_receiver_vetoes(case, run, gsi_features):
+    """{receiver_id: reasons} for research catchments whose receiver is linked to a
+    rejected record or one with known-false prerequisites. Uses the one receiver
+    resolver (``model_assessment.receiver_links`` / ``record_vetoes``), so research
+    never re-prices a receiver that catchment alternatives block (R2)."""
+    from .model_assessment import receiver_links
+
+    pseudo = {
+        "name": "research",
+        "catchments": [
+            {"kind": "gsi", "receiver_id": str(c["gsi_id"]), "geometry": c.get("geometry")}
+            for c in run.get("catchments", [])
+            if c.get("gsi_id") is not None
+        ],
+    }
+    integration = {
+        "receiving_features": [
+            {"gsi_id": str(f["gsi_id"]), "geometry": f["geometry"]}
+            for f in gsi_features
+            if f.get("gsi_id") is not None and f.get("geometry")
+        ]
+    }
+    table = receiver_links(case, integration, [pseudo]).get("research", {})
+    out = {}
+    for receiver, rows in table.items():
+        reasons = [reason for row in rows for reason in row["vetoes"]]
+        if reasons:
+            out[receiver] = list(dict.fromkeys(reasons))
+    return out
 
 
 def research_economics(case, gis, records, as_of, tariff):
@@ -1193,6 +1494,8 @@ def research_economics(case, gis, records, as_of, tariff):
 
     Reuse the existing reconciled ledger/minima/rule blocks. Assumed prerequisites
     live only in a local copy; no confirmed record or evidence is persisted.
+    Catchments whose receivers are linked to rejected or vetoed records are removed
+    from the priced region and listed; if none remain the scenario is blocked.
     """
     research = gis.get("research_drainage", {})
     if not research.get("primary"):
@@ -1218,12 +1521,15 @@ def research_economics(case, gis, records, as_of, tariff):
     from drainage_core.research import feature_inputs
 
     try:
+        gsi_features = [f for f in feature_inputs(case)[0] if f.get("role") == "gsi"]
+    except (ValueError, TypeError, KeyError, ShapelyError):
+        gsi_features = []
+    try:
         beds = union(
             [
                 shape(f["geometry"])
-                for f in feature_inputs(case)[0]
-                if f.get("role") == "gsi"
-                and shape(f["geometry"]).geom_type in ("Polygon", "MultiPolygon")
+                for f in gsi_features
+                if shape(f["geometry"]).geom_type in ("Polygon", "MultiPolygon")
             ]
         )
     except (ValueError, TypeError, KeyError, ShapelyError):
@@ -1249,16 +1555,31 @@ def research_economics(case, gis, records, as_of, tariff):
     for name, run in [("nominal", research["primary"])] + [
         (r["name"], r) for r in research.get("sensitivity", [])
     ]:
+        # R2: receivers linked to rejected/vetoed records are never re-priced here.
+        vetoed = _research_receiver_vetoes(case, run, gsi_features)
+        kept = [c for c in run.get("catchments", []) if str(c.get("gsi_id")) not in vetoed]
+        excluded = [
+            {"receiver_id": receiver, "reasons": reasons}
+            for receiver, reasons in sorted(vetoed.items())
+        ]
+        removed = union(
+            [
+                shape(c["geometry"])
+                for c in run.get("catchments", [])
+                if str(c.get("gsi_id")) in vetoed and c.get("geometry")
+            ]
+        )
         # D2: one per-catchment rule (app and pilot). Partial catchments are priced
         # in-window and labelled; untestable extent or a failed invariant blocks.
-        route = combine_routes(
-            catchment_route(c, run.get("invariants")) for c in run.get("catchments", [])
-        )
+        route = combine_routes(catchment_route(c, run.get("invariants")) for c in kept)
         known = shape(run["known_ia_union_geometry"])
         unknown = shape(
             run.get("unknown_ground_union_geometry")
             or {"type": "GeometryCollection", "geometries": []}
         )
+        if not removed.is_empty:
+            known = known.difference(removed)
+            unknown = unknown.difference(removed)
         hypotheses = [("known_ground_only", known, False)]
         if not unknown.is_empty:
             hypotheses.append(("unknown_ground_assumed_impervious", known.union(unknown), True))
@@ -1282,6 +1603,16 @@ def research_economics(case, gis, records, as_of, tariff):
                 view = {**gis, "measurement": {**gis["measurement"], "geometries": geoms}}
             if vetoes:
                 s = _blocked(vetoes)
+            elif excluded and not kept:
+                s = _blocked(
+                    [
+                        "Receiver "
+                        + item["receiver_id"]
+                        + " is not re-priced: "
+                        + "; ".join(item["reasons"])
+                        for item in excluded
+                    ]
+                )
             elif route["blocked_reasons"]:
                 s = _blocked(route["blocked_reasons"])
             elif region.is_empty or case_area_sqft(region, case) < 0.000001:
@@ -1322,6 +1653,7 @@ def research_economics(case, gis, records, as_of, tariff):
                     "surface_assumption": surface_basis,
                     "modeled_unallocated_area_sqft": case_area_sqft(region, case),
                     "system_bed_ia_excluded_sqft": bed_area,
+                    "excluded_receivers": deepcopy(excluded),
                     "assumed_prerequisites": scenario_assumptions,
                     "claim": "Counterfactual: only if the modeled existing system meets all management prerequisites and the stated ground assumption holds. No screen pass, approval or treatment capacity is established.",
                 }
