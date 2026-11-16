@@ -17,6 +17,7 @@ from unittest.mock import patch
 from shapely.geometry import box, mapping
 from stormwater.cases import CaseStore, canonical, new_case
 from stormwater.server import Handler
+import network_guard
 
 
 def fixture():
@@ -37,11 +38,16 @@ def fixture():
 class HTTPWorkflowTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        network_guard.install()
         cls.temp=tempfile.TemporaryDirectory()
         store=CaseStore(cls.temp.name)
         class TestHandler(Handler):
             def log_message(self,*args): pass
         TestHandler.store=store
+        # Public caches (including USDA soil queries) stay in the temporary folder,
+        # and every public source is unavailable unless a test stubs it.
+        TestHandler.data_root=store.data_root
+        TestHandler.source_opener=network_guard.offline_opener
         cls.server=ThreadingHTTPServer(('127.0.0.1',0),TestHandler)
         cls.server.daemon_threads=True
         cls.thread=Thread(target=cls.server.serve_forever,daemon=True)

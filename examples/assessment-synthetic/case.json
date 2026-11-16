@@ -146,6 +146,7 @@
   "terrain": null,
   "assumptions": [
     "All new category prerequisites are conditional modeled inputs, not document-verified facts.",
+    "Each evidence_review is an invented reviewer assertion over invented facts, not a review of real documents.",
     "Illustrative historical credit quantities are not presumed current received benefits; baseline is separate.",
     "No terrain or independent measurement references supplied. No empirical IA/drainage validation."
   ],
@@ -240,7 +241,25 @@
             "source_url": "https://example.test/entirely-invented-evidence",
             "page": 1
           }
-        ]
+        ],
+        "evidence_review": {
+          "support_reviewed": true,
+          "property_match": true,
+          "period_match": true,
+          "note": "SYNTHETIC reviewer assertion: the facts are invented and no real document, property or period was reviewed. It exists only to exercise the fact-support review gate.",
+          "fact_keys": [
+            "account_current",
+            "approved_record_drawings",
+            "current_condition_confirmed",
+            "existing_installation",
+            "maintenance_documented",
+            "parcel_allocation_confirmed",
+            "physical_area_confirmed",
+            "professional_reviewed",
+            "routing_confirmed",
+            "treatment_depth_inches"
+          ]
+        }
       },
       {
         "id": "permeable_pavement-modeled",
@@ -322,7 +341,29 @@
             "source_url": "https://example.test/entirely-invented-evidence",
             "page": 1
           }
-        ]
+        ],
+        "evidence_review": {
+          "support_reviewed": true,
+          "property_match": true,
+          "period_match": true,
+          "note": "SYNTHETIC reviewer assertion: the facts are invented and no real document, property or period was reviewed. It exists only to exercise the fact-support review gate.",
+          "fact_keys": [
+            "account_current",
+            "approved_record_drawings",
+            "construction_documented",
+            "current_condition_confirmed",
+            "existing_installation",
+            "infiltration_or_underdrain_documented",
+            "maintenance_documented",
+            "material_confirmed",
+            "parcel_allocation_confirmed",
+            "physical_area_confirmed",
+            "professional_reviewed",
+            "routing_confirmed",
+            "storage_documented",
+            "treatment_depth_inches"
+          ]
+        }
       },
       {
         "id": "direct_discharge-modeled",
@@ -413,7 +454,38 @@
             "source_url": "https://example.test/entirely-invented-evidence",
             "page": 1
           }
-        ]
+        ],
+        "evidence_review": {
+          "support_reviewed": true,
+          "property_match": true,
+          "period_match": true,
+          "note": "SYNTHETIC reviewer assertion: the facts are invented and no real document, property or period was reviewed. It exists only to exercise the fact-support review gate.",
+          "fact_keys": [
+            "account_current",
+            "approved_record_drawings",
+            "catchment_confirmed",
+            "current_condition_confirmed",
+            "destination_confirmed",
+            "existing_installation",
+            "maintenance_documented",
+            "no_city_infrastructure",
+            "no_erosion_or_detriment",
+            "outfall_confirmed",
+            "outfall_id",
+            "ownership_confirmed",
+            "parcel_allocation_confirmed",
+            "photographs_current",
+            "physical_area_confirmed",
+            "private_connections_resolved",
+            "professional_reviewed",
+            "route_confirmed",
+            "routing_confirmed",
+            "site_plan_documented",
+            "treatment_depth_inches",
+            "upstream_smp_present",
+            "waterway_name"
+          ]
+        }
       },
       {
         "id": "industrial-modeled",
@@ -440,7 +512,28 @@
             "source_url": "https://example.test/not-a-real-permit",
             "page": 2
           }
-        ]
+        ],
+        "evidence_review": {
+          "support_reviewed": true,
+          "property_match": true,
+          "period_match": true,
+          "note": "SYNTHETIC reviewer assertion: the facts are invented and no real document, property or period was reviewed. It exists only to exercise the fact-support review gate.",
+          "fact_keys": [
+            "account_current",
+            "active",
+            "compliance_from",
+            "compliance_previous_12_months",
+            "compliance_through",
+            "discharge_monitoring_reports_previous_12_months",
+            "effective_from",
+            "expires_on",
+            "industrial_stormwater",
+            "operator_match",
+            "permit_documented",
+            "permit_id",
+            "site_match"
+          ]
+        }
       }
     ],
     "observations": [],

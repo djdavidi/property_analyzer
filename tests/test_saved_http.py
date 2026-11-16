@@ -12,16 +12,19 @@ from drainage_core.engine import canonical
 from stormwater.cases import CaseStore
 from stormwater.server import Handler
 from stormwater.prospect_jobs import ProspectJobs
+import network_guard
 
 
 class SavedHTTPTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        network_guard.install()
         cls.temp=TemporaryDirectory();cls.root=Path(cls.temp.name);c,r=fixture()
         folder=cls.root/c['id'];folder.mkdir();(folder/'case.json').write_text(canonical(c));(folder/'analysis.json').write_text(canonical(r))
         class LocalHandler(Handler):
             def log_message(self,*args):pass
         LocalHandler.store=CaseStore(cls.root);LocalHandler.prospect_jobs=Mock()
+        LocalHandler.data_root=LocalHandler.store.data_root;LocalHandler.source_opener=network_guard.offline_opener
         LocalHandler.prospect_jobs.start.return_value={'status':'running'}
         LocalHandler.prospect_jobs.cancel.return_value={'status':'cancelling'}
         cls.handler=LocalHandler;cls.server=ThreadingHTTPServer(('127.0.0.1',0),LocalHandler)

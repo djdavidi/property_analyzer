@@ -37,7 +37,7 @@ def _policy_case(case, policy_inputs):
     return working,overlay
 
 
-def apply(case, gis_result, policy_inputs=None, tariff=None):
+def apply(case, gis_result, policy_inputs=None, tariff=None, as_of=None):
     """Apply PWD rules to an unchanged core case/result pair.
 
     ``policy_inputs`` may supply a separate ``baseline``, ``benefits`` and
@@ -45,7 +45,8 @@ def apply(case, gis_result, policy_inputs=None, tariff=None):
     configurations without rerouting. Its benefit coordinates must use the case
     CRS and the existing evidence schema. Original case/result objects are never
     mutated. The returned dictionary contains only policy enrichment, not copied
-    measurements, routing or independent-validation claims.
+    measurements, routing or independent-validation claims. ``as_of`` (ISO date)
+    pins the assessment date; by default it is today in Philadelphia.
     """
     from drainage_core.engine import input_hash,result_hash
     from drainage_core.geometry import effective_features, case_area_sqft
@@ -122,7 +123,7 @@ def apply(case, gis_result, policy_inputs=None, tariff=None):
 
     from ..assessment_policy import evaluate_assessment
     from ..renewals import history_assessment, today
-    assessment=evaluate_assessment(working,gis_result,as_of=today().isoformat(),tariff=selected_tariff)
+    assessment=evaluate_assessment(working,gis_result,as_of=as_of or today().isoformat(),tariff=selected_tariff)
     history=history_assessment(working,assessment.get('as_of'))
     assessment['categories'].append(history)
     assessment['renewals']=history['renewals']

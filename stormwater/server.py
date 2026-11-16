@@ -6,6 +6,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 from pathlib import Path
 import re
+from threading import Lock
 from urllib.parse import urlparse
 import uuid
 from shapely.geometry import shape, mapping
@@ -26,9 +27,42 @@ def acquired_case(data):
     return c
 
 
+class _LocalDefault:
+    """Build a default local service on first use rather than at import.
+
+    Importing this module (as tests do) therefore creates nothing under data/.
+    A subclass or instance attribute of the same name takes precedence.
+    """
+    def __init__(self,factory):
+        self.factory=factory
+        self.lock=Lock()
+
+    def __set_name__(self,owner,name):
+        self.cache_name='_default_'+name
+
+    def __get__(self,handler,owner):
+        with self.lock:
+            value=owner.__dict__.get(self.cache_name)
+            if value is None:
+                value=self.factory(owner)
+                setattr(owner,self.cache_name,value)
+        return value
+
+
 class Handler(BaseHTTPRequestHandler):
-    store=CaseStore()
-    prospect_jobs=ProspectJobs(ROOT/'data/prospects')
+    # Local storage and public-source access. Tests and embedders override these
+    # on a subclass so requests never touch the repository's data/ or the network.
+    data_root=ROOT/'data'
+    source_opener=None  # None: the default HTTPS opener; read via the class, so a plain function works
+    store=_LocalDefault(lambda handler:CaseStore(Path(handler.data_root)/'cases',data_root=handler.data_root))
+    prospect_jobs=_LocalDefault(lambda handler:ProspectJobs(Path(handler.data_root)/'prospects'))
+
+    def public_cache(self,*,reuse_recent_records=False,timeout=20):
+        """Shared public-record cache (including USDA soil queries) under data_root."""
+        from .record_cache import SharedCache
+        root=Path(self.data_root)
+        return SharedCache(root/'public',fallback_roots=[root/'prospects'/'public'],
+                           reuse_recent_records=reuse_recent_records,timeout=timeout,opener=type(self).source_opener)
 
     def send(self,data,status=200,mime='application/json'):
         body=(data if isinstance(data,bytes) else json.dumps(data,allow_nan=False,separators=(',',':')).encode() if mime=='application/json' else data.encode())
@@ -73,7 +107,7 @@ class Handler(BaseHTTPRequestHandler):
             if path.startswith('/api/blob/'):
                 digest=path.split('/')[-1]
                 if not re.fullmatch('[a-f0-9]{64}',digest):raise ValueError('Invalid source hash')
-                data=(ROOT/'data/public/blobs'/digest).read_bytes()
+                data=(Path(self.data_root)/'public'/'blobs'/digest).read_bytes()
                 if sha256(data).hexdigest()!=digest:raise ValueError('Source hash mismatch')
                 return self.send(data,mime='image/png')
             if path.startswith('/exports/'):
@@ -106,7 +140,10 @@ class Handler(BaseHTTPRequestHandler):
             if path=='/api/prospects/cancel':return self.send(self.prospect_jobs.cancel(),202)
             if path=='/api/analyze':return self.send(self.store.analyze(payload['case']))
             if path=='/api/save':return self.send(self.store.save(payload['case']))
-            if path=='/api/assessment/run':return self.send(self.store.run_assessment(payload['case'],refresh_records=payload.get('refresh_records',False)))
+            if path=='/api/assessment/run':
+                cache=self.public_cache(timeout=15)
+                result=self.store.run_assessment(payload['case'],cache,refresh_records=payload.get('refresh_records',False))
+                return self.send(result)
             if path=='/api/assessment/baseline-review':
                 from .assessment_workflow import reconcile_baseline
                 case=reconcile_baseline(payload['case'],payload['reason'],payload['accept'])
@@ -140,8 +177,7 @@ class Handler(BaseHTTPRequestHandler):
             if path=='/api/property/assess':
                 from .automatic import lookup
                 from .acquisition import acquire_property
-                from .record_cache import shared_records
-                cache=shared_records(reuse_recent_records=True,timeout=15)
+                cache=self.public_cache(reuse_recent_records=True,timeout=15)
                 found=lookup(payload.get('query',''),cache)
                 if len(found['matches'])!=1:return self.send(found)
                 selected=found['matches'][0]
@@ -152,7 +188,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(self.store.run_assessment(case,cache))
             if path=='/api/acquire':
                 from .acquisition import Cache, acquire_property, acquire_imagery
-                cache=Cache(ROOT/'data/public')
+                cache=Cache(Path(self.data_root)/'public',opener=type(self).source_opener)
                 data=acquire_property(payload['parcel_id'],cache,refresh=payload.get('refresh',False))
                 try:
                     image=acquire_imagery(data['parcel'],cache,refresh=payload.get('refresh',False))
@@ -162,7 +198,9 @@ class Handler(BaseHTTPRequestHandler):
             if path=='/api/import-raster':
                 from .raster import import_dem,classify_raster
                 content=base64.b64decode(payload['content'],validate=True)
-                digest=sha256(content).hexdigest();folder=ROOT/'data/imports';folder.mkdir(exist_ok=True)
+                digest=sha256(content).hexdigest()
+                folder=Path(self.data_root)/'imports'
+                folder.mkdir(parents=True,exist_ok=True)
                 file=folder/(digest+'.tif')
                 if not file.exists():file.write_bytes(content)
                 if payload['kind']=='dem':

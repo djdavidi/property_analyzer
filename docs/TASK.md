@@ -1,6 +1,6 @@
 # Current task: fix plan Phase 0, trustworthy suite
 
-Status: **in progress**, 2026-11-16. Plan: [FIX-PLAN-2026-11-16.md](FIX-PLAN-2026-11-16.md)
+Status: **complete**, 2026-11-16 (full suite: Ran 593, OK, skipped=1; no network; no `data/` created). Plan: [FIX-PLAN-2026-11-16.md](FIX-PLAN-2026-11-16.md)
 (accepted defaults D1–D12). Review: [ADVERSARIAL-REVIEW-2026-11-16.md](ADVERSARIAL-REVIEW-2026-11-16.md).
 
 Objective/why: a full documented suite that passes, without network or writes into

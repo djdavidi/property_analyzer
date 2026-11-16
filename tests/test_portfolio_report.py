@@ -1,6 +1,11 @@
 """Unit-only invented portfolio inputs; no site acquisition/inference/server."""
 from copy import deepcopy
+from pathlib import Path
+import sys
 import unittest
+# Sibling test helpers import by module name under both `discover -s tests` and
+# `python -m unittest tests.test_portfolio_report`.
+sys.path.insert(0,str(Path(__file__).resolve().parent))
 from stormwater.portfolio_report import complete_sum,scenario,canopy_compatibility,parcel_view,render_html,CATEGORIES,joint_area_hypotheses,without_geometry,PLAIN_LABELS,_plain_finding
 from test_modeled_assessment_unit import fixture,frozen_gis,assess,candidate
 from shapely.geometry import box

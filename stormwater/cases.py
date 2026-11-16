@@ -22,17 +22,17 @@ def new_case(name='Untitled property'):
     return case
 
 
-def _analyze_pair(case,frozen=None):
+def _analyze_pair(case,frozen=None,as_of=None):
     from .jurisdictions.philadelphia import apply
     start=time.perf_counter()
     if frozen:
         from .physical_reuse import policy_overlay,physical_signature
         validate_input(case)
         original,gis=frozen
-        policy=apply(original,gis,policy_inputs=policy_overlay(case))
+        policy=apply(original,gis,policy_inputs=policy_overlay(case),as_of=as_of)
     else:
         gis=analyze_gis(case,source_dependencies=case.get('dependent_source_families',('PWD','City impervious','City buildings')))
-        policy=apply(case,gis,tariff=case.get('tariff'))
+        policy=apply(case,gis,tariff=case.get('tariff'),as_of=as_of)
     result={**gis,**policy,'result_type':'jurisdiction-analysis',
             'warnings':list(dict.fromkeys(gis['warnings']+policy['warnings'])),
             'processing_seconds':round(time.perf_counter()-start,6),
@@ -49,12 +49,20 @@ def _analyze_pair(case,frozen=None):
     return gis,safe_analysis(result)
 
 
-def analyze(case):
-    return _analyze_pair(case)[1]
+def analyze(case,as_of=None):
+    """``as_of`` pins the policy assessment date (ISO); default is today."""
+    return _analyze_pair(case,as_of=as_of)[1]
 
 class CaseStore:
-    def __init__(self,root=None):
+    def __init__(self,root=None,data_root=None):
         self.root=Path(root or ROOT/'data/cases'); self.root.mkdir(parents=True,exist_ok=True)
+        # Public-source blobs and caches live under data_root/public (rule sources under
+        # data_root/rules/public). A store outside the repository's data/cases, such as
+        # a test's temporary store, keeps a private data root and never touches data/.
+        if data_root is None:
+            in_repository=self.root.resolve()==(ROOT/'data'/'cases').resolve()
+            data_root=ROOT/'data' if in_repository else self.root/'.data'
+        self.data_root=Path(data_root)
 
     def directory(self,id):
         if not re.fullmatch(r'[A-Za-z0-9_-]{1,80}',id): raise ValueError('Invalid case ID')
@@ -160,9 +168,11 @@ class CaseStore:
 
     def run_assessment(self,case,cache=None,*,refresh_records=False):
         if not isinstance(refresh_records,bool):raise ValueError('Record refresh must be true or false')
-        from .record_cache import shared_records,SharedCache
+        from .record_cache import SharedCache
         from .assessment_workflow import gather
-        selected_cache=cache or shared_records(reuse_recent_records=not refresh_records,timeout=15)
+        if cache is None:
+            cache=SharedCache(self.data_root/'public',fallback_roots=[self.data_root/'prospects'/'public'],timeout=15)
+        selected_cache=cache
         if isinstance(selected_cache,SharedCache):selected_cache.reuse_recent_records=not refresh_records
         reuse_events=getattr(selected_cache,'reuse_events',[])
         reuse_start=len(reuse_events) if isinstance(reuse_events,list) else 0
@@ -238,8 +248,8 @@ class CaseStore:
         for snapshot in bundle['assessments'].values():
             sources.update(s['sha256'] for s in snapshot.get('analysis',{}).get('assessment',{}).get('rules',{}).get('source_snapshots',[]))
         for digest in sorted(sources):
-            path=ROOT/'data/public/blobs'/digest
-            if not path.exists():path=ROOT/'data/rules/public/blobs'/digest
+            path=self.data_root/'public'/'blobs'/digest
+            if not path.exists():path=self.data_root/'rules'/'public'/'blobs'/digest
             if not path.exists():
                 bundle['missing_public_blobs'].append(digest);continue
             content=path.read_bytes()
@@ -290,7 +300,7 @@ class CaseStore:
         # Evaluate before any case overwrite; attachment import validates all bytes first.
         analyze(case)
         store=AttachmentStore(folder/'attachments');store.import_bundle(blobs);store.verify(manifests)
-        cache=ROOT/'data/public/blobs';cache.mkdir(parents=True,exist_ok=True)
+        cache=self.data_root/'public'/'blobs';cache.mkdir(parents=True,exist_ok=True)
         for digest,content in public:
             path=cache/digest
             if not path.exists():path.write_bytes(content)

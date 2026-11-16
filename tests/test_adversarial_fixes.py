@@ -267,13 +267,17 @@ class SourceCRSTests(IsolatedUnitTests):
             self.assertEqual(arcgis_features('https://example.test',self.cache(crs),{'outSR':'2272'})['crs'],'EPSG:2272')
 
 
+REPOSITORY=Path(__file__).resolve().parents[1]
+SAVED_INVENTORY=REPOSITORY/'data/validation/adversarial-review-2026-11-15/saved-inventory.json'
+
+
 class FrozenArtifactPreservationTests(IsolatedUnitTests):
-    @unittest.skipUnless(Path('data/validation/adversarial-review-2026-11-15/saved-inventory.json').exists(),
-                         'Optional local pre-fix byte manifest unavailable')
+    @unittest.skipUnless(SAVED_INVENTORY.exists(),'Optional local pre-fix byte manifest unavailable')
     def test_existing_property_artifacts_match_pre_fix_bytes_without_processing_them(self):
-        manifest=json.loads(Path('data/validation/adversarial-review-2026-11-15/saved-inventory.json').read_text())
+        manifest=json.loads(SAVED_INVENTORY.read_text())
         for name,digest in manifest['protected_hashes'].items():
-            with self.subTest(path=name):self.assertEqual(sha256(Path(name).read_bytes()).hexdigest(),digest)
+            # Inventory paths are repository-relative; resolve them independent of cwd.
+            with self.subTest(path=name):self.assertEqual(sha256((REPOSITORY/name).read_bytes()).hexdigest(),digest)
 
 
 if __name__=='__main__':unittest.main()

@@ -152,7 +152,8 @@ class PaletteAndPublicReplayTests(unittest.TestCase):
 
     def test_original_public_renderings_replay_offline_without_accuracy_claim(self):
         import subprocess,sys
-        result=subprocess.run([sys.executable,'examples/automatic-public/replay.py'],capture_output=True,text=True)
+        script=Path(__file__).resolve().parents[1]/'examples'/'automatic-public'/'replay.py'
+        result=subprocess.run([sys.executable,str(script)],capture_output=True,text=True)
         self.assertEqual(result.returncode,0,result.stderr)
         rows=[json.loads(line) for line in result.stdout.splitlines()]
         self.assertEqual(len(rows),2)

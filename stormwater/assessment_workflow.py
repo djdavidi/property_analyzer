@@ -5,11 +5,22 @@ import json
 import uuid
 
 from drainage_core.evidence import validate_references,now
+from .physical_reuse import normalize_numbers
 
 CATEGORIES={'green_roof','permeable_pavement','direct_discharge','industrial_npdes'}
+# Public source content of a record. Retrieval timestamps, snapshots and reviewer
+# fields (decision, basis, evidence) are deliberately excluded.
+SOURCE_FIELDS=('facts','public_geometry','raw_record','public_geometry_role')
 
 
 def _digest(value):
+    """Content hash in which JSON 1 and 1.0 are identical (browser round trips)."""
+    normalized=normalize_numbers(value)
+    return sha256(json.dumps(normalized,sort_keys=True,separators=(',',':'),allow_nan=False).encode()).hexdigest()
+
+
+def _unnormalized_digest(value):
+    """Hash format recorded before number normalisation; used only to honour old comparisons."""
     return sha256(json.dumps(value,sort_keys=True,separators=(',',':'),allow_nan=False).encode()).hexdigest()
 
 
@@ -95,32 +106,143 @@ def review_record(case,record,reason,at=None):
     return result
 
 
+def _source_content(record):
+    return {key:deepcopy(record.get(key)) for key in SOURCE_FIELDS}
+
+
+def _is_disappearance(update):
+    """A not-returned flag. Older flags predate 'kind' and never carry a candidate."""
+    if not isinstance(update,dict) or not update:
+        return False
+    if 'kind' in update:
+        return update['kind']=='disappeared'
+    return 'candidate' not in update
+
+
+def _last_public_content(assessment,record,reviewed,incoming):
+    """Last public source content seen for ``record``; never its reviewer-edited facts.
+
+    Returns ``(content, origin)``. Records saved before ``public_snapshots`` existed
+    are derived from their own history. ``(None, None)`` means no public version can
+    be established, so the incoming record is staged for review rather than assumed
+    unchanged.
+    """
+    saved=assessment.get('public_snapshots',{}).get(record['id'])
+    if isinstance(saved,dict) and isinstance(saved.get('content'),dict):
+        return saved['content'],saved.get('origin')
+    update=record.get('source_update') or {}
+    if isinstance(update.get('candidate'),dict):
+        return _source_content(update['candidate']),'derived:source_update_candidate'
+    history=[h for h in assessment.get('record_history',[])
+             if h.get('record_id')==record['id'] and isinstance(h.get('incoming'),dict)]
+    if history:
+        return _source_content(history[-1]['incoming']),'derived:record_history'
+    if record['id'] not in reviewed and record.get('basis')=='public_candidate':
+        # Unreviewed public candidates are stored exactly as discovered.
+        return _source_content(record),'derived:unreviewed_public_record'
+    first=next((r for r in assessment.get('reviews',[]) if r.get('record_id')==record['id']),None)
+    before=(first or {}).get('before')
+    if isinstance(before,dict) and before.get('basis')=='public_candidate':
+        # The record as discovered, before any reviewer edit.
+        return _source_content(before),'derived:first_review_before'
+    raw=record.get('raw_record')
+    lineage=('raw_record','public_geometry','public_geometry_role')
+    if isinstance(raw,dict) and raw and all(_digest(record.get(k))==_digest(incoming.get(k)) for k in lineage):
+        # Identical original source row and geometry: public facts derive from it.
+        return {**_source_content(record),'facts':deepcopy(incoming.get('facts'))},'derived:raw_record_match'
+    return None,None
+
+
+def _remember_public(assessment,record_id,content,origin):
+    snapshots=assessment.setdefault('public_snapshots',{})
+    digest=_digest(content)
+    if snapshots.get(record_id,{}).get('sha256')==digest:
+        return
+    snapshots[record_id]={'sha256':digest,'content':deepcopy(content),'observed_at':now(),'origin':origin}
+
+
+def _clear_disappearance(assessment,record):
+    """An identical record returned: end the disappearance episode, keeping its history."""
+    update=record.get('source_update')
+    if not _is_disappearance(update):
+        return
+    assessment.setdefault('record_history',[]).append({'at':now(),'record_id':record['id'],
+        'event':'returned_unchanged','before':deepcopy(record)})
+    if isinstance(update.get('previous'),dict):
+        record['source_update']=deepcopy(update['previous'])
+    else:
+        del record['source_update']
+
+
+def _merge_incoming(assessment,previous,incoming,reviewed):
+    """Compare one public record with the last *public* content, not reviewer facts."""
+    content=_source_content(incoming)
+    if previous is None:
+        assessment['records'].append(deepcopy(incoming))
+        _remember_public(assessment,incoming['id'],content,'source')
+        return
+    known,origin=_last_public_content(assessment,previous,reviewed,incoming)
+    if known is not None and _digest(known)==_digest(content):
+        _remember_public(assessment,incoming['id'],known,origin)
+        _clear_disappearance(assessment,previous)
+        return
+    assessment.setdefault('record_history',[]).append({'at':now(),'record_id':incoming['id'],
+        'before':deepcopy(previous),'incoming':deepcopy(incoming)})
+    _remember_public(assessment,incoming['id'],content,'source')
+    unreviewed=previous['id'] not in reviewed
+    if unreviewed and previous.get('decision')=='candidate' and previous.get('basis')=='public_candidate':
+        records=assessment['records']
+        records[records.index(previous)]=deepcopy(incoming)
+    else:
+        previous['source_update']={'status':'pending_review','kind':'changed','candidate':deepcopy(incoming),
+            'observed_at':now(),'reason':'Public source changed; retained reviewed facts require reconciliation'}
+
+
+def _flag_disappearance(record):
+    update=record.get('source_update') or {}
+    # A staged update keeps its candidate, and a disappearance already flagged or
+    # reviewed is not re-staged on every run while the record stays absent.
+    if update.get('status')=='pending_review' or _is_disappearance(update):
+        return
+    flag={'status':'pending_review','kind':'disappeared','observed_at':now(),
+          'reason':'Not returned by a completed source query; disappearance is not proof of removal or zero area'}
+    if update:
+        flag['previous']=deepcopy(update)
+    record['source_update']=flag
+
+
+def _retained_by_review(assessment,candidate,baseline):
+    """True when a reviewer already kept ``baseline`` against this same public candidate."""
+    wanted=_digest(candidate)
+    kept=_digest(baseline)
+    for review in assessment.get('baseline_reviews',[]):
+        comparison=review.get('comparison') or {}
+        reviewed=review.get('candidate_sha256') or _digest(comparison.get('candidate'))
+        if review.get('accepted') is False and reviewed==wanted and _digest(review.get('after'))==kept:
+            return True
+    return False
+
+
 def gather(case,cache,refresh=True):
+    """Explicit public-record rerun; reviewed facts and review history are kept.
+
+    Incoming records are compared with the last *public* content seen for each
+    record (``assessment.public_snapshots``), never with reviewer-edited facts.
+    A changed source is staged for review once. A record absent from a completed
+    query is flagged once, and the flag ends when the identical record returns.
+    A public baseline candidate already retained by review is not staged again.
+    """
     from .assessment_sources import discover
     result=deepcopy(case);a=ensure_assessment(result)
     discovered=discover(result,cache,refresh)
     old={r['id']:r for r in a['records']};reviewed={r['record_id'] for r in a.get('reviews',[]) if r.get('record_id')}
     for incoming in discovered['records']:
-        previous=old.get(incoming['id'])
-        if previous is None:
-            a['records'].append(deepcopy(incoming));continue
-        # Compare source content rather than retrieval timestamps/enrichment.
-        def source_value(r):return {k:r.get(k) for k in ('facts','public_geometry','raw_record','public_geometry_role')}
-        current_source=previous.get('source_update',{}).get('candidate',previous)
-        if source_value(current_source)==source_value(incoming):continue
-        a.setdefault('record_history',[]).append({'at':now(),'record_id':incoming['id'],
-            'before':deepcopy(previous),'incoming':deepcopy(incoming)})
-        if previous['id'] not in reviewed and previous.get('decision')=='candidate' and previous.get('basis')=='public_candidate':
-            a['records'][a['records'].index(previous)]=deepcopy(incoming)
-        else:
-            previous['source_update']={'status':'pending_review','candidate':deepcopy(incoming),'observed_at':now(),
-                'reason':'Public source changed; retained reviewed facts require reconciliation'}
+        _merge_incoming(a,old.get(incoming['id']),incoming,reviewed)
     present={r['id'] for r in discovered['records']}
     complete_urls={s.get('url') for s in discovered['source_status'] if s.get('status') in ('retrieved','reused_recent_record')}
     for previous in a['records']:
-        if previous['id'] not in present and previous.get('source',{}).get('url') in complete_urls:
-            previous['source_update']={'status':'pending_review','observed_at':now(),
-                'reason':'Not returned by a completed source query; disappearance is not proof of removal or zero area'}
+        if previous['id'] not in present and (previous.get('source') or {}).get('url') in complete_urls:
+            _flag_disappearance(previous)
     for observation in discovered['observations']:
         observation={**observation,'observed_at':now()}
         observation['sha256']=_digest(observation)
@@ -131,6 +253,9 @@ def gather(case,cache,refresh=True):
             keys=('ga_sqft','ia_sqft','existing_ga_credit_sqft','existing_ia_credit_sqft',
                   'existing_iar_sqft','npdes_fraction','accounts','property_type','bill_date','published_monthly_total')
             changes=[k for k in keys if (result.get('baseline') or {}).get(k)!=baseline.get(k)]
+            if changes and _retained_by_review(a,baseline,result.get('baseline')):
+                # Reviewed already: this public candidate was explicitly not adopted.
+                changes=[]
             if changes:
                 a['baseline_refresh']={'status':'pending_review','candidate':baseline,'fields_changed':changes,
                     'retained_baseline_sha256':_digest(result.get('baseline')),
@@ -151,7 +276,9 @@ def reconcile_baseline(case,reason,accept):
         raise ValueError('Baseline review needs an explanation and explicit choice')
     result=deepcopy(case);a=ensure_assessment(result);pending=a.get('baseline_refresh',{})
     if pending.get('status')!='pending_review':raise ValueError('No pending public baseline change')
-    if pending['retained_baseline_sha256']!=_digest(result.get('baseline')):
+    current=result.get('baseline')
+    # Comparisons recorded before number normalisation remain reviewable.
+    if pending.get('retained_baseline_sha256') not in (_digest(current),_unnormalized_digest(current)):
         raise ValueError('Baseline changed since public comparison; review current source again')
     if accept:
         candidate=pending['candidate']
@@ -159,6 +286,7 @@ def reconcile_baseline(case,reason,accept):
             raise ValueError('Incomplete public areas cannot replace the baseline')
         result['baseline']=deepcopy(candidate)
     a.setdefault('baseline_reviews',[]).append({'at':now(),'reason':reason.strip(),'accepted':accept,
-        'before':deepcopy(case.get('baseline')),'after':deepcopy(result.get('baseline')),'comparison':deepcopy(pending)})
+        'before':deepcopy(case.get('baseline')),'after':deepcopy(result.get('baseline')),'comparison':deepcopy(pending),
+        'candidate_sha256':_digest(pending.get('candidate'))})
     a['baseline_refresh']={**pending,'status':'accepted' if accept else 'retained_by_review','reason':reason.strip()}
     return result

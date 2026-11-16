@@ -1,5 +1,11 @@
 # Current state
 
+## Fix plan Phase 0 complete (2026-11-16)
+
+The documented suite is green and hermetic: 593 ran, OK, 1 data-dependent skip, no
+network and no `data/` writes. The refresh regression (A4) is fixed. Details are in
+the newest checkpoint; the plan continues with Phase 1.
+
 ## Second adversarial review — report complete (2026-11-16)
 
 [Findings](ADVERSARIAL-REVIEW-2026-11-16.md), with

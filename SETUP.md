@@ -44,6 +44,12 @@ node --check drainage_core/web/app.js
 HTTP tests bind temporary loopback ports and may require local-server permission.
 Omitted/blocked tests must not be called passes. No test requires personal Chrome.
 
+A change counts as "verified" only when the full command
+`.venv/bin/python -m unittest discover -s tests` passes from the repository root with
+no network. A subset of modules is not verification. The suite blocks outbound
+connections itself (`tests/network_guard.py`), so any test that attempts one fails. The
+suite keeps its caches in temporary folders and does not create `data/`.
+
 ## Moving the project
 
 Keep the bundled `data/public/blobs` directory to retain raw evidence and cached imagery.

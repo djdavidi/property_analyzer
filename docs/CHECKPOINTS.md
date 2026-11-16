@@ -4,6 +4,32 @@ Newest entries first. Current truth belongs in STATE; the active bounded task be
 in TASK. These records preserve changes, decisions, evidence, unresolved issues and
 handoffs. Do not rewrite past results to match later runs.
 
+## 2026-11-16 — Fix plan Phase 0 complete: trustworthy suite
+
+**Changes.**
+- **A4 / R3:** `gather` now compares source data with `assessment.public_snapshots`,
+  not reviewer facts. Older cases derive their public version from history; if none
+  can be established, the change is staged for review. A retained baseline is not
+  re-staged. Disappearance flags clear when the record returns and never overwrite a
+  staged change. Digests use normalized numbers (old hashes are still accepted).
+- **F3:** the server's data root and source opener are injectable. `tests/network_guard.py`
+  blocks non-loopback connections and DNS for the whole suite. Paths are absolute.
+- **F2:** the synthetic example pins `as_of=2026-11-15`, carries synthetic
+  reviewer-assertion evidence, and has a known-answer test. The hand derivation of
+  $135.64 − $87.33 = $48.31/month is now in its README.
+- **F1:** SETUP defines "verified" as the full suite passing with no network.
+
+**Evidence.**
+- `rm -rf data; .venv/bin/python -m unittest discover -s tests` → Ran 593,
+  OK (skipped=1). The skip is the data-dependent frozen-artifact test.
+- `data/` is not created. Before this phase: 567 ran, 1 failure, plus live USDA
+  requests.
+
+**Limits.**
+- Saved cases that already carry spurious flags stay pending until reviewed.
+- `CaseStore(custom_root)` keeps public files in `<root>/.data`.
+- The network guard covers only the Python process.
+
 ## 2026-11-16 — Fix plan execution started; Phase 0 brief
 
 The user accepted all plan defaults and authorized merging green phases into main.

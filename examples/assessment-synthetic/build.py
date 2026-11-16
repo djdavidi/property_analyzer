@@ -8,6 +8,18 @@ from shapely.geometry import box,mapping
 from stormwater.cases import new_case,CaseStore
 from stormwater.assessment_workflow import ensure_assessment
 
+# README known answers are pinned to this assessment date. The invented 12-month
+# NPDES compliance window ends on it; the app recalculates with the current date.
+AS_OF='2026-11-15'
+REVIEWER_ASSERTION=('SYNTHETIC reviewer assertion: the facts are invented and no real document, property '
+                    'or period was reviewed. It exists only to exercise the fact-support review gate.')
+
+
+def evidence_review(facts):
+    """Invented support review; a reviewer assertion over invented facts, not evidence."""
+    return {'support_reviewed':True,'property_match':True,'period_match':True,
+            'note':REVIEWER_ASSERTION,'fact_keys':sorted(facts)}
+
 
 def build():
     case=new_case('Existing-site assessment — entirely invented systems and records')
@@ -35,13 +47,15 @@ def build():
             facts.update(waterway_name='Invented waterway',outfall_id='invented-outfall',upstream_smp_present=False)
         a['records'].append({'id':category+'-modeled','category':category,'decision':'confirmed','basis':'modeled',
             'geometry':region(start),'footprint_geometry':region(start,1.524),'facts':facts,
-            'evidence_refs':[{'source_url':'https://example.test/entirely-invented-evidence','page':1}]})
+            'evidence_refs':[{'source_url':'https://example.test/entirely-invented-evidence','page':1}],
+            'evidence_review':evidence_review(facts)})
     facts={key:True for key in ('account_current','site_match','operator_match','industrial_stormwater','active',
         'compliance_previous_12_months','permit_documented','discharge_monitoring_reports_previous_12_months')}
     facts.update(permit_id='SYNTHETIC-NOT-A-PERMIT',effective_from='2023-03-24',expires_on='2028-03-23',
                  compliance_from='2025-11-15',compliance_through='2026-11-15')
     a['records'].append({'id':'industrial-modeled','category':'industrial_npdes','decision':'confirmed',
-        'basis':'modeled','facts':facts,'evidence_refs':[{'source_url':'https://example.test/not-a-real-permit','page':2}]})
+        'basis':'modeled','facts':facts,'evidence_refs':[{'source_url':'https://example.test/not-a-real-permit','page':2}],
+        'evidence_review':evidence_review(facts)})
     a['credit_history']=[{'id':'unexplained-flag','credit_id':'unexplained-flag','category':'unknown','status':'expired',
         'notes':'Invented unexplained flag. No award, lapse date or refund is inferred.'},
         {'id':'old-illustrative-award','credit_id':'prior-roof','category':'green_roof','status':'awarded',
@@ -52,16 +66,27 @@ def build():
          'source_url':'https://example.test/invented-renewal'}]
     case['warnings']=['SYNTHETIC: all geometry, facts, permits, invoices and history are invented. No approval, installed real system, award or real savings is established.']
     case['assumptions']=['All new category prerequisites are conditional modeled inputs, not document-verified facts.',
+        'Each evidence_review is an invented reviewer assertion over invented facts, not a review of real documents.',
         'Illustrative historical credit quantities are not presumed current received benefits; baseline is separate.',
         'No terrain or independent measurement references supplied. No empirical IA/drainage validation.']
     return case
+
+
+def known_answer(case=None):
+    """Policy result pinned to AS_OF, so the README figures do not drift with the clock."""
+    from stormwater.cases import analyze
+    return analyze(case if case is not None else build(),as_of=AS_OF)
+
 
 if __name__=='__main__':
     case=build()
     if '--fixture' in sys.argv:
         (Path(__file__).parent/'case.json').write_text(json.dumps(case,indent=2)+'\n')
     else:
-        result=CaseStore().save(case)
+        CaseStore().save(case)
         print('Saved data/cases/'+case['id']+'; open this saved case in the local Philadelphia app.')
-        print(json.dumps({'categories':[{k:r[k] for k in ('category','status')} for r in result['assessment']['categories']],
+        print('The app recalculates with the current date. Figures below are pinned to as_of '+AS_OF+'.')
+        result=known_answer(case)
+        print(json.dumps({'as_of':result['assessment']['as_of'],
+                          'categories':[{k:r[k] for k in ('category','status')} for r in result['assessment']['categories']],
                           'modeled':result['assessment']['economics']['modeled'],'limitations':case['warnings']},indent=2))

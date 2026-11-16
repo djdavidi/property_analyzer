@@ -249,11 +249,11 @@ class SoilSourceTests(unittest.TestCase):
             root=Path(public);cache=Cache(root/'data/public',opener=Mock(return_value=io.BytesIO(raw)))
             updated=acquire(c,cache)
             self.assertEqual(updated['sources'],c['sources'])
-            with patch('stormwater.cases.ROOT',root):
-                source=CaseStore(first);result=source.save(updated);bundle=source.portable_bundle(c['id'])
-                digest=sha256(raw).hexdigest();blob=next(b for b in bundle['public_blobs'] if b['sha256']==digest)
-                self.assertEqual(base64.b64decode(blob['content_base64']),raw)
-                imported=CaseStore(second).import_bundle(bundle)
+            # Both stores share the temporary public cache, as data/public would locally.
+            source=CaseStore(first,data_root=root/'data');result=source.save(updated);bundle=source.portable_bundle(c['id'])
+            digest=sha256(raw).hexdigest();blob=next(b for b in bundle['public_blobs'] if b['sha256']==digest)
+            self.assertEqual(base64.b64decode(blob['content_base64']),raw)
+            imported=CaseStore(second,data_root=root/'data').import_bundle(bundle)
             self.assertEqual(imported['case']['assessment']['soil_snapshot'],json.loads(json.dumps(updated['assessment']['soil_snapshot'])))
             self.assertAlmostEqual(imported['analysis']['assessment']['open_space_curve_number']['average_cn'],58.6,places=5)
             self.assertEqual(result['assessment']['open_space_curve_number']['soil_snapshot_sha256'],updated['assessment']['soil_snapshot']['snapshot_sha256'])
