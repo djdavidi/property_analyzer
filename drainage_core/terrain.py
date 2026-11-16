@@ -9,9 +9,10 @@ from rasterio.windows import Window, from_bounds
 from shapely.geometry import shape, box
 
 from .raster import import_dem
+from .drainage import MAX_ROUTING_CELLS
 
 
-def crop_dem(source, parcel, destination, *, crs, buffer_native_units=150, max_cells=250000):
+def crop_dem(source, parcel, destination, *, crs, buffer_native_units=150, max_cells=None):
     """Crop outward on the source grid, preserving resolution and GDAL georeference.
 
     Rasterio already accounts for GeoTIFF PixelIsPoint. Applying another half-cell
@@ -37,7 +38,7 @@ def crop_dem(source, parcel, destination, *, crs, buffer_native_units=150, max_c
         left, top = math.floor(win.col_off), math.floor(win.row_off)
         right, bottom = math.ceil(win.col_off + win.width), math.ceil(win.row_off + win.height)
         window = Window(left, top, right - left, bottom - top)
-        if window.width * window.height > max_cells:
+        if window.width * window.height > (MAX_ROUTING_CELLS if max_cells is None else max_cells):
             raise ValueError("Native crop exceeds property cell limit; do not silently resample")
         profile = ds.profile.copy()
         profile.update(

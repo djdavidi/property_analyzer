@@ -1,7 +1,12 @@
-"""Human-readable policy evidence sections; all entered strings are escaped."""
+"""Human-readable policy evidence sections; all entered strings are escaped.
+
+The report summarizes; it carries no raw JSON. Complete inputs, ledgers, rasters
+and geometries stay in the analysis.json / case.json exports.
+"""
 
 from html import escape
-import json
+
+EXPORT_NOTE = "Full {} are kept in the analysis.json export."
 
 
 def route_note(row):
@@ -11,6 +16,47 @@ def route_note(row):
         return row["partial_label"]
     state = row.get("route_state")
     return "Route state: " + state if state and state != "complete_in_window" else ""
+
+
+def scenario_notes(row):
+    """Readable labels from optional scenario fields (permit listing/class/site match,
+    research route scope, recorded-IA canopy cap, receiver storage check)."""
+    row = row or {}
+    notes = []
+    if row.get("listing_label"):
+        notes.append(str(row["listing_label"]))
+    if row.get("permit_class"):
+        notes.append("permit class: " + str(row["permit_class"]).replace("_", " "))
+    if row.get("site_match"):
+        notes.append("site match: " + str(row["site_match"]).replace("_", " "))
+    if row.get("route_scope"):
+        notes.append(str(row["route_scope"]))
+    cap = row.get("recorded_ia_cap")
+    if cap:
+        notes.append(
+            "capped by recorded IA"
+            + (": " + _text(cap) if isinstance(cap, (dict, list)) else " at " + str(cap))
+        )
+    check = row.get("storage_check")
+    if isinstance(check, dict):
+        label = check.get("flag") or check.get("label")
+        storage = check.get("storage_range_cuft")
+        notes.append(
+            "storage check "
+            + str(check.get("status", "unknown")).replace("_", " ")
+            + (
+                f" (terrain-visible {min(storage):,.0f}–{max(storage):,.0f} cu ft"
+                + (
+                    f" vs {check['required_treatment_volume_cuft']:,.0f} cu ft required)"
+                    if isinstance(check.get("required_treatment_volume_cuft"), (int, float))
+                    else ")"
+                )
+                if storage
+                else ""
+            )
+            + (": " + str(label) if label else "")
+        )
+    return notes
 
 
 def research_section(data):
@@ -23,7 +69,7 @@ def research_section(data):
         "<table><tr><th>Scenario</th><th>Status</th><th>Monthly reduction</th><th>Annual reduction</th><th>Labels / blockers</th></tr>"
     ]
     for s in data["scenarios"]:
-        notes = [route_note(s)] + list(s.get("reasons") or [])
+        notes = [route_note(s)] + scenario_notes(s) + list(s.get("reasons") or [])
         notes += [
             "Receiver " + str(r["receiver_id"]) + " not re-priced: " + "; ".join(r["reasons"])
             for r in s.get("excluded_receivers") or []
@@ -110,9 +156,9 @@ def modeled_record_section(info):
             )
         parts.append("</table>")
     parts.append(
-        "<details><summary>Class areas, sources, uncertainty, blockers and assumed prerequisites</summary><pre>"
-        + e(json.dumps(info, indent=2))
-        + "</pre></details>"
+        "<p>"
+        + EXPORT_NOTE.format("class areas, sources, uncertainty and assumed prerequisites")
+        + "</p>"
     )
     return "".join(parts)
 
@@ -179,9 +225,9 @@ def modeled_combined_section(data):
             "<tr><td>"
             + e(v["name"])
             + "</td><td>"
-            + n(v["ga_sqft"])
+            + n(v.get("ga_sqft"))
             + "</td><td>"
-            + n(v["ia_sqft"])
+            + n(v.get("ia_sqft"))
             + "</td><td>"
             + n(v.get("monthly_savings"))
             + "</td><td>"
@@ -189,6 +235,35 @@ def modeled_combined_section(data):
             + "</td></tr>"
         )
     out.append("</table>")
+    measured = data.get("surface_scenario", {}).get("ia_measurement_range")
+    if isinstance(measured, dict):
+        low, high = measured.get("low_end") or {}, measured.get("high_end") or {}
+        out.append(
+            "<p>"
+            + e(measured.get("presentation") or "Measured-cover range")
+            + ": impervious "
+            + n(low.get("ia_sqft"))
+            + "–"
+            + n(high.get("ia_sqft"))
+            + " ft² against a recorded "
+            + n(measured.get("recorded_ia_sqft"))
+            + " ft² (recorded IA "
+            + ("within" if measured.get("recorded_ia_within_range") else "outside")
+            + " the range). "
+            + e(measured.get("claim") or "")
+            + "</p>"
+        )
+    paved = data.get("paved_reference_basis")
+    if isinstance(paved, dict):
+        out.append(
+            "<p>Reference-paved hypothesis ("
+            + e(paved.get("label") or paved.get("bound"))
+            + "): "
+            + e(str(paved.get("status", "unknown")).replace("_", " "))
+            + ". "
+            + e(paved.get("claim") or "")
+            + "</p>"
+        )
     for label, key in [
         ("Mapped GSI management alternatives", "catchment_scenarios"),
         ("Industrial permit what-if", "permit_scenarios"),
@@ -203,7 +278,7 @@ def modeled_combined_section(data):
             name = " / ".join(
                 str(v.get(k)) for k in ("name", "receiver_id", "permit_id", "bound") if v.get(k)
             )
-            notes = [route_note(v)] + list(v.get("reasons") or [])
+            notes = [route_note(v)] + scenario_notes(v) + list(v.get("reasons") or [])
             out.append(
                 "<tr><td>"
                 + e(name)
@@ -220,11 +295,7 @@ def modeled_combined_section(data):
                 + "</td></tr>"
             )
         out.append("</table>")
-    out.append(
-        "<details><summary>Canopy, surface corrections, model ledgers and image context</summary><pre>"
-        + e(json.dumps({k: v for k, v in data.items() if k != "records"}, indent=2))
-        + "</pre></details>"
-    )
+    out.append("<p>" + EXPORT_NOTE.format("model ledgers and image context") + "</p>")
     return "".join(out)
 
 
@@ -353,11 +424,85 @@ def curve_number_section(w):
             + e(fs.get("claim"))
             + "</p>"
         )
-    out.append(
-        "<details><summary>Worksheet inputs, soil components, requests, dates and hashes</summary><pre>"
-        + e(json.dumps(w, indent=2))
-        + "</pre></details>"
+    out.append("<p>" + EXPORT_NOTE.format("soil components, requests, dates and hashes") + "</p>")
+    return "".join(out)
+
+
+def _text(value):
+    """A short readable rendering of a small value (lists joined, dicts as k: v)."""
+    if value is None:
+        return "Unknown"
+    if isinstance(value, dict):
+        return "; ".join(f"{k.replace('_', ' ')}: {_text(v)}" for k, v in value.items())
+    if isinstance(value, (list, tuple)):
+        return "; ".join(_text(v) for v in value) or "None"
+    return str(value)
+
+
+def evidence_list(refs, attachments=()):
+    """Document/page and source references as plain list items."""
+    e = lambda value: escape(str(value))
+    names = {a.get("id"): a for a in attachments or []}
+    items = []
+    for ref in refs or []:
+        if not isinstance(ref, dict):
+            items.append("<li>" + e(ref) + "</li>")
+            continue
+        parts = []
+        attachment = names.get(ref.get("attachment_id"))
+        if attachment:
+            parts.append(
+                "document "
+                + e(attachment.get("filename"))
+                + " (SHA-256 "
+                + e(attachment.get("sha256"))
+                + ")"
+            )
+        elif ref.get("attachment_id"):
+            parts.append("attachment " + e(ref["attachment_id"]))
+        if ref.get("page") is not None:
+            parts.append("page " + e(ref["page"]))
+        if ref.get("source_url"):
+            parts.append(e(ref["source_url"]))
+        if ref.get("support_reviewed") is not None:
+            parts.append("support reviewed: " + e(ref["support_reviewed"]))
+        rest = {
+            k: v
+            for k, v in ref.items()
+            if k not in ("attachment_id", "page", "source_url", "support_reviewed")
+        }
+        if rest:
+            parts.append(e(_text(rest)))
+        items.append("<li>" + ", ".join(parts) + "</li>")
+    return (
+        "<ul>" + "".join(items) + "</ul>"
+        if items
+        else "<p>No document or source reference recorded.</p>"
     )
+
+
+def _status_rows(rows):
+    e = lambda value: escape(str(value if value is not None else ""))
+    out = ["<table><tr><th>Source</th><th>Status</th><th>Notes</th></tr>"]
+    for s in rows or []:
+        notes = [s.get("error"), *(s.get("errors") or []), s.get("claim"), s.get("reason")]
+        retry = s.get("retry")
+        if retry:
+            notes.append(
+                "retried after earlier status "
+                + str(retry.get("previous_status"))
+                + (": " + str(retry["previous_error"]) if retry.get("previous_error") else "")
+            )
+        out.append(
+            "<tr><td>"
+            + e(s.get("provider") or s.get("source") or "Source")
+            + "</td><td>"
+            + e(str(s.get("status", "unknown")).replace("_", " "))
+            + "</td><td>"
+            + e("; ".join(str(n) for n in notes if n))
+            + "</td></tr>"
+        )
+    out.append("</table>")
     return "".join(out)
 
 
@@ -367,7 +512,8 @@ def sections(case, result):
         return ""
     e = lambda value: escape(str(value if value is not None else "Unknown"))
     number = lambda value: "Unknown" if value is None else f"{value:,.2f}"
-    data = lambda value: "<pre>" + e(json.dumps(value, indent=2, ensure_ascii=False)) + "</pre>"
+    evidence = case.get("assessment", {})
+    attachments = evidence.get("attachments", [])
     output = [
         "<h2>Existing-site assessment</h2>",
         "<p>Assessment as of "
@@ -403,37 +549,34 @@ def sections(case, result):
         output.append(
             "</table><p>Image-derived canopy and surface areas are modeled, with independent local accuracy unverified. Without the local semantic model, only RGB cover candidates are available. Ranges represent pixel-edge sensitivity, not statistical confidence or current-site accuracy. Trees obscure ground surfaces. Satellite/aerial imagery must be within three years of the saved assessment date; other datasets retain their own validity rules; older snapshots remain historical.</p>"
         )
+        cover = auto.get("landcover") or {}
+        method = (cover.get("settings") or {}).get("algorithm") or (
+            auto.get("image_method") or {}
+        ).get("algorithm")
         output.append(
-            data(
-                {
-                    "imagery_age_policy": auto.get("imagery_age_policy"),
-                    "source_status": auto.get("source_status"),
-                    "system_footprints": auto.get("system_footprints"),
-                    "rgb_green_cover_candidate_sqft": auto.get("image_vegetation_candidate_sqft"),
-                    "rgb_green_overlap_historical_canopy_sqft": auto.get(
-                        "image_green_overlap_historical_canopy_sqft"
-                    ),
-                    "rgb_roof_vegetation_candidate_sqft": auto.get(
-                        "roof_vegetation_candidate_sqft"
-                    ),
-                    "landcover_method": auto.get("landcover", {}).get("settings"),
-                    "prediction_sha256": auto.get("landcover", {}).get("prediction_sha256"),
-                    "model_unavailable": auto.get("landcover", {}).get("model_unavailable"),
-                    "image_method": auto.get("image_method"),
-                    "warnings": auto.get("warnings"),
-                }
+            "<p>Image vegetation candidates: "
+            + number(auto.get("image_vegetation_candidate_sqft"))
+            + " sq ft; vegetation-on-roof candidates: "
+            + number(auto.get("roof_vegetation_candidate_sqft"))
+            + " sq ft. Method: "
+            + e(method or "Unknown")
+            + (
+                ". Model unavailable: " + e(cover["model_unavailable"])
+                if cover.get("model_unavailable")
+                else ""
             )
+            + ". Mapped public systems measured: "
+            + e(len(auto.get("system_footprints") or []))
+            + ".</p>"
+        )
+        output.append(
+            "<h4>Acquisition status for this run</h4>" + _status_rows(auto.get("source_status"))
         )
     output.append(curve_number_section(assessment.get("open_space_curve_number")))
     for category in assessment["categories"]:
         output.append("<h3>" + e(category["label"]) + " — " + e(category["status"]) + "</h3>")
         if category.get("modeled_context"):
-            output.append(
-                "<p>"
-                + e(category["modeled_context"]["claim"])
-                + "</p>"
-                + data(category["modeled_context"])
-            )
+            output.append("<p>" + e(category["modeled_context"].get("claim")) + "</p>")
         if category.get("missing"):
             output.append("<p>Missing: " + e("; ".join(category["missing"])) + "</p>")
         for record in category.get("records", []):
@@ -460,7 +603,7 @@ def sections(case, result):
             )
             output.append(
                 "<p>Document/page and source references:</p>"
-                + data(record.get("evidence_refs", []))
+                + evidence_list(record.get("evidence_refs", []), attachments)
             )
             output.append(modeled_record_section(record.get("modeled_context")))
     economics = assessment.get("economics", {})
@@ -496,10 +639,11 @@ def sections(case, result):
             + "</td></tr>"
         )
     output.append(
-        "</table><details><summary>Reconciled benefit ledgers, rounded areas and account bills</summary>"
-        + data(economics)
-        + "</details>"
+        "</table><p>"
+        + EXPORT_NOTE.format("benefit ledgers, rounded areas and per-account bills")
+        + "</p>"
     )
+    output.append(existing_systems_section(assessment.get("existing_system_management")))
     output.append(modeled_combined_section(assessment.get("modeled_integration")))
     output.append(
         "<h3>Credit history and renewal reminders</h3><p>Reminder lead time is "
@@ -524,33 +668,191 @@ def sections(case, result):
             + e("; ".join(row["missing"] + row["warnings"]))
             + "</td></tr>"
         )
-    output.append("</table>" + data(assessment.get("credit_history", [])))
+    output.append("</table>")
+    history = assessment.get("credit_history", [])
+    if history:
+        output.append(
+            "<table><tr><th>Event</th><th>Credit</th><th>Status</th><th>Effective</th><th>Expires</th><th>References</th></tr>"
+        )
+        for event in history:
+            output.append(
+                "<tr><td>"
+                + e(event.get("id"))
+                + "</td><td>"
+                + e(event.get("credit_id"))
+                + "</td><td>"
+                + e(event.get("status"))
+                + "</td><td>"
+                + e(event.get("effective_from") or event.get("effective_date"))
+                + "</td><td>"
+                + e(event.get("expires_on") or event.get("expiry_date"))
+                + "</td><td>"
+                + evidence_list(event.get("evidence_refs", []), attachments)
+                + "</td></tr>"
+            )
+        output.append("</table>")
+    observations = assessment.get("public_credit_observations", [])
     output.append(
         "<h4>Public credit-status observations</h4><p>Counts and flags are source observations. They do not establish an award, lapse, renewal deadline, denial or refund.</p>"
-        + data(assessment.get("public_credit_observations", []))
     )
+    for o in observations:
+        output.append(
+            "<p>"
+            + e(o.get("provider") or "Public record")
+            + ": credits flag "
+            + e(o.get("credits_flag"))
+            + ", expired flag "
+            + e(o.get("expired_flag"))
+            + ", appeals flag "
+            + e(o.get("appeals_flag"))
+            + "; retrieved "
+            + e(o.get("retrieved_at"))
+            + ". Missing: "
+            + e("; ".join(o.get("missing_evidence") or []) or "None listed")
+            + ".</p>"
+        )
+    if not observations:
+        output.append("<p>No public credit-status observation recorded.</p>")
     output.append(
         "<h3>Possible historical billing issues for review</h3><p>No refund entitlement or historical recovery is established. These flags are excluded from ongoing reductions.</p>"
     )
     flags = assessment.get("historical_flags", [])
     output.append(
-        data(flags)
+        "<ul>"
+        + "".join(
+            "<li>"
+            + e(f.get("description") or f.get("reason") or f.get("kind") or _text(f))
+            + "</li>"
+            for f in flags
+        )
+        + "</ul>"
         if flags
         else "<p>No discrepancy is established by the available records. Missing invoices, historical tariffs and award records prevent a complete historical review.</p>"
     )
     output.append(
-        "<h3>Public-record coverage and failures</h3>" + data(assessment.get("source_status", []))
+        "<h3>Public-record coverage and failures</h3>"
+        + _status_rows(assessment.get("source_status", []))
     )
-    evidence = case.get("assessment", {})
+    records = evidence.get("records", [])
     output.append(
-        "<h3>Manual facts and document inventory</h3>"
-        + data(
-            {"records": evidence.get("records", []), "attachments": evidence.get("attachments", [])}
+        "<h3>Manual facts and document inventory</h3><p>"
+        + e(len(records))
+        + " evidence record(s) and "
+        + e(len(attachments))
+        + " attached document(s).</p>"
+    )
+    if records:
+        output.append(
+            "<table><tr><th>Record</th><th>Category</th><th>Decision</th><th>Basis</th><th>Facts</th></tr>"
+            + "".join(
+                "<tr><td>"
+                + e(r.get("id"))
+                + "</td><td>"
+                + e(r.get("category"))
+                + "</td><td>"
+                + e(r.get("decision"))
+                + "</td><td>"
+                + e(r.get("basis"))
+                + "</td><td>"
+                + e(_text({k: v for k, v in (r.get("facts") or {}).items() if v is not None}))
+                + "</td></tr>"
+                for r in records
+            )
+            + "</table>"
+        )
+    if attachments:
+        output.append(
+            "<ul>"
+            + "".join(
+                "<li>"
+                + e(a.get("filename"))
+                + " — SHA-256 "
+                + e(a.get("sha256"))
+                + ", "
+                + e(a.get("size_bytes", a.get("bytes", "unknown")))
+                + " bytes</li>"
+                for a in attachments
+            )
+            + "</ul>"
+        )
+    snapshots = evidence.get("snapshots", [])
+    output.append(
+        "<h3>Review lineage and assessment snapshots</h3><p>"
+        + e(len(evidence.get("reviews", [])))
+        + " recorded review(s); "
+        + e(len(snapshots))
+        + " assessment snapshot(s)"
+        + (": " + e(", ".join(str(s.get("at", "")) for s in snapshots[-5:])) if snapshots else "")
+        + ". Earlier observations, review decisions and document hashes are retained in the case and evidence bundle.</p>"
+    )
+    rules = assessment.get("rules", {}) or {}
+    sources = rules.get("source_snapshots") or []
+    output.append(
+        "<h3>Verified rule sources and versions</h3><p>Rule version "
+        + e(rules.get("version") or assessment.get("rule_version"))
+        + "; "
+        + e(len(sources))
+        + " frozen rule source(s).</p>"
+        + (
+            "<ul>"
+            + "".join(
+                "<li>"
+                + e(s.get("title") or s.get("url"))
+                + " — retrieved "
+                + e(s.get("retrieved_at"))
+                + ", SHA-256 "
+                + e(s.get("sha256"))
+                + "</li>"
+                for s in sources
+            )
+            + "</ul>"
+            if sources
+            else ""
         )
     )
-    output.append(
-        "<h3>Review lineage and assessment snapshots</h3>"
-        + data({"reviews": evidence.get("reviews", []), "snapshots": evidence.get("snapshots", [])})
-    )
-    output.append("<h3>Verified rule sources and versions</h3>" + data(assessment.get("rules", {})))
     return "".join(output)
+
+
+def existing_systems_section(data):
+    """Mapped systems on the parcel as management leads, with the records to request."""
+    if not isinstance(data, dict) or not data.get("systems"):
+        return ""
+    e = lambda value: escape(str(value if value is not None else "Unknown"))
+    n = lambda value: "Unknown" if value is None else f"{value:,.0f}"
+    out = [
+        "<h3>Mapped stormwater systems on the parcel</h3><p>"
+        + e(data.get("claim") or "Mapped footprints are leads, not managed areas or awards.")
+        + " Recorded credit status: "
+        + e(str(data.get("recorded_credit_status", "unknown")).replace("_", " "))
+        + ".</p><table><tr><th>System</th><th>Project</th><th>On-parcel footprint (ft²)</th><th>Lead</th><th>Request</th></tr>"
+    ]
+    for s in data["systems"]:
+        figure = s.get("figure") or {}
+        lead = s.get("lead_label") or s.get("lead_status")
+        if figure.get("status") == "calculated":
+            lead = f"{lead}; conditional ${figure.get('gross_annual_reduction') or 0:,.2f}/year"
+        out.append(
+            "<tr><td>"
+            + e(" ".join(str(x) for x in (s.get("system_type"), s.get("system_id")) if x))
+            + "</td><td>"
+            + e(
+                " · ".join(
+                    str(x)
+                    for x in (
+                        s.get("project_number"),
+                        s.get("project_type"),
+                        s.get("year_installed"),
+                    )
+                    if x
+                )
+            )
+            + "</td><td>"
+            + n(s.get("on_parcel_footprint_sqft"))
+            + "</td><td>"
+            + e(lead)
+            + "</td><td>"
+            + e(s.get("request") or "")
+            + "</td></tr>"
+        )
+    out.append("</table>")
+    return "".join(out)

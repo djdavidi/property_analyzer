@@ -98,14 +98,19 @@ def routing(case, measurement):
                 "No suitable elevation grid supplied; no drainage reconstruction performed"
             ],
         }, {}
-    grid = deepcopy(case["terrain"])
+    from .drainage import MAX_ROUTING_CELLS
+
+    # Elevation rows are shared, never mutated; every other grid member is copied.
+    grid = {k: (v if k == "elevations" else deepcopy(v)) for k, v in case["terrain"].items()}
     if grid.get("crs") != case["crs"]:
         raise ValueError("Terrain and case CRS differ; align explicitly before routing")
     heights = grid["elevations"]
     rows = len(heights)
     cols = len(heights[0])
-    if rows * cols > 250000:
-        raise ValueError("Terrain exceeds 250,000-cell property limit; crop before import")
+    if rows * cols > MAX_ROUTING_CELLS:
+        raise ValueError(
+            f"Terrain exceeds {MAX_ROUTING_CELLS:,}-cell property limit; crop before import"
+        )
     size = grid["cell_size"]
     x, y = grid["origin"]
     buffer_size = grid.get("settings", {}).get("required_buffer_native_units", 0)
@@ -304,18 +309,38 @@ def routing(case, measurement):
     output["status"] = (
         "modeled" if output["coverage_complete"] and output["extent_sufficient"] else "partial"
     )
-    grouped = {}
-    for r, row in enumerate(output["labels"]):
-        for c, label in enumerate(row):
-            if label is not None and label not in ("barrier", "nodata"):
-                # Unknown roof pixels are not individual collection outlets.
-                # Keep detailed labels in the grid, aggregate their display union.
-                display_label = "unresolved:roof" if label.startswith("unresolved:roof:") else label
-                grouped.setdefault(display_label, []).append(
-                    box(x + c * size, y - (r + 1) * size, x + (c + 1) * size, y - r * size)
+    # Unknown roof pixels are not individual collection outlets. Keep detailed labels
+    # in the grid and aggregate their display union. Cell boxes are built in one
+    # vectorized call and united per label in row-major order, as before.
+    display_code = {}
+    flat_codes = np.fromiter(
+        (
+            (
+                -1
+                if label is None or label in ("barrier", "nodata")
+                else display_code.setdefault(
+                    "unresolved:roof" if label.startswith("unresolved:roof:") else label,
+                    len(display_code),
                 )
+            )
+            for row in output["labels"]
+            for label in row
+        ),
+        np.int64,
+        rows * cols,
+    )
+    order = np.argsort(flat_codes, kind="stable")
+    sorted_codes = flat_codes[order]
+    cut = np.searchsorted(sorted_codes, np.arange(len(display_code) + 1))
+    cell_r, cell_c = np.divmod(order, cols)
+    boxes = shapely.box(
+        x + cell_c * size, y - (cell_r + 1) * size, x + (cell_c + 1) * size, y - cell_r * size
+    )
     physical = shape(measurement["geometries"]["physical_ia"])
-    geoms = {key: mapping(union(v)) for key, v in grouped.items()}
+    geoms = {
+        key: mapping(union(list(boxes[cut[i] : cut[i + 1]]))) for key, i in display_code.items()
+    }
+    del boxes, order, sorted_codes, cell_r, cell_c
 
     # Roofs route only through their own cells and explicit connections. Exact roof
     # polygons are removed from every other catchment's IA, so roof slivers inside
@@ -376,11 +401,15 @@ def routing(case, measurement):
     return output, geoms
 
 
+# Observational elapsed times; never part of a result's content digest.
+TIMING_KEYS = ("processing_seconds", "stage_seconds")
+
+
 def result_hash(result):
     """Deterministic content digest; elapsed processing time is observational."""
     return sha256(
         canonical(
-            {k: v for k, v in result.items() if k not in ("analysis_sha256", "processing_seconds")}
+            {k: v for k, v in result.items() if k != "analysis_sha256" and k not in TIMING_KEYS}
         ).encode()
     ).hexdigest()
 
@@ -395,24 +424,35 @@ def analyze(case, *, source_dependencies=None):
     from .sources import quality_checks
 
     start = time.perf_counter()
+    stages = {}
+
+    def lap(name, began):
+        stages[name] = round(time.perf_counter() - began, 3)
+        return time.perf_counter()
+
     validate_input(case)
     view = (
         case
         if source_dependencies is None
         else {**case, "dependent_source_families": list(source_dependencies)}
     )
+    began = time.perf_counter()
     measurement = measure(view)
     quality = quality_checks(
         [s for s in case.get("sources", []) if s.get("crs") or s.get("resolution")],
         construction_completed=case.get("construction_completed"),
     )
+    began = lap("measurement", began)
     drainage, geometries = routing(case, measurement)
+    began = lap("routing", began)
     from .research import analyze_research
 
     research = analyze_research(case, measurement, drainage)
+    began = lap("research_routing", began)
     from .model_integration import build as integrate_models
 
     modeled = integrate_models(case, measurement, drainage, research)
+    began = lap("modeled_routing", began)
     warnings = (
         list(case.get("warnings", [])) + measurement["warnings"] + drainage.get("warnings", [])
     )
@@ -421,6 +461,7 @@ def analyze(case, *, source_dependencies=None):
             "Source metadata quality has unresolved dates, units, coverage or temporal checks; see source_quality_issues"
         )
     validation = validate_case(case, measurement, geometries, research=research, modeled=modeled)
+    lap("validation", began)
     for kind, v in validation.items():
         if v["status"] == "incomplete":
             warnings.append(
@@ -443,6 +484,8 @@ def analyze(case, *, source_dependencies=None):
             "dependent_source_families": list(view.get("dependent_source_families", []))
         },
         "processing_seconds": round(time.perf_counter() - start, 6),
+        # Elapsed seconds per physical stage (observational; excluded from analysis_sha256).
+        "stage_seconds": stages,
         "manual_review_minutes": case.get("manual_review_minutes"),
         "claim": "Physical GIS screening; source suitability, site conditions and independent validation remain explicit",
     }

@@ -123,7 +123,7 @@ class AssessmentHTTPTests(unittest.TestCase):
             for ref in (
                 "&lt;script&gt;unsafe()&lt;/script&gt;",
                 document["sha256"],
-                "&quot;page&quot;: 1",
+                "page 1",  # evidence references are listed, not dumped as JSON
                 "Offline fixture",
             ):
                 self.assertIn(ref, report)

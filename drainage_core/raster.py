@@ -49,17 +49,18 @@ def _open(path, max_cells):
     return dataset
 
 
-def import_dem(path, *, vertical_unit, acquisition_date=None, max_cells=250000):
+def import_dem(path, *, vertical_unit, acquisition_date=None, max_cells=None):
     """Return route_grid input and complete source metadata; retain NoData as None.
 
     Elevation units are mandatory and independent of horizontal CRS units. The
     file's top-left corner is returned as origin; row numbers increase southward.
     """
     import numpy as np
+    from .drainage import MAX_ROUTING_CELLS
 
     if vertical_unit not in ("m", "ft", "us-ft"):
         raise ValueError("Explicit vertical_unit m, ft or us-ft is required")
-    with _open(path, max_cells) as ds:
+    with _open(path, MAX_ROUTING_CELLS if max_cells is None else max_cells) as ds:
         if ds.count != 1:
             raise ValueError("DEM must contain exactly one elevation band")
         if not math.isclose(abs(ds.transform.a), abs(ds.transform.e), rel_tol=1e-9):

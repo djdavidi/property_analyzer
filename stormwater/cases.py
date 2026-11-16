@@ -56,6 +56,8 @@ def _analyze_pair(case, frozen=None, as_of=None):
 
         validate_input(case)
         original, gis = frozen
+        stages = {"physical": "reused frozen GIS; not rerouted"}
+        began = time.perf_counter()
         policy = apply(original, gis, policy_inputs=policy_overlay(case), as_of=as_of)
     else:
         gis = analyze_gis(
@@ -64,13 +66,18 @@ def _analyze_pair(case, frozen=None, as_of=None):
                 "dependent_source_families", ("PWD", "City impervious", "City buildings")
             ),
         )
+        stages = dict(gis.get("stage_seconds") or {})
+        began = time.perf_counter()
         policy = apply(case, gis, tariff=case.get("tariff"), as_of=as_of)
+    stages["policy"] = round(time.perf_counter() - began, 3)
     result = {
         **gis,
         **policy,
         "result_type": "jurisdiction-analysis",
         "warnings": list(dict.fromkeys(gis["warnings"] + policy["warnings"])),
         "processing_seconds": round(time.perf_counter() - start, 6),
+        # Observational elapsed seconds per stage (physical stages and policy).
+        "stage_seconds": stages,
         "claim": "Research screening; independent empirical validation and professional review required",
     }
     result.pop("analysis_sha256", None)
@@ -141,16 +148,53 @@ class CaseStore:
         path = self.directory(id) / "case.json"
         return input_hash(json.loads(path.read_text())) if path.exists() else None
 
-    def saved(self, id):
-        from drainage_core.saved import saved_view
+    def _saved_cases(self, id):
+        """Lazy saved copies of a case: case.json, then its frozen revisions."""
+        folder = self.directory(id)
+        current = folder / "case.json"
+        if current.exists():
+            yield lambda: json.loads(current.read_text())
+        revisions = folder / "revisions"
+        if revisions.is_dir():
+            for path in sorted(revisions.glob("*.json")):
+                yield lambda path=path: json.loads(path.read_text())
+
+    def compact_case(self, case):
+        """Browser copy without the elevation grid when a saved copy can restore it."""
+        from drainage_core.saved import compact_case
+
+        if not isinstance(case, dict) or not re.fullmatch(
+            r"[A-Za-z0-9_-]{1,80}", str(case.get("id", ""))
+        ):
+            return case
+        return compact_case(case, self._saved_cases(case["id"]))
+
+    def restore_case(self, case):
+        """Put back an elevation grid omitted by ``compact_case`` (hash-checked)."""
+        from drainage_core.saved import restore_case
+
+        terrain = case.get("terrain") if isinstance(case, dict) else None
+        if not isinstance(terrain, dict) or "elevations_omitted" not in terrain:
+            return case
+        return restore_case(case, self._saved_cases(case["id"]))
+
+    def saved(self, id, *, full=False):
+        """Saved display view; ``full`` keeps the case's elevation grid."""
+        from drainage_core.saved import saved_view, compact_case
         from .rules import RULE_VERSION
 
         with _case_lock(self.directory(id)):
             view = saved_view(self.directory(id), self.load(id))
+        case = view["case"]
+        if not full:
+            view["case"] = compact_case(case, [case])
         from .quality import safe_analysis
+        from .owner_summary import owner_summary
 
         if view["analysis"]:
             view["analysis"] = safe_analysis(view["analysis"])
+            # Plain-language summary from the safe view (withheld figures stay withheld).
+            view["analysis"]["owner_summary"] = owner_summary(case, view["analysis"])
             q = view["analysis"]["quality_review"]
             if q["status"] == "outdated":
                 view["saved_status"].update(
@@ -311,9 +355,28 @@ class CaseStore:
             updated["assessment"]["attachments"].append(attachment)
         return updated, attachment
 
-    def run_assessment(self, case, cache=None, *, refresh_records=False, expected_revision=None):
+    def run_assessment(
+        self,
+        case,
+        cache=None,
+        *,
+        refresh_records=False,
+        expected_revision=None,
+        refresh_physical=False,
+    ):
+        """Acquire, gather public records, analyse, save and snapshot one property.
+
+        A re-run retries physical sources that failed earlier and keeps successful
+        saved imagery/terrain; ``refresh_physical`` explicitly replaces them. The
+        response carries ``timings_seconds`` (acquisition stages, records, analysis
+        stages including policy, save and snapshot) for efficiency review.
+        """
         if not isinstance(refresh_records, bool):
             raise ValueError("Record refresh must be true or false")
+        if not isinstance(refresh_physical, bool):
+            raise ValueError("Physical source refresh must be true or false")
+        started = time.perf_counter()
+        timings = {}
         # A long public-record run must not overwrite a save made while it ran.
         start_revision = (
             expected_revision
@@ -335,11 +398,23 @@ class CaseStore:
         reuse_events = getattr(selected_cache, "reuse_events", [])
         reuse_start = len(reuse_events) if isinstance(reuse_events, list) else 0
         updated = case
+        stage = time.perf_counter()
         if re.match(r"^pwd-\d+", case.get("id", "")) or case.get("automatic"):
             from .automatic import acquire, enrich_candidates
 
-            updated = acquire(case, selected_cache, refresh=True, case_root=self.root)
+            updated = acquire(
+                case,
+                selected_cache,
+                refresh=True,
+                case_root=self.root,
+                refresh_physical=refresh_physical,
+            )
+            timings["acquisition"] = deepcopy(
+                updated.get("automatic", {}).get("timings_seconds", {})
+            )
+        stage = time.perf_counter()
         updated = gather(updated, selected_cache, refresh=True)
+        timings["public_records"] = round(time.perf_counter() - stage, 3)
         reuse_events = getattr(selected_cache, "reuse_events", [])
         updated.setdefault("assessment", {})["record_reuse"] = deepcopy(
             reuse_events[reuse_start:] if isinstance(reuse_events, list) else []
@@ -347,7 +422,9 @@ class CaseStore:
         if updated.get("automatic"):
             from .automatic import enrich_candidates
 
+            stage = time.perf_counter()
             updated = enrich_candidates(updated)
+            timings["candidate_enrichment"] = round(time.perf_counter() - stage, 3)
         now = datetime.now(timezone.utc).isoformat()
         run_id = uuid.uuid4().hex
         updated["assessment"].setdefault("snapshots", []).append(
@@ -358,14 +435,29 @@ class CaseStore:
                 "artifact": "assessments/" + run_id + ".json",
             }
         )
+        stage = time.perf_counter()
         result = self.save(updated, expected_revision=start_revision)
+        timings["analysis_and_exports"] = round(time.perf_counter() - stage, 3)
+        timings["analysis_stages"] = deepcopy(result.get("stage_seconds", {}))
+        stage = time.perf_counter()
         folder = self.directory(updated["id"]) / "assessments"
         folder.mkdir(exist_ok=True)
         snapshot = {"id": run_id, "at": now, "case": updated, "analysis": result}
         body = canonical(snapshot)
         snapshot["snapshot_sha256"] = sha256(body.encode()).hexdigest()
         (folder / (run_id + ".json")).write_text(canonical(snapshot) + "\n")
-        return {"case": updated, "analysis": result, "snapshot_sha256": snapshot["snapshot_sha256"]}
+        timings["snapshot"] = round(time.perf_counter() - stage, 3)
+        timings["total"] = round(time.perf_counter() - started, 3)
+        timings["claim"] = (
+            "Elapsed wall-clock seconds on this computer for this run (observational; "
+            "network, cache and model availability dependent)."
+        )
+        return {
+            "case": updated,
+            "analysis": result,
+            "snapshot_sha256": snapshot["snapshot_sha256"],
+            "timings_seconds": timings,
+        }
 
     @staticmethod
     def _bundle_cases(bundle):

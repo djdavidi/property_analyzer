@@ -7,7 +7,7 @@ import os
 import tempfile
 from .engine import canonical, input_hash, ENGINE_VERSION
 
-VIEW_VERSION = 3
+VIEW_VERSION = 4  # 4: compact display (outlines, no per-cell grids or unused geometry)
 
 
 def atomic_write(path, content):
@@ -33,36 +33,185 @@ def atomic_json(path, value):
     atomic_write(path, canonical(value))
 
 
+# Display catchment outlines are rounded to this many decimals of native units
+# (1 mm or 0.001 ft); exact geometries stay in analysis.json and the exports.
+DISPLAY_DECIMALS = 3
+# Per-cell grids and geometry-only members the browser never draws or reads.
+_DRAINAGE_GRIDS = ("labels", "next_cells", "counts", "outlets")
+_RUN_GEOMETRY = ("unknown_ground_union_geometry", "known_ia_union_geometry", "micro_basins")
+_AI_GEOMETRY = (
+    "coverage_geometry",
+    "geometries",
+    "roof_supplement_geometry",
+    "ai_ia_on_unknown_geometry",
+    "ai_pervious_on_unknown_geometry",
+)
+OMITTED_FOR_DISPLAY = {
+    "drainage": "per-cell labels, next cells, counts and outlet rows",
+    "research_drainage": "rasters; micro-basins and union geometries; sensitivity-run outlines",
+    "modeled_integration": "AI-roof research rerun, AI class geometries, outlines after the first run",
+    "automatic.landcover": "cover polygons and coverage outlines (drawn from the case features)",
+    "precision": f"catchment outlines rounded to {DISPLAY_DECIMALS} decimals of native units",
+    "full_result": "analysis.json export (and gis-analysis.json) keep every array and exact geometry",
+}
+
+
+def _rounded(geometry, places=DISPLAY_DECIMALS):
+    """GeoJSON geometry with coordinates rounded for display only."""
+
+    def walk(value):
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            return round(value, places)
+        if isinstance(value, (list, tuple)):
+            return [walk(v) for v in value]
+        return value
+
+    if not isinstance(geometry, dict):
+        return geometry
+    if geometry.get("type") == "GeometryCollection":
+        return {**geometry, "geometries": [_rounded(g, places) for g in geometry["geometries"]]}
+    return {**geometry, "coordinates": walk(geometry.get("coordinates", []))}
+
+
+def _outlines(items, keep_geometry=True):
+    out = []
+    for item in items or []:
+        if not isinstance(item, dict):
+            out.append(item)
+            continue
+        row = {k: v for k, v in item.items() if k not in ("geometry", "known_ia_geometry")}
+        if keep_geometry and "geometry" in item:
+            row["geometry"] = _rounded(item["geometry"])
+        out.append(row)
+    return out
+
+
+def _research_view(research):
+    def run(value, draw):
+        if not isinstance(value, dict):
+            return value
+        out = {k: v for k, v in value.items() if k not in ("rasters", *_RUN_GEOMETRY)}
+        if not draw:
+            out.pop("feature_audit", None)
+            out.pop("flow_paths", None)
+        for key in ("catchments", "outlet_catchments"):
+            if key in out:
+                out[key] = _outlines(out[key], keep_geometry=draw)
+        return out
+
+    out = {k: v for k, v in research.items() if k != "rasters"}
+    if isinstance(out.get("primary"), dict):
+        out["primary"] = run(out["primary"], True)
+    if isinstance(out.get("sensitivity"), list):
+        out["sensitivity"] = [run(v, False) for v in out["sensitivity"]]
+    return out
+
+
 def display_analysis(result):
+    """Compact browser view of a saved result: findings, areas, money and drawn outlines.
+
+    Keeps measurements, assessment findings, provenance and the map layers the app
+    draws (drainage/research/first AI-run outlines, flow paths, map features).
+    Per-cell grids, rasters and geometry the app never reads are omitted
+    (``OMITTED_FOR_DISPLAY``); the saved analysis.json export keeps all of them.
+    """
     from .quality import safe_physical_view
 
     result = safe_physical_view(result)
-
-    # Keep exact map geometries, areas, findings and provenance. Raster diagnostics
-    # remain in the full export rather than being sent to every browser view.
-    def research(value):
-        if isinstance(value, list):
-            return [research(v) for v in value]
-        if isinstance(value, dict):
-            return {k: research(v) for k, v in value.items() if k != "rasters"}
-        return value
-
     out = dict(result)
     if isinstance(out.get("drainage"), dict):
-        out["drainage"] = {
+        out["drainage"] = {k: v for k, v in out["drainage"].items() if k not in _DRAINAGE_GRIDS}
+        if "catchments" in out["drainage"]:
+            out["drainage"]["catchments"] = _outlines(out["drainage"]["catchments"])
+    if isinstance(out.get("research_drainage"), dict):
+        out["research_drainage"] = _research_view(out["research_drainage"])
+    if isinstance(out.get("modeled_integration"), dict):
+        m = dict(out["modeled_integration"])
+        m.pop("ai_roof_drainage", None)  # runs already contain its display catchments
+        if isinstance(m.get("ai"), dict):
+            m["ai"] = {k: v for k, v in m["ai"].items() if k not in _AI_GEOMETRY}
+        if isinstance(m.get("measurement"), dict):
+            m["measurement"] = {k: v for k, v in m["measurement"].items() if k != "geometries"}
+        m.pop("observed_pervious_geometry", None)
+        if isinstance(m.get("runs"), list):
+            m["runs"] = [
+                (
+                    {**r, "catchments": _outlines(r.get("catchments"), keep_geometry=i == 0)}
+                    if isinstance(r, dict)
+                    else r
+                )
+                for i, r in enumerate(m["runs"])
+            ]
+        out["modeled_integration"] = m
+    automatic = out.get("automatic")
+    if isinstance(automatic, dict) and isinstance(automatic.get("landcover"), dict):
+        cover = {
             k: v
-            for k, v in out["drainage"].items()
-            if k not in ("labels", "next_cells", "counts", "outlets")
+            for k, v in automatic["landcover"].items()
+            if k not in ("features", "coverage_geometry", "canopy_geometry")
         }
-    if out.get("research_drainage"):
-        out["research_drainage"] = research(out["research_drainage"])
-    if out.get("modeled_integration"):
-        out["modeled_integration"] = dict(out["modeled_integration"])
-        out["modeled_integration"].pop(
-            "ai_roof_drainage", None
-        )  # runs already contain its display catchments
+        out["automatic"] = {**automatic, "landcover": cover}
     out["display_only"] = True
+    out["omitted_for_display"] = OMITTED_FOR_DISPLAY
     return out
+
+
+def elevations_digest(elevations):
+    return sha256(canonical(elevations).encode()).hexdigest()
+
+
+def compact_case(case, saved_cases=()):
+    """Case for a browser response without the per-cell elevation grid.
+
+    Only when an identical grid is in a saved case (``saved_cases``: callables or
+    case dicts) is the grid replaced by ``terrain.elevations_omitted`` (hash and
+    shape); ``restore_case`` puts it back on the way in. Otherwise the case is
+    returned unchanged, so nothing that cannot be restored is ever dropped.
+    """
+    terrain = case.get("terrain") if isinstance(case, dict) else None
+    grid = terrain.get("elevations") if isinstance(terrain, dict) else None
+    if not grid or not isinstance(grid, list) or not isinstance(grid[0], list):
+        return case
+    for saved in saved_cases:
+        saved = saved() if callable(saved) else saved
+        other = ((saved or {}).get("terrain") or {}).get("elevations")
+        if other is grid or other == grid:
+            break
+    else:
+        return case
+    compact = {k: v for k, v in terrain.items() if k != "elevations"}
+    compact["elevations_omitted"] = {
+        "sha256": elevations_digest(grid),
+        "rows": len(grid),
+        "cols": len(grid[0]),
+        "restore": "Restored from the saved case on the next request; full grid in the case.json export",
+    }
+    return {**case, "terrain": compact}
+
+
+def restore_case(case, saved_cases=()):
+    """Inverse of ``compact_case``; refuses rather than guessing a missing grid."""
+    terrain = case.get("terrain") if isinstance(case, dict) else None
+    marker = terrain.get("elevations_omitted") if isinstance(terrain, dict) else None
+    if not marker:
+        return case
+    for saved in saved_cases:
+        saved = saved() if callable(saved) else saved
+        grid = ((saved or {}).get("terrain") or {}).get("elevations")
+        if (
+            isinstance(grid, list)
+            and grid
+            and len(grid) == marker.get("rows")
+            and len(grid[0]) == marker.get("cols")
+            and elevations_digest(grid) == marker.get("sha256")
+        ):
+            restored = {k: v for k, v in terrain.items() if k != "elevations_omitted"}
+            restored["elevations"] = grid
+            return {**case, "terrain": restored}
+    raise ValueError(
+        "The elevation grid omitted from this compact case is not in any saved revision; "
+        "reopen the saved case before editing"
+    )
 
 
 def saved_view(folder, case):

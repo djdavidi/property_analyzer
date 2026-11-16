@@ -16,6 +16,7 @@ from shapely.errors import ShapelyError
 from drainage_core.engine import canonical, input_hash
 from drainage_core.geometry import projected_crs, reproject
 from drainage_core.projection import project_case, warp_display
+from drainage_core.drainage import MAX_ROUTING_CELLS
 
 REGISTRY = Path(__file__).resolve().parents[1] / "config/terrain-reuse.json"
 
@@ -89,7 +90,7 @@ def _validated(case, donor, selection, directory):
         or not isinstance(z, list)
         or not isinstance(z[0], list)
         or not z[0]
-        or len(z) * len(z[0]) > 250000
+        or len(z) * len(z[0]) > MAX_ROUTING_CELLS
     ):
         raise ValueError("Invalid saved elevation grid dimensions")
     for row in z:
