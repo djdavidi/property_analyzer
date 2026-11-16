@@ -679,13 +679,16 @@ def evaluate_assessment(case, gis_result, as_of=None, tariff=None):
             'research_drainage_scenarios':research_economics(case,gis_result,records,day,tariff),
             'historical_flags':historical_flags(case,economics),
             'rules':{**deepcopy(RULES),'applicability':'applicable' if RULES['effective_from']<=day.isoformat()<=RULES['verified_through'] else 'outside_verified_period'}}
-    from .curve_number import worksheet
-    result['open_space_curve_number']=worksheet(case,gis_result)
+    from .curve_number import worksheet, finance_scenario
+    sheet=result['open_space_curve_number']=worksheet(case,gis_result)
     if result['rules']['applicability']!='applicable':
-        result['open_space_curve_number']['credit_factor']=None
-        result['open_space_curve_number']['issues'].append('Outside verified PWD policy period; credit factor unavailable')
-        result['open_space_curve_number'].pop('worksheet_sha256',None)
-        result['open_space_curve_number']['worksheet_sha256']=sha256(json.dumps(result['open_space_curve_number'],sort_keys=True,separators=(',',':'),allow_nan=False).encode()).hexdigest()
+        sheet['credit_factor']=None
+        if sheet.get('ub_candidate'):sheet['ub_candidate']['credit_factor']=None
+        sheet['issues'].append('Outside verified PWD policy period; credit factor unavailable')
+    # A5: the worksheet CN priced only as a labelled conditional scenario (never a screen pass).
+    sheet['finance_scenario']=finance_scenario(case,gis_result,sheet,records,day,tariff,economics)
+    sheet.pop('worksheet_sha256',None)
+    sheet['worksheet_sha256']=sha256(json.dumps(sheet,sort_keys=True,separators=(',',':'),allow_nan=False).encode()).hexdigest()
     from drainage_core.quality import artifact_quality
     if artifact_quality(gis_result)['status']=='outdated':
         from .quality import safe_analysis

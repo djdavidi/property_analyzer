@@ -12,7 +12,7 @@ from .assessment_sources import _Fallback
 
 PARCELS='https://services.arcgis.com/fLeGjb7u4uXqeF9q/ArcGIS/rest/services/PWD_PARCELS/FeatureServer/0'
 LANDCOVER='https://imagery.pasda.psu.edu/arcgis/rest/services/pasda/PhillyLULC/MapServer'
-VERSION='automatic-site-v2'
+VERSION='automatic-site-v3'  # v3: public PWD inlet points (G3)
 
 
 def imagery_plan(parcel,crs,*,minimum=2048):
@@ -72,6 +72,23 @@ def buildings(case,cache,refresh):
             source_dependency=True,source_kind='observation',source_url=BUILDINGS,reviewed=False,automatic_building=True)
         features.append(f)
     return features,response['sources'],proxy.used_cache
+
+
+def inlets(case,cache,refresh):
+    """PWD inlet points around the parcel (G3); the downstream connection stays unknown."""
+    from .acquisition import acquire_inlets
+    proxy=_Fallback(cache)
+    found=acquire_inlets(case['parcel'],case['crs'],proxy,refresh)
+    return found,proxy.used_cache
+
+
+def _merge_public(result,family,incoming):
+    """Replace unreviewed features of one public family; keep those manual edits reference."""
+    old=[f for f in result['features']['features'] if f['properties'].get('source_family')==family and f['properties'].get('reviewed') is not True]
+    targets={e.get('target') for e in result.get('corrections',[])};new_ids={f['id'] for f in incoming}
+    kept=[f for f in old if f['id'] in targets and f['id'] not in new_ids]
+    old_ids={f['id'] for f in old}
+    result['features']['features']=[f for f in result['features']['features'] if f['id'] not in old_ids]+list(incoming)+kept
 
 
 def lookup(query,cache):
@@ -170,6 +187,20 @@ def acquire(case,cache,refresh=True,*,case_root=None):
         record['source_status'].append({'provider':'Building footprints','status':'cached_after_failure' if cached else 'source_observation',
             'source_dates':'Acquisition dates unknown; footprint is not exact roof/drainage geometry'})
     except Exception as exc:record['source_status'].append({'provider':'Building footprints','status':'dated_saved_snapshot' if any(f['properties'].get('class')=='roof' for f in result['features']['features']) else 'unavailable','error':str(exc)})
+    try:
+        # G3: public storm/wastewater inlets. An outage is recorded, never zero inlets.
+        found,cached=inlets(result,cache,refresh)
+        _merge_public(result,'PWD inlets',found['features'])
+        new_sources.extend(found['sources'])
+        record['source_status'].append({'provider':'Storm inlets','status':'cached_after_failure' if cached else 'source_observation',
+            'source_url':found['source_url'],'mapped_inlets':len(found['features']),'excluded':found['excluded'],
+            'buffer':found['buffer'],'query_bounds':found['query_bounds'],'crs':found['crs'],
+            'source_dates':'Layer edit dates only; inlet survey/installation dates mostly unknown',
+            'claim':'Mapped inlet locations only. No mapped inlet in the buffer is not proof that none exists; downstream connections are unknown.'})
+    except Exception as exc:
+        saved=any(f['properties'].get('source_family')=='PWD inlets' for f in result['features']['features'])
+        record['source_status'].append({'provider':'Storm inlets','status':'dated_saved_snapshot' if saved else 'unavailable','error':str(exc),
+            'claim':'Inlet source unavailable: inlet presence is unknown, not zero inlets.'})
     try:
         from drainage_core.geometry import reproject
         from drainage_core.projection import warp_display

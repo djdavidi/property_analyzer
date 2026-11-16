@@ -128,3 +128,76 @@ Live read-only checks on 2026-11-16 (a handful of requests; tests never use the 
   2015 Delaware Valley products (published 2020-03-30); the API does not document its
   order, hence the explicit date sort. D24 metadata gives capture 2024-04-14 to
   2025-04-02, metres and NAVD88.
+
+## Phase 6 measurement-validity sources (2026-11-16)
+
+**PWD inlets (G3).** Layer: [City `INLETS` FeatureServer layer 0](https://services.arcgis.com/fLeGjb7u4uXqeF9q/ArcGIS/rest/services/INLETS/FeatureServer/0).
+It is a point layer with `maxRecordCount` 2000; the service default is Web Mercator.
+Its description reads "all the wastewater and stormwater inlets", derived from as-built
+drawings, "mostly accurate to +/- 1 ft" and less accurate at the Navy Yard and the
+airport. `stormwater.acquisition.acquire_inlets` makes the request:
+
+- It queries the parcel plus a 150 ft (45.72 m) mitred buffer, the terrain buffer, in
+  the case CRS.
+- It reads these fields: `objectid`, `facilityid`, `hydraulicid`, `system`,
+  `inlettype`, `gratetype`, `owner`, `operator`, `year_installed`,
+  `monthday_installed`, `symbolgroup`, `subtype` and `gps`.
+- Requests go through `drainage_core.sources.arcgis_features`, which handles
+  pagination, CRS checks and truncation failures.
+
+Each point becomes a case feature:
+
+- `layer` / `drainage_role` = `inlet`.
+- `connection_evidence` and `downstream_connection` = `unknown`.
+- `system` (COMBINED, STORM, GSWI or SANITARY) is kept only as
+  `recorded_sewer_system`. It is an asset label, never a traced pipe destination.
+
+Some records are not treated as inlets:
+
+- The year `9999` is a placeholder. It is kept as `year_installed_recorded` and gives
+  no date.
+- Symbol groups other than `Inlet` (Manhole, Node, PipeEnd, Plug) are listed as
+  excluded.
+
+In the automatic acquisition run the result is recorded as source `Storm inlets`:
+
+- `source_observation`: inlets were read from the source, with a count.
+- `cached_after_failure`: the refresh failed and the last good capture was reused.
+- `dated_saved_snapshot`: the source is down and inlets saved earlier are kept.
+- `unavailable`: the source is down and nothing was saved.
+
+An outage is never zero inlets. "No mapped inlet" is not proof that none exists.
+
+Layer statistics on 2026-11-16 (read-only):
+
+- `system`: COMBINED 52,577, STORM 29,993, GSWI 4,307 and SANITARY 29.
+- `owner`: PWD 76,988, STATE 3,561, PRIV 1,788 and others.
+- `symbolgroup`: Inlet 85,411, null 1,487, and 8 manholes, nodes, pipe ends or plugs.
+
+The frozen 12-point test fixture (4,871 bytes) has its URL, retrieval time and
+SHA-256 in `tests/fixtures/inlets/`.
+
+**Billed-area reconciliation (G1).** Run
+`.venv/bin/python -m stormwater.billing_reconciliation --store data --output r.json --csv r.csv`.
+
+- It reads saved case baselines and cached PWD `/parcel/<id>/details` captures. It
+  fetches and writes nothing in the stores.
+- Each record's `FinalGross`/`FinalImperv` is compared with areas from
+  `billing.monthly_bill` and `billing.billed_area_check`, with a ±0.5 sq ft tolerance.
+  The computed areas cover statutory IA, credits and the 500 sq ft ceiling.
+- Labelled cases: undeveloped status under 5,000 sq ft gives both alternatives. An
+  unknown IAR split is a labelled assumption. Residential records are marked
+  `not_applicable`.
+- Captures with service errors are `source_error`, never zero.
+- Rows and their meanings:
+  - Columns: parcel, source, recorded GA/IA, credits, PWD billed GA/IA, computed
+    final/billed GA/IA, match flags, status and notes.
+  - A mismatch is a review flag, not a refund, debt or correction.
+- One live data point (parcel 201345, 2026-11-16): GA 190,627 gave `FinalGross`
+  191,000 and IA 177,257 gave `FinalImperv` 177,500, both matching the computed
+  billed areas. The test excerpt in `tests/fixtures/billing/` drops account numbers,
+  owner names and identifiers. It records the original response SHA-256.
+
+**2018 land cover as a benchmark reference (G4).** See
+[BENCHMARK-LANDCOVER.md](BENCHMARK-LANDCOVER.md). The 2018 product is used only as an
+independent comparison for modeled classes, never as a current-site observation.

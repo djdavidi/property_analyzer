@@ -115,7 +115,18 @@ The [automatic open-space CN worksheet](docs/OPEN-SPACE-CURVE-NUMBER.md) joins p
 USDA SSURGO soils to mapped open-space areas. It shows cover/condition, soil groups,
 weighted inputs and explicit unknowns; image candidates stay separate. Run an explicit
 assessment after restarting the local app to acquire soils. It creates no automatic
-award or new savings allocation.
+award or new savings allocation. Urban-soil (UB) values apply only after an
+evidence-tagged reviewer choice. The worksheet CN is priced only as a labelled
+conditional scenario.
+
+**Measurement-validity tools (Phase 6):**
+
+- The [land-cover agreement benchmark](docs/BENCHMARK-LANDCOVER.md) compares modeled
+  classes with the 2018 land cover. It measures agreement, not accuracy.
+- `python -m stormwater.billing_reconciliation` compares PWD billed areas with
+  computed billed areas across saved and cached parcels.
+- Automatic assessments record public PWD inlet points. Their downstream connections
+  stay unknown. See [sources](docs/SOURCES.md#phase-6-measurement-validity-sources-2026-11-16).
 
 Run `.venv/bin/python -m stormwater.server --port 8876` and open
 `http://127.0.0.1:8876/`. Enter a Philadelphia street address or PWD parcel ID, then

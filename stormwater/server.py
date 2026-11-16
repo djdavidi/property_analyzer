@@ -158,6 +158,12 @@ class Handler(BaseHTTPRequestHandler):
                 from .curve_number import review_inputs
                 updated=review_inputs(payload['case'],payload.get('feature_id'),payload.get('cover'),payload.get('condition'),payload.get('reason'))
                 return self.send({'case':updated,'analysis':self.store.analyze(updated)})
+            if path=='/api/curve-number/soil-review':
+                # B8: evidence-tagged reviewer UB choice (or withdrawal) for one soil map unit.
+                from .curve_number import review_soil_group
+                updated=review_soil_group(payload['case'],payload.get('mukey'),payload.get('group') or None,
+                                          payload.get('evidence_basis'),payload.get('reason'),payload.get('evidence_refs'))
+                return self.send({'case':updated,'analysis':self.store.analyze(updated)})
             if path=='/api/assessment/review':
                 from .assessment_workflow import review_record
                 updated=review_record(payload['case'],payload['record'],payload.get('reason'))

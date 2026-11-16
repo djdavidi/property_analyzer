@@ -11,7 +11,7 @@ ROOT=Path(__file__).resolve().parents[1]
 def record_age_limit(url):
     host=urlparse(url).hostname or ''
     if host=='stormwater.phila.gov' and '/PwdWebApi/api/v1/parcel/' in url:return 30
-    if host.endswith('arcgis.com') and any(s in url for s in ('PWD_PARCELS/','GSI_SMP_TYPES/','GSI_Private_Projects_Retrofit/','LI_BUILDING_FOOTPRINTS/')):return 90
+    if host.endswith('arcgis.com') and any(s in url for s in ('PWD_PARCELS/','GSI_SMP_TYPES/','GSI_Private_Projects_Retrofit/','LI_BUILDING_FOOTPRINTS/','INLETS/')):return 90
     if host=='echodata.epa.gov' and '/echo/' in url:return 30
     return None
 

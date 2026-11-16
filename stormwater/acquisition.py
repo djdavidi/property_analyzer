@@ -22,6 +22,14 @@ PWD = 'https://stormwater.phila.gov/PwdWebApi/api/v1/parcel'
 ARCGIS = 'https://services.arcgis.com/fLeGjb7u4uXqeF9q/ArcGIS/rest/services'
 BUILDINGS = ARCGIS + '/LI_BUILDING_FOOTPRINTS/FeatureServer/0'
 SYSTEMS = ARCGIS + '/GSI_SMP_TYPES/FeatureServer/0'
+# PWD wastewater and stormwater inlet points (as-built derived; layer maxRecordCount 2000).
+INLETS = ARCGIS + '/INLETS/FeatureServer/0'
+INLET_FIELDS = ('objectid,facilityid,hydraulicid,system,inlettype,gratetype,owner,operator,'
+                'year_installed,monthday_installed,symbolgroup,subtype,gps')
+INLET_BUFFER_M = 45.72  # 150 ft, the same surrounding buffer the terrain window requires
+INLET_CLAIM = ('Mapped PWD inlet location from as-built records (stated accuracy mostly +/- 1 ft, varying by '
+               'location). Downstream pipe destination, capacity, condition and the surfaces that drain to it '
+               'are unknown; the recorded sewer system label is an asset attribute, not a traced connection.')
 
 
 def normalize_billing(data):
@@ -120,6 +128,66 @@ def acquire_property(parcel_id, cache, refresh=False):
             'features':{'type':'FeatureCollection','features':features},'warnings':warnings,
             'boundary_source':sources[0], 'independent_ia_validation':'incomplete',
             'independent_drainage_validation':'incomplete'}
+
+
+def acquire_inlets(parcel, crs, cache, refresh=False, *, buffer_m=INLET_BUFFER_M):
+    """Public PWD inlet points within the parcel plus a surrounding routing buffer.
+
+    Queries the City ``INLETS`` layer through the generic paginated ArcGIS reader
+    in the case CRS. Each point becomes a case feature with drainage role
+    ``inlet`` and full source lineage. The downstream connection is always
+    ``unknown``: no pipe destination, outfall or credit route is inferred from the
+    recorded sewer-system label. Non-inlet symbol groups (manholes, nodes, pipe
+    ends, plugs) are listed under ``excluded`` instead of becoming inlets.
+
+    Any source failure raises ``SourceError``; an outage is never zero inlets. An
+    empty successful response means no inlet is *mapped* in the buffer, not that
+    none exists (private and unmapped inlets remain possible).
+    """
+    from pyproj import CRS
+    from shapely.geometry import shape, mapping
+    unit = CRS(crs).axis_info[0].unit_conversion_factor
+    region = shape(parcel).buffer(buffer_m/unit, join_style=2)
+    code = crs.split(':')[-1]
+    query = {'geometry':','.join(map(str, region.bounds)), 'geometryType':'esriGeometryEnvelope',
+             'inSR':code, 'outSR':code, 'spatialRel':'esriSpatialRelIntersects', 'outFields':INLET_FIELDS}
+    response = _generic_arcgis_features(INLETS, cache, query, refresh, page_size=1000, max_pages=10)
+    features, excluded, outside = [], [], 0
+    for raw in response['features']:
+        props = raw.get('properties') or raw.get('attributes') or {}
+        oid = raw.get('id', props.get('objectid'))
+        try:
+            point = shape(raw.get('geometry'))
+        except Exception:
+            excluded.append({'object_id':oid, 'reason':'missing or unreadable point geometry'}); continue
+        if point.geom_type != 'Point' or point.is_empty:
+            excluded.append({'object_id':oid, 'reason':'geometry is not a point'}); continue
+        if not region.covers(point):
+            outside += 1; continue
+        symbol = props.get('symbolgroup')
+        if symbol not in (None, 'Inlet'):
+            excluded.append({'object_id':oid, 'reason':f'symbol group {symbol!r} is not an inlet'}); continue
+        notes = [] if symbol else ['Symbol group unrecorded; listed in the PWD inlet layer']
+        year = props.get('year_installed')
+        known_year = year if isinstance(year, int) and not isinstance(year, bool) and 1800 <= year <= 2100 else None
+        if year is not None and known_year is None:
+            notes.append(f'Installation year recorded as {year!r} (placeholder; unknown)')
+        features.append({'type':'Feature', 'id':f'public-inlet-{oid}', 'geometry':mapping(point), 'properties':{
+            'layer':'inlet', 'kind':'inlet', 'drainage_role':'inlet',
+            'source_family':'PWD inlets', 'source_kind':'observation', 'source_url':INLETS,
+            'source_object_id':oid, 'facility_id':props.get('facilityid'), 'hydraulic_id':props.get('hydraulicid'),
+            'inlet_type':props.get('inlettype'), 'grate_type':props.get('gratetype'),
+            'recorded_sewer_system':props.get('system'), 'owner':props.get('owner'), 'operator':props.get('operator'),
+            'year_installed':known_year, 'year_installed_recorded':year,
+            'monthday_installed_recorded':props.get('monthday_installed'),
+            'symbol_group':symbol, 'gps_located':props.get('gps'),
+            'connection_evidence':'unknown', 'downstream_connection':'unknown',
+            'acquisition_date':None, 'reviewed':False, 'automatic_inlet':True,
+            'notes':notes, 'claim':INLET_CLAIM}})
+    return {'features':features, 'sources':response['sources'], 'excluded':excluded,
+            'outside_buffer':outside, 'source_url':INLETS, 'crs':crs,
+            'buffer':{'value':buffer_m, 'unit':'m', 'join':'mitre'}, 'query_bounds':list(region.bounds),
+            'claim':INLET_CLAIM}
 
 
 PASDA_SERVICES = 'https://services.pasda.psu.edu/arcgis/rest/services'

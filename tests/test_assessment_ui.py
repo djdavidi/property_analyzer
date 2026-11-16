@@ -12,3 +12,10 @@ class AssessmentUITests(unittest.TestCase):
                                 cwd=Path(__file__).resolve().parents[1],
                                 capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    @unittest.skipUnless(shutil.which('node'), 'Node is unavailable; UI behavior checks omitted')
+    def test_curve_number_worksheet_rendering(self):
+        result = subprocess.run(['node', 'tests/curve-number-ui-checks.js'],
+                                cwd=Path(__file__).resolve().parents[1],
+                                capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)

@@ -1,0 +1,124 @@
+{
+ "ChargeSummary": {
+  "BilledGrossSqFt": 191000,
+  "BilledImpervSqFt": 177500,
+  "Errors": null,
+  "GrossCreditSqFt": 0,
+  "GrossSqFt": 190627,
+  "ImpervCreditSqFt": 0,
+  "ImpervSqFt": 177257,
+  "NpdesCreditApplies": false,
+  "ParcelAccounts": [
+   {
+    "AccountPercentOfCharge": 0.2,
+    "PocCalculated": true,
+    "YearlyAccountCharges": [
+     {
+      "BilledGrossSqFt": 191000,
+      "BilledImpervSqFt": 177500,
+      "GrossCreditSqFt": 0,
+      "ImpervCreditSqFt": 0,
+      "RateSchedule": {
+       "EndDate": "2027-08-31T00:00:00",
+       "IsCurrent": true,
+       "StartDate": "2026-09-01T00:00:00"
+      },
+      "TotalWeightedCharge": 579.85
+     }
+    ]
+   },
+   {
+    "AccountPercentOfCharge": 0.2,
+    "PocCalculated": true,
+    "YearlyAccountCharges": [
+     {
+      "BilledGrossSqFt": 191000,
+      "BilledImpervSqFt": 177500,
+      "GrossCreditSqFt": 0,
+      "ImpervCreditSqFt": 0,
+      "RateSchedule": {
+       "EndDate": "2027-08-31T00:00:00",
+       "IsCurrent": true,
+       "StartDate": "2026-09-01T00:00:00"
+      },
+      "TotalWeightedCharge": 579.85
+     }
+    ]
+   },
+   {
+    "AccountPercentOfCharge": 0.2,
+    "PocCalculated": true,
+    "YearlyAccountCharges": [
+     {
+      "BilledGrossSqFt": 191000,
+      "BilledImpervSqFt": 177500,
+      "GrossCreditSqFt": 0,
+      "ImpervCreditSqFt": 0,
+      "RateSchedule": {
+       "EndDate": "2027-08-31T00:00:00",
+       "IsCurrent": true,
+       "StartDate": "2026-09-01T00:00:00"
+      },
+      "TotalWeightedCharge": 579.85
+     }
+    ]
+   },
+   {
+    "AccountPercentOfCharge": 0.2,
+    "PocCalculated": true,
+    "YearlyAccountCharges": [
+     {
+      "BilledGrossSqFt": 191000,
+      "BilledImpervSqFt": 177500,
+      "GrossCreditSqFt": 0,
+      "ImpervCreditSqFt": 0,
+      "RateSchedule": {
+       "EndDate": "2027-08-31T00:00:00",
+       "IsCurrent": true,
+       "StartDate": "2026-09-01T00:00:00"
+      },
+      "TotalWeightedCharge": 579.85
+     }
+    ]
+   },
+   {
+    "AccountPercentOfCharge": 0.2,
+    "PocCalculated": true,
+    "YearlyAccountCharges": [
+     {
+      "BilledGrossSqFt": 191000,
+      "BilledImpervSqFt": 177500,
+      "GrossCreditSqFt": 0,
+      "ImpervCreditSqFt": 0,
+      "RateSchedule": {
+       "EndDate": "2027-08-31T00:00:00",
+       "IsCurrent": true,
+       "StartDate": "2026-09-01T00:00:00"
+      },
+      "TotalWeightedCharge": 579.85
+     }
+    ]
+   }
+  ]
+ },
+ "Parcel": {
+  "Address": "1901 VINE ST",
+  "BldgDesc": "MISC.LIBRARY MASONRY",
+  "BldgType": "NonRes",
+  "FinalGross": 191000,
+  "FinalImperv": 177500,
+  "GrossArea": 190627,
+  "GrossCredit": 0,
+  "ImpervArea": 177257,
+  "ImpervCredit": 0,
+  "NPDESCredit": 0,
+  "ParcelBuildingStatus": 1,
+  "ParcelID": 201345,
+  "WeightedCharge": 2899.236
+ },
+ "Pending": {
+  "Appeals": 0,
+  "Credits": 0,
+  "Expired": 0
+ }
+}

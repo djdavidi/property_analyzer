@@ -61,8 +61,24 @@ def curve_number_section(w):
          '<p>'+e(w['formula'])+'. Standard credit factor: '+(n(w['credit_factor']*100)+'%' if w['credit_factor'] is not None else 'Unknown')+'. '+e(w['rounding'])+'</p>',
          '<p>'+e('; '.join(w['issues']))+'</p><table><tr><th>Area / basis</th><th>Area (sq ft)</th><th>Cover / condition</th><th>Soil group / map unit</th><th>CN / candidate range</th><th>Area × CN</th><th>Unknowns</th></tr>']
     for r in w['rows']:
-        out.append('<tr><td>'+e(r['feature_id'])+' / '+e(r['basis'])+'</td><td>'+n(r['area_sqft'])+'</td><td>'+e(r['cover'])+' / '+e(r['condition'])+'</td><td>'+e(r['soil_group'])+' / '+e(r['mapunit_name'])+'</td><td>'+n(r['curve_number'])+' / '+n(r['candidate_cn_min'])+'–'+n(r['candidate_cn_max'])+'</td><td>'+n(r['area_times_cn'])+'</td><td>'+e('; '.join(r['missing']))+'</td></tr>')
-    out.append('</table><details><summary>Worksheet inputs, soil components, requests, dates and hashes</summary><pre>'+e(json.dumps(w,indent=2))+'</pre></details>')
+        ub=(' / UB candidate (reviewer choice required) '+n(r.get('ub_candidate_cn_min'))+'–'+n(r.get('ub_candidate_cn_max'))) if r.get('ub_candidate_cn_min') is not None else ''
+        soil=e(r['soil_group'])+(' ('+e(r['soil_basis'])+')' if r.get('soil_basis') else '')
+        out.append('<tr><td>'+e(r['feature_id'])+' / '+e(r['basis'])+'</td><td>'+n(r['area_sqft'])+'</td><td>'+e(r['cover'])+' / '+e(r['condition'])+'</td><td>'+soil+' / '+e(r['mapunit_name'])+'</td><td>'+n(r['curve_number'])+' / '+n(r['candidate_cn_min'])+'–'+n(r['candidate_cn_max'])+ub+'</td><td>'+n(r['area_times_cn'])+'</td><td>'+e('; '.join(r['missing']))+'</td></tr>')
+    out.append('</table>')
+    ub=w.get('ub_candidate')
+    if ub:
+        out.append('<p>UB (urban soil) candidate: '+e(ub['status'].replace('_',' '))+'. Property CN if a reviewer records UB: '+n(ub.get('average_cn'))
+                   +'; standard factor '+(n(ub['credit_factor']*100)+'%' if ub.get('credit_factor') is not None else 'Unknown')+'. '+e(ub.get('reason') or '')+' '+e(ub['claim'])+'</p>')
+    fs=w.get('finance_scenario')
+    if fs:
+        money=(fs.get('increment') or {}) if (fs.get('increment') or {}).get('status')=='calculated' else fs
+        usd=lambda v:'Unknown' if v is None else f'${v:,.2f}'
+        out.append('<h4>Conditional open-space finance scenario</h4><p>'+e(fs['label'])+'. Status: '+e(fs['status'].replace('_',' '))
+                   +'. CN '+n(fs.get('curve_number'))+'; open space '+n(fs.get('open_space_area_sqft'))+' sq ft; GA credit '+n(fs.get('ga_credit_sqft'))
+                   +' sq ft. Gross reduction only if every assumed prerequisite holds: '+usd(money.get('gross_monthly_reduction'))+'/month, '
+                   +usd(money.get('gross_annual_reduction'))+'/year. Assumed, not established: '+e(', '.join(fs.get('assumed_prerequisites',{})))
+                   +'. '+e('; '.join(fs.get('reasons',[])))+' '+e(fs.get('claim'))+'</p>')
+    out.append('<details><summary>Worksheet inputs, soil components, requests, dates and hashes</summary><pre>'+e(json.dumps(w,indent=2))+'</pre></details>')
     return ''.join(out)
 
 
