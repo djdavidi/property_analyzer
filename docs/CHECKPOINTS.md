@@ -4,6 +4,38 @@ Newest entries first. Current truth belongs in STATE; the active bounded task be
 in TASK. These records preserve changes, decisions, evidence, unresolved issues and
 handoffs. Do not rewrite past results to match later runs.
 
+## 2026-11-16 — Final-review fix batch A merged; PWD reference snapshot added
+
+**Batch A** (commit `9afe316`). Full suite after merge: Ran 847, OK (skipped=1). The
+Node harnesses pass and the link check is clean. `POLICY_INTERPRETATION_VERSION`
+3→4. Fixes from the final code review:
+- Parcels with existing public credits get a baseline again; the unknown IA-side
+  split is labelled.
+- `research_economics` no longer re-prices rejected or vetoed receivers.
+- NPDES compliance needs the preceding 12 months (manual §4.3.4, §4.5.5).
+- An inferred developed status is labelled.
+- Partial labels are rendered in the app and report, and the capacity rows have
+  their own "may be lower or equal" label.
+- The NPDES residual follows the manual literally (§4.3.5.2, Table A-2), with
+  `manual_rule_discontinuity` notes.
+- Green roofs are an IAR (Table 1, §4.3.2.1).
+- One area-based NPDES representation.
+- `calculate_scenarios` is removed, the rule period comes from config, and the
+  derived-money keys are completed.
+- The synthetic example's known answer is now $96.39 bill, $39.25/month reduction
+  (hand-derived).
+
+**Reference snapshot** (`scripts/pwd_snapshot.py`, `scripts/pwd_systems_snapshot.py`):
+- `reference/pwd/parcels-ga100000-2026-11-16.csv`: 2,590 parcels ≥100,000 sq ft, all
+  priced, 0 outages, $81.7M/yr total.
+- `systems-2026-11-16.csv`: 9,159 mapped systems; 2,393 sit on snapshot parcels.
+- 666 parcels have a recorded credit; 379 are flagged as private systems with no
+  recorded credit.
+- The 50th-largest bill is $159,727/yr. In the top 50, 27 parcels are government and
+  20 are flagged.
+- The owner screen misses "FAIRMOUNT PARK COMM" and "PHILADELPHIA AUTHORTY FOR"
+  (a PWD spelling), so they appear as non-government (batch B).
+
 ## 2026-11-16 — D10 formatting-only pass
 
 `black` 25.9.0 (AST-equivalence checked; `[tool.black]` line-length 100 in
