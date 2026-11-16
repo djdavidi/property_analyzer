@@ -60,20 +60,18 @@ This is a short current snapshot (decision D9, ≤80 lines): replace stale lines
 
 ## Open rule interpretation
 
-- NPDES residual (B1): the code applies 7% to uncredited IA **and** uncredited GA.
-  Read literally, PWD manual §4.3.5.2 applies it only to uncredited IA. This needs PWD
-  confirmation.
+- The NPDES residual follows manual §4.3.5.2 literally (7% of uncredited IA, applied to
+  IA and GA), with discontinuity notes. Tariff §4.5(b) wording is flagged for PWD confirmation.
 
 ## Known limits
 
-- No independent accuracy figure yet. The benchmark tool measures agreement with the
-  2018 land cover, not accuracy, and has not been run on a model-processed case.
+- No independent accuracy figure. 2018 land-cover agreement (not accuracy) is 80% at Whitaker,
+  66% at Cherokee and 21% at 3060 S 61st (site rebuilt).
 - No real invoices, award letters or verified eligibility. Baselines are public-record
   calculations.
 - Saved cases, imagery, model weights and caches live only in local, Git-ignored
   `data/`. Docs that cite `data/...` paths refer to artifacts absent from any clone.
-- Not run: the reconciliation report on a real store, and real-browser checks since the
-  fixes (UI checked by Node DOM harnesses only). Branch coverage was not measured.
+- Not run: real-browser checks since the fixes (Node DOM harnesses only), branch coverage.
 - The City 2025 DEM vertical metadata is unresolved; the USGS 1 m DEM is used instead.
 
 PWD reference data: [reference/pwd](../reference/pwd/README.md), with 2,590 parcels ≥100k sq ft,
