@@ -13,7 +13,7 @@ Results from November 15, 2026. Wording updated November 16; the calculations ha
 
 **We found leads worth checking, but we cannot give a reliable total saving for any property yet.** Missing information does not mean there is no saving.
 
-[Open the simple property-by-property report](../data/assessments/top10-corrected-2026-11-15/report.html). Click a property to see what we found, example amounts and the next check. All twelve saving categories are retained; less relevant checks are expandable.
+The simple property-by-property report (`data/assessments/top10-corrected-2026-11-15/report.html`, local only, not in Git). Click a property to see what we found, example amounts and the next check. All twelve saving categories are retained; less relevant checks are expandable.
 
 | Property | Annual charge (computed from recorded areas) | Lead to check | First next step |
 | --- | ---: | --- | --- |
@@ -51,4 +51,4 @@ Results from November 15, 2026. Wording updated November 16; the calculations ha
 
 Public plans and permit records may answer some questions. Actual bills, credit approval letters, maintenance records and site checks may be needed for the rest. This wording update did not fetch new information or rerun the properties.
 
-[Detailed methods, earlier numerical examples and check records](TOP10-CORRECTED-TECHNICAL-DETAILS-2026-11-15.md) · [Saved calculation data](../data/assessments/top10-corrected-2026-11-15/comparison.json). These are available for a reviewer; they are not needed to read the main report.
+[Detailed methods, earlier numerical examples and check records](TOP10-CORRECTED-TECHNICAL-DETAILS-2026-11-15.md) · Saved calculation data (`data/assessments/top10-corrected-2026-11-15/comparison.json`, local only, not in Git). These are available for a reviewer; they are not needed to read the main report.

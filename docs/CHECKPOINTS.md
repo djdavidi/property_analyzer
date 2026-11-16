@@ -4,6 +4,49 @@ Newest entries first. Current truth belongs in STATE; the active bounded task be
 in TASK. These records preserve changes, decisions, evidence, unresolved issues and
 handoffs. Do not rewrite past results to match later runs.
 
+## 2026-11-16 — Fix plan Phase 4b merged: pricing, pilot and portfolio
+
+Commit `14ae380`, merged on top of Phases 6 and 7. Full suite: Ran 823, OK
+(skipped=1). The local `data/` is untouched, the Node harnesses pass and the link
+check reports 0 missing.
+
+**One money path (D7).**
+- `stormwater/system_pricing.py` prices every system, pilot and portfolio figure
+  through the assessment ledger.
+- Lineage keys are required (H9).
+- A published-versus-computed baseline gap over $1 or 1% blocks system figures (H7).
+- `as_of` is normalized (H8).
+
+**Ranges first (D4, R13/R14).**
+- Capacity results lead with `annual_savings_range`.
+- Storage is budgeted per component; the inflow split is bracketed where a
+  component's own inflow is unknown.
+- Off-parcel inflow is an explicit load range, and the reference row is withheld
+  while that load is unbounded (R6).
+- Captured, treated and qualifying quantities stay None (unmeasured).
+- The volume-equivalent area is labelled hypothetical.
+
+**Gates and identity.**
+- Per-catchment route gates (D2): `partial_upstream_unknown` shows a labelled
+  in-window figure; missing terrain or a failed invariant blocks.
+- The headline is nominal or blocked (H2).
+- One identity resolver (H1/H10), and physical exclusions propagate.
+
+**Other.**
+- The capacity path is chosen by system type (H5), and the system's own bed is
+  excluded (H16).
+- One class-interpretation table, `drainage_core/class_interpretation.py` (D3/A3).
+- Pilot IA is not estimated rather than zero (R4); there is a spatial-allocation
+  sensitivity (R15), and observed canopy is included.
+- The portfolio applies `safe_analysis` plus an input-hash check, shows the
+  published charge and computes its status (H3/H4/H6).
+- `POLICY_INTERPRETATION_VERSION` 2→3.
+
+**Limits.**
+- Per-component inflow is bracketed, not routed.
+- The app ledger shows the baseline gap as a review flag without blocking.
+- No property reruns yet (next: D10, then Phase 8 and the final review).
+
 ## 2026-11-16 — Fix plan Phase 7: docs and process cleanup (D9, part of A6)
 
 Parallel worktree branched from `ba563b4`; Phase 4b runs separately. Docs and one
