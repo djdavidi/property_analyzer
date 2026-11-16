@@ -1,0 +1,44 @@
+{
+ "description": "Trimmed excerpt of a public PWD stormwater parcel details response for parcel 201345 (1901 Vine St, City-owned library). Account numbers, BRT/TenCode identifiers, owner names, report links, geometry and historical rate rows were removed; all retained values are copied unchanged. Used only for offline G1 reconciliation tests.",
+ "source_url": "https://stormwater.phila.gov/PwdWebApi/api/v1/parcel/201345/details",
+ "retrieved_at": "2026-11-16T18:12:12Z",
+ "original_sha256": "8dcafafd6cfffdc9def7a4ebeb0427bac345cb46bded61ccc6539e882726ea40",
+ "original_bytes": 168576,
+ "file": "pwd-201345-details-excerpt.json",
+ "excerpt_sha256": "39886f7f02477c49275e4a8f9f18ccfb13e2400fd8e06c1cea26ea4fceb5c064",
+ "excerpt_bytes": 2791,
+ "retained_fields": {
+  "Parcel": [
+   "ParcelID",
+   "Address",
+   "GrossArea",
+   "ImpervArea",
+   "GrossCredit",
+   "ImpervCredit",
+   "FinalGross",
+   "FinalImperv",
+   "NPDESCredit",
+   "WeightedCharge",
+   "BldgType",
+   "BldgDesc",
+   "ParcelBuildingStatus"
+  ],
+  "ChargeSummary": [
+   "GrossSqFt",
+   "GrossCreditSqFt",
+   "BilledGrossSqFt",
+   "ImpervSqFt",
+   "ImpervCreditSqFt",
+   "BilledImpervSqFt",
+   "NpdesCreditApplies",
+   "Errors",
+   "ParcelAccounts[AccountPercentOfCharge, PocCalculated, current YearlyAccountCharges row]"
+  ],
+  "Pending": [
+   "Credits",
+   "Expired",
+   "Appeals"
+  ]
+ },
+ "observed": "GrossArea 190627 -> FinalGross 191000; ImpervArea 177257 -> FinalImperv 177500; no credits"
+}

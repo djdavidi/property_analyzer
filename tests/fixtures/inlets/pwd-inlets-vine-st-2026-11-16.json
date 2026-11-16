@@ -1,0 +1,47 @@
+{
+ "description": "Frozen public response: City of Philadelphia PWD INLETS layer, points within a 60 ft test box near 1901 Vine St plus a 150 ft (45.72 m) mitred buffer, EPSG:2272. Used only for offline tests; not a property assessment.",
+ "layer": "https://services.arcgis.com/fLeGjb7u4uXqeF9q/ArcGIS/rest/services/INLETS/FeatureServer/0",
+ "layer_metadata": {
+  "geometry_type": "esriGeometryPoint",
+  "max_record_count": 2000,
+  "object_id_field": "objectid",
+  "service_spatial_reference": "WKID 102100 / 3857",
+  "data_last_edit_epoch_ms": 1793505257804,
+  "description_excerpt": "All the wastewater and stormwater inlets in Philadelphia ... derived from as-built drawings ... most of the data is accurate to +/- 1 ft ... maintained daily by PWD GIS UNIT."
+ },
+ "request_url": "https://services.arcgis.com/fLeGjb7u4uXqeF9q/ArcGIS/rest/services/INLETS/FeatureServer/0/query?where=1%3D1&outFields=objectid%2Cfacilityid%2Chydraulicid%2Csystem%2Cinlettype%2Cgratetype%2Cowner%2Coperator%2Cyear_installed%2Cmonthday_installed%2Csymbolgroup%2Csubtype%2Cgps&returnGeometry=true&outSR=2272&f=geojson&geometry=2691381.8919999064%2C238402.56653995518%2C2691741.8913999065%2C238762.56593995515&geometryType=esriGeometryEnvelope&inSR=2272&spatialRel=esriSpatialRelIntersects&resultOffset=0&resultRecordCount=1000&orderByFields=objectid+ASC",
+ "retrieved_at": "2026-11-16T18:09:14.364615+00:00",
+ "sha256": "49d92f2f4cbeca20a1dca702f91c06a78e81950b805d40bcd5d8176c5929e2fa",
+ "bytes": 4871,
+ "crs": "EPSG:2272",
+ "file": "pwd-inlets-vine-st-2026-11-16.geojson",
+ "test_parcel": {
+  "type": "Polygon",
+  "coordinates": [
+   [
+    [
+     2691591.8916999064,
+     238552.56623995517
+    ],
+    [
+     2691591.8916999064,
+     238612.56623995517
+    ],
+    [
+     2691531.8916999064,
+     238612.56623995517
+    ],
+    [
+     2691531.8916999064,
+     238552.56623995517
+    ],
+    [
+     2691591.8916999064,
+     238552.56623995517
+    ]
+   ]
+  ]
+ },
+ "feature_count": 12,
+ "retrieved_by": "stormwater.acquisition.acquire_inlets (read-only GET)"
+}
