@@ -4,6 +4,20 @@ Newest entries first. Current truth belongs in STATE; the active bounded task be
 in TASK. These records preserve changes, decisions, evidence, unresolved issues and
 handoffs. Do not rewrite past results to match later runs.
 
+## 2026-11-17 — Live assessment of the 24 flagged properties
+
+All 24 non-government top-50 parcels with mapped private systems and no PWD credit
+were run through `/api/property/assess` on `4c480cb`.
+- All 24 completed: one billing timeout was retried, and two imagery outages were
+  rerun via the retry-failed-sources path.
+- The bill check matches on 24 of 24.
+- Supported savings are $0 on all 24 (no documents supplied).
+- Modeled surface-system management ranges exist on 15 properties.
+- 3107 S 61st St has a site-matched industrial permit (conditional $7,438/yr).
+
+[Results](FLAGGED-PROPERTIES-ASSESSMENT-2026-11-17.md). Next: obtain PCSMPs for the
+listed project numbers.
+
 ## 2026-11-16 — Final-review fix batch B2 merged; reference snapshot re-screened
 
 Commits `d010624` and `d953a43`. Full suite after merge with B1: Ran 907, OK
