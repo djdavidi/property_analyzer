@@ -4,6 +4,17 @@ Newest entries first. Current truth belongs in STATE; the active bounded task be
 in TASK. These records preserve changes, decisions, evidence, unresolved issues and
 handoffs. Do not rewrite past results to match later runs.
 
+## 2026-11-21 — Screening estimate of managed area and credit for private-system leads
+
+`scripts/pwd_lead_sizing.py` (4 offline known-answer tests) adds estimated managed IA
+and credit to `reference/pwd/private-system-parcels-2026-11-21.csv`.
+- Method: footprint × assumed storage depth by system type, ÷ 1.5 in (manual
+  §4.3.2.2), capped at billed IA; green roof as IAR. Priced at current rates with
+  500 sq ft rounding.
+- 771 non-government flagged parcels have an estimate: $3.6M–$6.7M/yr combined.
+- Screening only. The PCSMP states the actual managed area.
+- Full suite: Ran 911, OK (skipped=1).
+
 ## 2026-11-21 — Citywide private-system lead list
 
 `scripts/pwd_private_systems_citywide.py` matched private PWD-mapped systems to

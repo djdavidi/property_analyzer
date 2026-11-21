@@ -16,6 +16,42 @@ condition, approval or credit eligibility.
 | `systems-2026-11-16.csv` | All 9,159 PWD-mapped stormwater systems (GSI_SMP_TYPES). Each is assigned to the parcel holding at least half its footprint. Private systems are matched citywide (4,468 of 4,828). Public systems are matched only when they sit on a large parcel. |
 | `top50-nongovernment-by-charge-2026-11-16.csv` | Top 50 large parcels by annual charge after excluding government or uncertain owners. |
 
+## Estimated managed area and credit (screening)
+
+`scripts/pwd_lead_sizing.py` adds these columns to `private-system-parcels-2026-11-21.csv`:
+- `est_managed_ia_low_sqft` / `est_managed_ia_high_sqft`
+- `est_green_roof_iar_sqft`
+- `est_credit_low_annual` / `est_credit_mid_annual` / `est_credit_high_annual`
+- `rank_by_est_credit_mid`
+- `sizing_basis`
+
+**Method.**
+1. Each mapped private system's **footprint** (the system itself, not its drainage
+   area) × an assumed storage depth gives a storage volume:
+   - basin: 0.8–5.7 ft of water;
+   - rain garden, planter or tree trench: 0.5–1.25 ft;
+   - porous surface: 0.4–1.2 ft;
+   - unknown type: 0.4–5.7 ft.
+2. Storage ÷ 1.5 in of runoff gives the impervious area it could manage, capped at
+   the parcel's billed IA.
+3. Green roofs are an IA reduction equal to their footprint.
+4. The credit is priced at current rates: 80% of managed IA off both IA and GA,
+   billing units rounded up per 500 sq ft.
+5. Parcels on the flat residential charge get no estimate.
+
+**How to read it.**
+- The figure is what the mapped systems could support **if** they receive runoff
+  from that much paved area. It is not the drainage area they actually serve, and
+  not supported savings.
+- The approved PCSMP gives the real managed area.
+- When low and high are both capped at the full billed IA, the mapped footprint is
+  large enough that even the shallow assumption covers the whole site. The systems
+  are either genuinely large, or PWD's polygon includes more than the system bed.
+
+Result: 771 non-government flagged parcels have an estimate, totalling $3.6M (low)
+to $6.7M (high) a year, or $5.2M at the midpoint. Sort by `rank_by_est_credit_mid`
+to work the leads.
+
 ## Citywide private-system leads (2026-11-21)
 
 - **Private systems.** 4,828 mapped:
@@ -65,8 +101,9 @@ Each step reuses cached raw PWD responses in the Git-ignored
    .venv/bin/python scripts/pwd_systems_snapshot.py --parcel-csv reference/pwd/parcels-ga100000-<date>.csv
    ```
 
-3. Citywide private-system leads:
+3. Citywide private-system leads (then add the sizing estimate):
 
    ```bash
    .venv/bin/python scripts/pwd_private_systems_citywide.py --systems-csv reference/pwd/systems-<date>.csv --parcel-csv reference/pwd/parcels-ga100000-<date>.csv
+   .venv/bin/python scripts/pwd_lead_sizing.py --systems-csv reference/pwd/systems-<date>.csv --leads-csv reference/pwd/private-system-parcels-<date>.csv
    ```
