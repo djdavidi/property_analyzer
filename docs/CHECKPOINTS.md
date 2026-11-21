@@ -4,6 +4,16 @@ Newest entries first. Current truth belongs in STATE; the active bounded task be
 in TASK. These records preserve changes, decisions, evidence, unresolved issues and
 handoffs. Do not rewrite past results to match later runs.
 
+## 2026-11-21 — Citywide private-system lead list
+
+`scripts/pwd_private_systems_citywide.py` matched private PWD-mapped systems to
+parcels citywide (4,468 of 4,828), pulled PWD billing for 1,353 more parcels with no
+outages, and wrote `reference/pwd/private-system-parcels-2026-11-21.csv`.
+- 2,056 parcels hold private systems.
+- 1,480 are flagged: private systems, no recorded credit, nonzero bill. 1,265 are
+  non-government, with $12.7M/yr in charges.
+- The reference README is updated.
+
 ## 2026-11-17 — Live assessment of the 24 flagged properties
 
 All 24 non-government top-50 parcels with mapped private systems and no PWD credit

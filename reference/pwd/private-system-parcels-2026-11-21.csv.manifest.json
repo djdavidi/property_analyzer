@@ -1,0 +1,23 @@
+{
+  "kind": "Citywide parcels holding PWD-mapped private stormwater systems",
+  "sources": {
+    "systems": "https://services.arcgis.com/fLeGjb7u4uXqeF9q/ArcGIS/rest/services/GSI_SMP_TYPES/FeatureServer/0/query",
+    "parcels": "https://services.arcgis.com/fLeGjb7u4uXqeF9q/ArcGIS/rest/services/PWD_PARCELS/FeatureServer/0/query",
+    "billing_details": "https://stormwater.phila.gov/PwdWebApi/api/v1/parcel/{parcelid}/details"
+  },
+  "started_at": "2026-11-21T00:59:20+00:00",
+  "finished_at": "2026-11-21T01:08:44+00:00",
+  "private_systems": 4828,
+  "private_systems_matched_to_parcel": 4468,
+  "parcels": 2056,
+  "unavailable": 0,
+  "flagged_no_recorded_credit": 1480,
+  "csv": "private-system-parcels-2026-11-21.csv",
+  "csv_sha256": "a574a835ff779fa0d332bc922131610557b41adc13b06f5c569cd1a89b001cdd",
+  "caveats": [
+    "Charges are PWD's public calculation for the current rate period, not invoices.",
+    "A mapped system footprint is not proof of drainage area, condition, approval or credit eligibility.",
+    "Owner screen is a name-based heuristic; beneficial ownership is unverified.",
+    "Systems are assigned to the parcel holding at least half of their footprint."
+  ]
+}
